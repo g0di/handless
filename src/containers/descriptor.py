@@ -5,7 +5,6 @@ from functools import cached_property
 from inspect import isclass
 from types import LambdaType
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Generic,
@@ -16,9 +15,6 @@ from typing import (
     cast,
     get_type_hints,
 )
-
-if TYPE_CHECKING:
-    from containers.container import Container
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
@@ -44,7 +40,6 @@ class ServiceDescriptor(Generic[_T]):
 
 @dataclass(frozen=True)
 class FactoryServiceDescriptor(ServiceDescriptor[_T]):
-    type_: type[_T]
     factory: Factory[_T]
     lifetime: Lifetime = "transient"
     enter: bool = True
@@ -53,14 +48,16 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     # ping: Callable[[_T], None] | None = None
 
     def __post_init__(self) -> None:
-        if (
-            is_lambda_function(self.factory)
-            and len(inspect.signature(self.factory).parameters) > 1
-        ):
+        if is_lambda_function(self.factory) and count_func_params(self.factory) > 1:
             raise ValueError("lambda functions can only have 0 or 1 argument")
 
     @cached_property
     def type_hints(self) -> dict[str, Any]:
+        if is_lambda_function(self.factory):
+            return {
+                pname: "Container"
+                for pname in inspect.signature(self.factory).parameters
+            }
         if isinstance(self.factory, NewType):
             return get_type_hints(self.factory.__supertype__.__init__)  # type: ignore[misc]
         if isclass(self.factory):
@@ -73,22 +70,6 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
             return get_type_hints(self.factory)
         except Exception:
             return get_type_hints(self.factory.__call__)  # type: ignore[operator]
-
-    def get_instance(self, container: "Container") -> _T:
-        if is_lambda_function(self.factory):
-            return (
-                self.factory(container)
-                if count_func_params(self.factory) == 1
-                else self.factory()
-            )
-
-        return self.factory(
-            **{
-                pname: container.resolve(ptype)
-                for pname, ptype in descriptor.type_hints.items()
-                if pname != "return"
-            }
-        )
 
 
 @dataclass(frozen=True)

@@ -44,7 +44,7 @@ class TestServiceDescriptorFactories:
     @use_factories
     @use_lifetimes
     def test_as_factory_returns_a_factory_descriptor(
-        self, factory: Factory[Any], lifetime: Lifetime | None, enter: bool
+        self, factory: Factory[Any], lifetime: Lifetime | None
     ) -> None:
         descriptor = as_factory(factory, lifetime=lifetime)
 
