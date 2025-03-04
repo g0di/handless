@@ -1,0 +1,31 @@
+[project]
+name = "containers"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "g0di", email = "benoit.godard.p@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "typing-extensions>=4.12.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.9.9",
+]
+
+[tool.mypy]
+strict = true
+
+[tool.pytest]
+addopts = ["-rA"]

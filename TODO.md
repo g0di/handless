@@ -1,0 +1,11 @@
+- add handling of context managers
+- add possibility to autowire (resolving dependencies not registered in the container)
+- add handling of async factories
+- add handling of async context managers
+- add resolve stack for debugging
+- handle resolving singleton from different threads
+- add function for resolving all services in container for testing purposes
+- add function for verifying scopes validity at registration time
+- add docstrings
+- add ability to skip passing actual factories to service descriptors
+  - in this case we should default at using the specified service type instead
