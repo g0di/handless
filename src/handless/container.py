@@ -5,13 +5,13 @@ from typing import TypeVar, cast
 
 from typing_extensions import TYPE_CHECKING, Any
 
-from containers.descriptor import AliasServiceDescriptor, FactoryServiceDescriptor
+from handless.descriptor import AliasServiceDescriptor, FactoryServiceDescriptor
 
 _T = TypeVar("_T")
 
 
 if TYPE_CHECKING:
-    from containers.registry import Registry
+    from handless.registry import Registry
 
 
 class ContainerException(Exception):

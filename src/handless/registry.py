@@ -3,8 +3,8 @@ from typing import Callable, Self, TypeVar, overload
 
 from typing_extensions import Any, ParamSpec
 
-from containers.container import Container
-from containers.descriptor import (
+from handless.container import Container
+from handless.descriptor import (
     Factory,
     Lifetime,
     ServiceDescriptor,

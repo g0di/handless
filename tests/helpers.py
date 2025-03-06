@@ -1,7 +1,7 @@
 import pytest
 from typing_extensions import get_args
 
-from containers.descriptor import Lifetime
+from handless.descriptor import Lifetime
 
 
 class FakeService:

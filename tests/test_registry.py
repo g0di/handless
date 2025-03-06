@@ -1,7 +1,7 @@
 import pytest
 from typing_extensions import Any
 
-from containers.descriptor import (
+from handless.descriptor import (
     AliasServiceDescriptor,
     Constant,
     Factory,
@@ -13,7 +13,7 @@ from containers.descriptor import (
     as_singleton,
     as_value,
 )
-from containers.registry import MissingReturnTypeAnnotationError, Registry
+from handless.registry import MissingReturnTypeAnnotationError, Registry
 from tests.assertions import (
     assert_has_alias_descriptor,
     assert_has_descriptor,

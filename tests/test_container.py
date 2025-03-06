@@ -2,8 +2,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from containers.container import Container, ServiceNotFoundError, ServiceResolveError
-from containers.registry import Registry
+from handless.container import Container, ServiceNotFoundError, ServiceResolveError
+from handless.registry import Registry
 from tests.helpers import FakeService, FakeServiceFactory, FakeServiceImpl
 
 

@@ -1,15 +1,42 @@
 [project]
-name = "containers"
+name = "handless"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Python dependency injection container that automatically resolves and injects dependencies without polluting your code with framework-specific decorators. Inspired by Lagom, Svcs, and C# .NET DI, it keeps your code clean and flexible while offering multiple service registration options. 🚀"
 readme = "README.md"
-authors = [
-    { name = "g0di", email = "benoit.godard.p@gmail.com" }
+authors = [{ name = "g0di", email = "benoit.godard.p@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = ["typing-extensions>=4.12.2"]
+license = { file = "LICENSE" }
+keywords = [
+    "dependency injection",
+    "DI",
+    "inversion of control",
+    "IoC",
+    "service container",
+    "dependency resolver",
 ]
-requires-python = ">=3.13"
-dependencies = [
-    "typing-extensions>=4.12.2",
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Object Brokering",
+    "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://github.com/g0di/handless"
+Documentation = "https://github.com/g0di/handless"
+Source = "https://github.com/g0di/handless"
+Changelog = "https://github.com/g0di/handless/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
@@ -25,7 +52,50 @@ dev = [
 ]
 
 [tool.mypy]
-strict = true
+files = ["src", "tests"]
+strict = false
 
-[tool.pytest]
+[tool.ruff]
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+ignore = [
+    # Disable rules conflicting with formatter. See: https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "COM812",
+    "COM819",
+    "D206",
+    "D300",
+    "E111",
+    "E114",
+    "E117",
+    "E501",
+    "ISC001",
+    "ISC001",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "W191",
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 addopts = ["-rA"]
+
+[tool.coverage.run]
+branch = true
+source = ["handless"]
+
+[tool.coverage.paths]
+# Map src files with ones installed in venv.
+# This is for properly combining coverages report when testing against installed version of the project
+source = ["src/", "*/site-packages/"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "class .*\\bProtocol\\):", "@overload"]
