@@ -31,6 +31,10 @@ class TestResolvingUnregisteredServiceType:
         with pytest.raises(ServiceNotFoundError):
             container.resolve(object)
 
+    @pytest.mark.xfail(reason="Not implemented")
+    def test_resolve_unregistered_service_type_works_when_enabled(self) -> None:
+        raise NotImplementedError
+
 
 class TestResolvingValueDescriptor:
     @pytest.fixture
@@ -217,7 +221,7 @@ class TestResolveAliasDescriptor:
         container = (
             Registry()
             .register_factory(FakeServiceImpl)
-            .register_impl(FakeService, FakeServiceImpl)
+            .register_alias(FakeService, FakeServiceImpl)
             .create_container()
         )
 

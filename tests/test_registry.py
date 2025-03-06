@@ -3,12 +3,12 @@ from typing_extensions import Any
 
 from handless.descriptor import (
     AliasServiceDescriptor,
-    Constant,
     Factory,
     FactoryServiceDescriptor,
     Lifetime,
+    ValueServiceDescriptor,
+    as_alias,
     as_factory,
-    as_impl,
     as_scoped,
     as_singleton,
     as_value,
@@ -37,9 +37,7 @@ class TestServiceDescriptorFactories:
 
         descriptor = as_value(value)
 
-        assert descriptor == FactoryServiceDescriptor(
-            Constant(value), lifetime="transient"
-        )
+        assert descriptor == ValueServiceDescriptor(value)
 
     @use_factories
     @use_lifetimes
@@ -67,7 +65,7 @@ class TestServiceDescriptorFactories:
         assert descriptor == FactoryServiceDescriptor(factory, "scoped")
 
     def test_as_impl_returns_a_descriptor_alias(self) -> None:
-        descriptor = as_impl(FakeService)
+        descriptor = as_alias(FakeService)
 
         assert descriptor == AliasServiceDescriptor(FakeService)
 
@@ -139,19 +137,19 @@ class TestExplicitRegistration:
         assert ret is svcs
         assert_has_value_descriptor(svcs, FakeService, fake)
 
-    def test_register_impl(self) -> None:
+    def test_register_alias(self) -> None:
         svcs = Registry()
 
-        ret = svcs.register_impl(FakeService, FakeService)
+        ret = svcs.register_alias(FakeService, FakeService)
 
         assert ret is svcs
         assert_has_alias_descriptor(svcs, FakeService, FakeService)
 
-    def test_register_impl_with_not_a_subclass_raise_an_error(self) -> None:
+    def test_register_alias_with_not_a_subclass_raise_an_error(self) -> None:
         svcs = Registry()
 
         with pytest.raises(TypeError):
-            svcs.register_impl(FakeService, object)
+            svcs.register_alias(FakeService, object)
 
 
 class TestImplicitRegistration:

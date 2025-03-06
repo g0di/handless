@@ -39,6 +39,17 @@ class ServiceDescriptor(Generic[_T]):
 
 
 @dataclass(frozen=True)
+class ValueServiceDescriptor(ServiceDescriptor[_T]):
+    value: _T
+    enter: bool = False
+
+
+@dataclass(frozen=True)
+class AliasServiceDescriptor(ServiceDescriptor[_T]):
+    alias: type[_T]
+
+
+@dataclass(frozen=True)
 class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     factory: Factory[_T]
     lifetime: Lifetime = "transient"
@@ -55,7 +66,7 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     def type_hints(self) -> dict[str, Any]:
         if is_lambda_function(self.factory):
             return {
-                pname: "Container"
+                pname: inspect.Parameter
                 for pname in inspect.signature(self.factory).parameters
             }
         if isinstance(self.factory, NewType):
@@ -72,13 +83,8 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
             return get_type_hints(self.factory.__call__)  # type: ignore[operator]
 
 
-@dataclass(frozen=True)
-class AliasServiceDescriptor(ServiceDescriptor[_T]):
-    impl: type[_T]
-
-
-def as_value(val: _T) -> FactoryServiceDescriptor[_T]:
-    return FactoryServiceDescriptor(Constant(val), lifetime="transient")
+def as_value(val: _T) -> ValueServiceDescriptor[_T]:
+    return ValueServiceDescriptor(val)
 
 
 def as_factory(
@@ -95,7 +101,7 @@ def as_scoped(factory: Factory[_T]) -> FactoryServiceDescriptor[_T]:
     return FactoryServiceDescriptor(factory, lifetime="scoped")
 
 
-def as_impl(service_type: type[_T]) -> AliasServiceDescriptor[_T]:
+def as_alias(service_type: type[_T]) -> AliasServiceDescriptor[_T]:
     return AliasServiceDescriptor(service_type)
 
 

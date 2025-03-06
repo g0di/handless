@@ -1,8 +1,8 @@
-- remove ability to pass lifetime to factory registration
-- think of renaming register with add to improve readability and reduce amount of characters to type
 - think of adding service type in service descriptor (if this makes any sense)
-- think of using a specific descriptor for values?
+  - This imply that the `registry[MyService] = as_singleton(...)` form can not work anymore this way.
 - think of removing the value registration and merge it with singleton?
+  - NO -> or we can not register plain functions as-is
+- Maybe replace `as_value` and others with classes like `Value(...)`, `Singleton(...)`, ...
 
 ## Context management
 
@@ -17,7 +17,7 @@
 
 ## Resolving
 
-- add possibility to autowire (resolving dependencies not registered in the container)
+- add possibility to enable/disable resolving dependencies not registered in the container
 
 ## Async
 
@@ -27,13 +27,18 @@
 ## Misc
 
 - add resolve stack for debugging
+- add logging for tracking resolving
 - handle resolving singleton from different threads
 - add function for resolving all services in container for testing purposes
 - add function for verifying scopes validities at registration time
 - add log messages/dev warnings when there is scopes mismatches
 - add docstrings
+
+## Registration
+
 - add function for registering many services in one call in the registry
   - We may also add a function for updating one registry with another
+- add ability to register local values on scoped container to inject, for example, HTTP request scoped objects
 
 ## Testing
 

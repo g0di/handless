@@ -1,11 +1,15 @@
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, ExitStack
-from inspect import isclass
+from inspect import Parameter
 from typing import TypeVar, cast
 
 from typing_extensions import TYPE_CHECKING, Any
 
-from handless.descriptor import AliasServiceDescriptor, FactoryServiceDescriptor
+from handless.descriptor import (
+    AliasServiceDescriptor,
+    FactoryServiceDescriptor,
+    ValueServiceDescriptor,
+)
 
 _T = TypeVar("_T")
 
@@ -34,29 +38,32 @@ class BaseContainer(ABC):
         self._cache: dict[FactoryServiceDescriptor[Any], Any] = {}
         self._exit_stack = ExitStack()
 
-    def resolve(self, service_type: type[_T] | str) -> _T:
-        if service_type == "Container" or (
-            isclass(service_type) and issubclass(service_type, BaseContainer)
-        ):
-            return self
+    def resolve(self, service_type: type[_T]) -> _T:
+        if issubclass(service_type, (Parameter, Container)):
+            # NOTE: When receiving lambda parameter, just return the container
+            return cast(_T, self)
 
         descriptor = self._registry.get_descriptor(service_type)
         if descriptor is None:
             raise ServiceNotFoundError(service_type)
 
         try:
+            if isinstance(descriptor, ValueServiceDescriptor):
+                return descriptor.value
             if isinstance(descriptor, AliasServiceDescriptor):
-                return self._resolve_impl(descriptor)
-            if descriptor.lifetime == "scoped":
-                return self._resolve_scoped(descriptor)
-            if descriptor.lifetime == "singleton":
-                return self._resolve_singleton(descriptor)
-            return self._resolve_transient(descriptor)
+                return self.resolve(descriptor.alias)
+            if isinstance(descriptor, FactoryServiceDescriptor):
+                return self._resolve_factory(descriptor)
+            raise NotImplementedError("Unhandled descriptor {descriptor}")
         except Exception as error:
             raise ServiceResolveError(service_type, str(error)) from error
 
-    def _resolve_impl(self, descriptor: AliasServiceDescriptor[_T]) -> _T:
-        return self.resolve(descriptor.impl)
+    def _resolve_factory(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
+        if descriptor.lifetime == "scoped":
+            return self._resolve_scoped(descriptor)
+        if descriptor.lifetime == "singleton":
+            return self._resolve_singleton(descriptor)
+        return self._resolve_transient(descriptor)
 
     def _resolve_transient(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
         return self._get_instance(descriptor, cached=False)

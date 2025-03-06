@@ -8,8 +8,8 @@ from handless.descriptor import (
     Factory,
     Lifetime,
     ServiceDescriptor,
+    as_alias,
     as_factory,
-    as_impl,
     as_scoped,
     as_singleton,
     as_value,
@@ -18,7 +18,6 @@ from handless.descriptor import (
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
-_U = TypeVar("_U", bound=type[_T])
 
 
 class RegistryException(Exception):
@@ -37,7 +36,7 @@ class Registry:
         """Get descriptor registered for given service type, if any or None."""
         return self._services.get(service_type)
 
-    def create_container(self) -> "Container":
+    def create_container(self) -> Container:
         """Create and return a new container using this registry."""
         return Container(self)
 
@@ -82,7 +81,7 @@ class Registry:
         if isinstance(service_descriptor, ServiceDescriptor):
             return self._register(service_type, service_descriptor)
         if isclass(service_descriptor):
-            return self.register_impl(service_type, service_descriptor)
+            return self.register_alias(service_type, service_descriptor)
         if service_descriptor is None or callable(service_descriptor):
             return self.register_factory(
                 service_type, service_descriptor, lifetime=lifetime
@@ -122,13 +121,13 @@ class Registry:
         """Registers given callable to be called once per scope when resolving given service type."""
         return self._register(service_type, as_scoped(service_factory or service_type))
 
-    def register_impl(self, service_type: type[_T], service_impl: type[_T]) -> Self:
+    def register_alias(self, service_type: type[_T], service_impl: type[_T]) -> Self:
         """Registers given registered type to be used when resolving given service type."""
         # NOTE: ensure given impl type is a subclass of service type because
         # mypy currently allows passing any classes to impl
         if not isclass(service_impl) or not issubclass(service_impl, service_type):
             raise TypeError(f"{service_impl} is not a subclass of {service_type}")
-        return self._register(service_type, as_impl(service_impl))
+        return self._register(service_type, as_alias(service_impl))
 
     # Low level API
     def _register(
@@ -143,7 +142,9 @@ class Registry:
 
     @overload
     def factory(
-        self, lifetime: Lifetime | None = None
+        self,
+        *,
+        lifetime: Lifetime | None = None,
     ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
 
     @overload
@@ -152,6 +153,7 @@ class Registry:
     def factory(
         self,
         service_factory: Callable[_P, _T] | None = None,
+        *,
         lifetime: Lifetime | None = None,
     ) -> Any:
         def wrapper(service_factory: Callable[_P, _T]) -> Callable[_P, _T]:
@@ -178,7 +180,7 @@ class Registry:
     def singleton(self, service_factory: Callable[_P, _T]) -> Callable[_P, _T]: ...
 
     def singleton(self, service_factory: Callable[_P, _T] | None = None) -> Any:
-        return self.factory(service_factory, lifetime="singleton")
+        return self.factory(service_factory, lifetime="singleton")  # type: ignore[call-overload]
 
     # Scoped decorator
 
@@ -189,4 +191,4 @@ class Registry:
     def scoped(self, service_factory: Callable[_P, _T]) -> Callable[_P, _T]: ...
 
     def scoped(self, service_factory: Callable[_P, _T] | None = None) -> Any:
-        return self.factory(service_factory, lifetime="scoped")
+        return self.factory(service_factory, lifetime="scoped")  # type: ignore[call-overload]
