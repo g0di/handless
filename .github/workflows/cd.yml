@@ -1,0 +1,17 @@
+on:
+  push:
+    tags:
+      - "**"
+
+jobs:
+  pypi-publish:
+    name: Upload release to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+
+      - name: Publish package distributions to PyPI
+        run: uv publish
