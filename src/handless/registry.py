@@ -1,7 +1,7 @@
 from inspect import isclass
-from typing import Callable, Self, TypeVar, overload
+from typing import Callable, TypeVar, overload
 
-from typing_extensions import Any, ParamSpec
+from typing_extensions import Any, ParamSpec, Self
 
 from handless.container import Container
 from handless.descriptor import (
