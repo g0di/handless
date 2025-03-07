@@ -23,10 +23,10 @@ class TestResolvingUnregisteredServiceType:
     @pytest.mark.parametrize(
         "container",
         [
-            Registry().create_container(strict=True),
-            Registry().create_container(strict=True).create_scope(),
+            Container(Registry(), strict=True),
+            Container(Registry(), strict=True).create_scope(),
         ],
-        ids=["Root container", "Scoped container"],
+        ids=["Strict root container", "Strict scoped container"],
     )
     def test_resolve_unregistered_service_type_raise_an_error(
         self, container: Container
@@ -37,8 +37,8 @@ class TestResolvingUnregisteredServiceType:
     @pytest.mark.parametrize(
         "container",
         [
-            Registry().create_container(),
-            Registry().create_container().create_scope(),
+            Container(Registry()),
+            Container(Registry()).create_scope(),
         ],
         ids=["Root container", "Scoped container"],
     )
