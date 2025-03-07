@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, ExitStack
 from inspect import Parameter
 from typing import TypeVar, cast
@@ -32,7 +31,7 @@ class ServiceResolveError(ContainerException):
         super().__init__(f"Failed resolving {service_type}: {reason}")
 
 
-class BaseContainer(ABC):
+class Container:
     def __init__(self, registry: "Registry") -> None:
         self._registry = registry
         self._cache: dict[FactoryServiceDescriptor[Any], Any] = {}
@@ -68,13 +67,11 @@ class BaseContainer(ABC):
     def _resolve_transient(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
         return self._get_instance(descriptor, cached=False)
 
-    @abstractmethod
     def _resolve_singleton(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
-        raise NotImplementedError
+        return self._get_instance(descriptor, cached=True)
 
-    @abstractmethod
     def _resolve_scoped(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
-        raise NotImplementedError
+        raise ValueError("Can not resolve scoped service outside a scope")
 
     def _get_instance(
         self, descriptor: FactoryServiceDescriptor[_T], *, cached: bool
@@ -95,18 +92,7 @@ class BaseContainer(ABC):
         return cast(_T, self._cache[descriptor])
 
 
-class Container(BaseContainer):
-    def create_scope(self) -> "ScopedContainer":
-        return ScopedContainer(self._registry, self)
-
-    def _resolve_singleton(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
-        return self._get_instance(descriptor, cached=True)
-
-    def _resolve_scoped(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
-        raise ValueError("Can not resolve scoped service outside a scope")
-
-
-class ScopedContainer(BaseContainer):
+class ScopedContainer(Container):
     def __init__(self, registry: "Registry", parent: Container) -> None:
         super().__init__(registry)
         self._parent = parent
