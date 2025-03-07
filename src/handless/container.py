@@ -9,26 +9,13 @@ from handless.descriptor import (
     FactoryServiceDescriptor,
     ValueServiceDescriptor,
 )
-
-_T = TypeVar("_T")
-
+from handless.exceptions import ServiceNotFoundError, ServiceResolveError
 
 if TYPE_CHECKING:
     from handless.registry import Registry
 
 
-class ContainerException(Exception):
-    pass
-
-
-class ServiceNotFoundError(ContainerException):
-    def __init__(self, service_type: type) -> None:
-        super().__init__(f"There is no service {service_type} registered")
-
-
-class ServiceResolveError(ContainerException):
-    def __init__(self, service_type: type, reason: str) -> None:
-        super().__init__(f"Failed resolving {service_type}: {reason}")
+_T = TypeVar("_T")
 
 
 class Container:
@@ -37,14 +24,14 @@ class Container:
         self._cache: dict[FactoryServiceDescriptor[Any], Any] = {}
         self._exit_stack = ExitStack()
 
-    def resolve(self, service_type: type[_T]) -> _T:
-        if issubclass(service_type, (Parameter, Container)):
+    def resolve(self, type_: type[_T]) -> _T:
+        if issubclass(type_, (Parameter, Container)):
             # NOTE: When receiving lambda parameter, just return the container
             return cast(_T, self)
 
-        descriptor = self._registry.get_descriptor(service_type)
+        descriptor = self._registry.get_descriptor(type_)
         if descriptor is None:
-            raise ServiceNotFoundError(service_type)
+            raise ServiceNotFoundError(type_)
 
         try:
             if isinstance(descriptor, ValueServiceDescriptor):
@@ -55,7 +42,7 @@ class Container:
                 return self._resolve_factory(descriptor)
             raise NotImplementedError("Unhandled descriptor {descriptor}")
         except Exception as error:
-            raise ServiceResolveError(service_type, str(error)) from error
+            raise ServiceResolveError(type_, str(error)) from error
 
     def _resolve_factory(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
         if descriptor.lifetime == "scoped":
@@ -77,11 +64,7 @@ class Container:
         self, descriptor: FactoryServiceDescriptor[_T], *, cached: bool
     ) -> _T:
         if not cached:
-            args: dict[str, Any] = {
-                pname: self.resolve(ptype)
-                for pname, ptype in descriptor.type_hints.items()
-                if pname != "return"
-            }
+            args = self._resolve_parameters(descriptor)
             instance = descriptor.factory(**args)
             if isinstance(instance, AbstractContextManager):
                 return self._exit_stack.enter_context(instance)
@@ -90,6 +73,15 @@ class Container:
         if descriptor not in self._cache:
             self._cache[descriptor] = self._get_instance(descriptor, cached=False)
         return cast(_T, self._cache[descriptor])
+
+    def _resolve_parameters(
+        self, descriptor: FactoryServiceDescriptor
+    ) -> dict[str, Any]:
+        return {
+            pname: self.resolve(ptype)
+            for pname, ptype in descriptor.type_hints.items()
+            if pname != "return"
+        }
 
     def create_scope(self) -> "ScopedContainer":
         return ScopedContainer(self)

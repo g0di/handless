@@ -12,15 +12,44 @@ from typing import (
     NewType,
     ParamSpec,
     TypeVar,
-    cast,
     get_type_hints,
 )
+
+from handless.exceptions import RegistrationError
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
 ServiceFactory = Callable[..., _T] | Callable[..., AbstractContextManager[_T]]
 Lifetime = Literal["transient", "singleton", "scoped"]
+
+
+# NOTE: Following functions are factories for building various service descriptors
+# The name is capitalized even if it is functions to emphasis on the fact that those
+# function are for building objects without any particular side effect just as what
+# Pydantic does.
+
+
+def Value(val: _T) -> "ValueServiceDescriptor[_T]":
+    return ValueServiceDescriptor(val)
+
+
+def Factory(
+    factory: ServiceFactory[_T], lifetime: Lifetime | None = None
+) -> "FactoryServiceDescriptor[_T]":
+    return FactoryServiceDescriptor(factory, lifetime=lifetime or "transient")
+
+
+def Singleton(factory: ServiceFactory[_T]) -> "FactoryServiceDescriptor[_T]":
+    return FactoryServiceDescriptor(factory, lifetime="singleton")
+
+
+def Scoped(factory: ServiceFactory[_T]) -> "FactoryServiceDescriptor[_T]":
+    return FactoryServiceDescriptor(factory, lifetime="scoped")
+
+
+def Alias(service_type: type[_T]) -> "AliasServiceDescriptor[_T]":
+    return AliasServiceDescriptor(service_type)
 
 
 class ServiceDescriptor(Generic[_T]):
@@ -44,12 +73,12 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     lifetime: Lifetime = "transient"
 
     def __post_init__(self) -> None:
-        if is_lambda_function(self.factory) and count_func_params(self.factory) > 1:
-            raise ValueError("lambda functions can only have 0 or 1 argument")
+        if _is_lambda_function(self.factory) and _count_func_params(self.factory) > 1:
+            raise RegistrationError("Factory lambda functions can only have up to 1")
 
     @cached_property
     def type_hints(self) -> dict[str, Any]:
-        if is_lambda_function(self.factory):
+        if _is_lambda_function(self.factory):
             return {
                 pname: inspect.Parameter
                 for pname in inspect.signature(self.factory).parameters
@@ -60,7 +89,7 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
             return get_type_hints(self.factory.__init__)
         if is_dataclass(self.factory):
             # get type hints on dataclass instance returns constructor type hints instead
-            # of __call__ method
+            # of __call__ method if any
             return get_type_hints(self.factory.__call__)
         try:
             return get_type_hints(self.factory)
@@ -68,44 +97,9 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
             return get_type_hints(self.factory.__call__)  # type: ignore[operator]
 
 
-# NOTE: Following functions are factories for building various service descriptors
-# The name is capitalized even if it is functions to emphasis on the fact that those
-# function are for building objects without any particular side effect just as what
-# Pydantic does.
-
-
-def Value(val: _T) -> ValueServiceDescriptor[_T]:
-    return ValueServiceDescriptor(val)
-
-
-def Factory(
-    factory: ServiceFactory[_T], lifetime: Lifetime | None = None
-) -> FactoryServiceDescriptor[_T]:
-    return FactoryServiceDescriptor(factory, lifetime=lifetime or "transient")
-
-
-def Singleton(factory: ServiceFactory[_T]) -> FactoryServiceDescriptor[_T]:
-    return FactoryServiceDescriptor(factory, lifetime="singleton")
-
-
-def Scoped(factory: ServiceFactory[_T]) -> FactoryServiceDescriptor[_T]:
-    return FactoryServiceDescriptor(factory, lifetime="scoped")
-
-
-def Alias(service_type: type[_T]) -> AliasServiceDescriptor[_T]:
-    return AliasServiceDescriptor(service_type)
-
-
-def get_return_type(func: Callable[..., _T]) -> type[_T]:
-    fn_type_hints = get_type_hints(func)
-    if "return" not in fn_type_hints:
-        raise ValueError(f"Function {func} has no return type annotation")
-    return cast(type[_T], get_type_hints(func).get("return"))
-
-
-def is_lambda_function(value: Any) -> bool:
+def _is_lambda_function(value: Any) -> bool:
     return isinstance(value, LambdaType) and value.__name__ == "<lambda>"
 
 
-def count_func_params(value: Callable[..., Any]) -> int:
+def _count_func_params(value: Callable[..., Any]) -> int:
     return len(inspect.signature(value).parameters)

@@ -1,19 +1,14 @@
 import pytest
 from typing_extensions import Any
 
+from handless import Alias, Factory, Lifetime, Registry, Scoped, Singleton, Value
 from handless.descriptor import (
-    Alias,
     AliasServiceDescriptor,
-    Factory,
     FactoryServiceDescriptor,
-    Lifetime,
-    Scoped,
     ServiceFactory,
-    Singleton,
-    Value,
     ValueServiceDescriptor,
 )
-from handless.registry import MissingReturnTypeAnnotationError, Registry
+from handless.exceptions import RegistrationError
 from tests.assertions import (
     assert_has_alias_descriptor,
     assert_has_descriptor,
@@ -250,7 +245,7 @@ class TestDecoratorRegistration:
     def test_factory_decorator_requires_return_type_annotation(self) -> None:
         svcs = Registry()
 
-        with pytest.raises(MissingReturnTypeAnnotationError):
+        with pytest.raises(RegistrationError):
 
             @svcs.factory
             def non_typed_factory():  # type: ignore[no-untyped-def]
