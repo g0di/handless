@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added ability to register a type using itself as a factory with dict like registration `registry[MyService] = ...`.
+
+### Changed
+
+- Renamed the service descriptors factories to be capitalized without `as_` prefix. For example `as_singleton` became `Singleton`. This is the same as what `pydantic` does for its `Field` function. This is to emphasis on the fact that those functions are purely factories of service descriptor.
+
+### Removed
+
+- Removed the `BaseContainer` abstract class which has been merge with the `Container` itself.
+
 ## [0.1.0-alpha.1]
 
 ### Added

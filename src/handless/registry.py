@@ -1,18 +1,19 @@
 from inspect import isclass
+from types import EllipsisType
 from typing import Callable, TypeVar, overload
 
 from typing_extensions import Any, ParamSpec, Self
 
 from handless.container import Container
 from handless.descriptor import (
+    Alias,
     Factory,
     Lifetime,
+    Scoped,
     ServiceDescriptor,
-    as_alias,
-    as_factory,
-    as_scoped,
-    as_singleton,
-    as_value,
+    ServiceFactory,
+    Singleton,
+    Value,
     get_return_type,
 )
 
@@ -47,9 +48,14 @@ class Registry:
     def __setitem__(
         self,
         service_type: type[_T],
-        service_descriptor: ServiceDescriptor[_T] | _T | Factory[_T],
+        service_descriptor: ServiceDescriptor[_T]
+        | _T
+        | ServiceFactory[_T]
+        | EllipsisType,
     ) -> None:
-        self.register(service_type, service_descriptor)
+        self.register(
+            service_type, None if service_descriptor is ... else service_descriptor
+        )
 
     @overload
     def register(
@@ -62,14 +68,17 @@ class Registry:
     def register(
         self,
         service_type: type[_T],
-        service_descriptor: Factory[_T] | None = ...,
+        service_descriptor: ServiceFactory[_T] | None = ...,
         lifetime: Lifetime | None = ...,
     ) -> Self: ...
 
     def register(
         self,
         service_type: type[_T],
-        service_descriptor: ServiceDescriptor[_T] | _T | Factory[_T] | None = None,
+        service_descriptor: ServiceDescriptor[_T]
+        | _T
+        | ServiceFactory[_T]
+        | None = None,
         lifetime: Lifetime | None = None,
     ) -> Self:
         """Register a descriptor for resolving the given type.
@@ -94,32 +103,34 @@ class Registry:
         :param service_type: Type of the service to register
         :param service_value: Service value
         """
-        return self._register(service_type, as_value(service_value))
+        return self._register(service_type, Value(service_value))
 
     def register_factory(
         self,
         service_type: type[_T],
-        service_factory: Factory[_T] | None = None,
+        service_factory: ServiceFactory[_T] | None = None,
         lifetime: Lifetime | None = None,
     ) -> Self:
-        """Registers given callable to be called each time when resolving given service type."""
+        """Registers given callable to be called to resolve the given type.
+
+        Lifetime is transient by default meaning the factory will be executed on each
+        resolve.
+        """
         return self._register(
-            service_type, as_factory(service_factory or service_type, lifetime)
+            service_type, Factory(service_factory or service_type, lifetime)
         )
 
     def register_singleton(
-        self, service_type: type[_T], service_factory: Factory[_T] | None = None
+        self, service_type: type[_T], service_factory: ServiceFactory[_T] | None = None
     ) -> Self:
         """Registers given callable to be called once when resolving given service type."""
-        return self._register(
-            service_type, as_singleton(service_factory or service_type)
-        )
+        return self._register(service_type, Singleton(service_factory or service_type))
 
     def register_scoped(
-        self, service_type: type[_T], service_factory: Factory[_T] | None = None
+        self, service_type: type[_T], service_factory: ServiceFactory[_T] | None = None
     ) -> Self:
         """Registers given callable to be called once per scope when resolving given service type."""
-        return self._register(service_type, as_scoped(service_factory or service_type))
+        return self._register(service_type, Scoped(service_factory or service_type))
 
     def register_alias(self, service_type: type[_T], service_impl: type[_T]) -> Self:
         """Registers given registered type to be used when resolving given service type."""
@@ -127,7 +138,7 @@ class Registry:
         # mypy currently allows passing any classes to impl
         if not isclass(service_impl) or not issubclass(service_impl, service_type):
             raise TypeError(f"{service_impl} is not a subclass of {service_type}")
-        return self._register(service_type, as_alias(service_impl))
+        return self._register(service_type, Alias(service_impl))
 
     # Low level API
     def _register(

@@ -19,18 +19,8 @@ from typing import (
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
-Factory = Callable[..., _T] | Callable[..., AbstractContextManager[_T]]
+ServiceFactory = Callable[..., _T] | Callable[..., AbstractContextManager[_T]]
 Lifetime = Literal["transient", "singleton", "scoped"]
-
-
-# NOTE: this dataclass avoid creating lambdas on the fly for wrapping constant values
-# it also simplifies tests
-@dataclass(frozen=True)
-class Constant(Generic[_T]):
-    value: _T
-
-    def __call__(self) -> _T:
-        return self.value
 
 
 class ServiceDescriptor(Generic[_T]):
@@ -51,7 +41,7 @@ class AliasServiceDescriptor(ServiceDescriptor[_T]):
 
 @dataclass(frozen=True)
 class FactoryServiceDescriptor(ServiceDescriptor[_T]):
-    factory: Factory[_T]
+    factory: ServiceFactory[_T]
     lifetime: Lifetime = "transient"
     enter: bool = True
     # TODO: If the factory is a function decorated with context manager, enter must not
@@ -83,25 +73,31 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
             return get_type_hints(self.factory.__call__)  # type: ignore[operator]
 
 
-def as_value(val: _T) -> ValueServiceDescriptor[_T]:
+# NOTE: Following functions are factories for building various service descriptors
+# The name is capitalized even if it is functions to emphasis on the fact that those
+# function are for building objects without any particular side effect just as what
+# Pydantic does.
+
+
+def Value(val: _T) -> ValueServiceDescriptor[_T]:
     return ValueServiceDescriptor(val)
 
 
-def as_factory(
-    factory: Factory[_T], lifetime: Lifetime | None = None
+def Factory(
+    factory: ServiceFactory[_T], lifetime: Lifetime | None = None
 ) -> FactoryServiceDescriptor[_T]:
     return FactoryServiceDescriptor(factory, lifetime=lifetime or "transient")
 
 
-def as_singleton(factory: Factory[_T]) -> FactoryServiceDescriptor[_T]:
+def Singleton(factory: ServiceFactory[_T]) -> FactoryServiceDescriptor[_T]:
     return FactoryServiceDescriptor(factory, lifetime="singleton")
 
 
-def as_scoped(factory: Factory[_T]) -> FactoryServiceDescriptor[_T]:
+def Scoped(factory: ServiceFactory[_T]) -> FactoryServiceDescriptor[_T]:
     return FactoryServiceDescriptor(factory, lifetime="scoped")
 
 
-def as_alias(service_type: type[_T]) -> AliasServiceDescriptor[_T]:
+def Alias(service_type: type[_T]) -> AliasServiceDescriptor[_T]:
     return AliasServiceDescriptor(service_type)
 
 

@@ -2,16 +2,16 @@ import pytest
 from typing_extensions import Any
 
 from handless.descriptor import (
+    Alias,
     AliasServiceDescriptor,
     Factory,
     FactoryServiceDescriptor,
     Lifetime,
+    Scoped,
+    ServiceFactory,
+    Singleton,
+    Value,
     ValueServiceDescriptor,
-    as_alias,
-    as_factory,
-    as_scoped,
-    as_singleton,
-    as_value,
 )
 from handless.registry import MissingReturnTypeAnnotationError, Registry
 from tests.assertions import (
@@ -35,16 +35,16 @@ class TestServiceDescriptorFactories:
     def test_as_value_returns_a_value_descriptor(self) -> None:
         value = object()
 
-        descriptor = as_value(value)
+        descriptor = Value(value)
 
         assert descriptor == ValueServiceDescriptor(value)
 
     @use_factories
     @use_lifetimes
     def test_as_factory_returns_a_factory_descriptor(
-        self, factory: Factory[Any], lifetime: Lifetime | None
+        self, factory: ServiceFactory[Any], lifetime: Lifetime | None
     ) -> None:
-        descriptor = as_factory(factory, lifetime=lifetime)
+        descriptor = Factory(factory, lifetime=lifetime)
 
         assert descriptor == FactoryServiceDescriptor(
             factory, lifetime=lifetime or "transient"
@@ -52,20 +52,22 @@ class TestServiceDescriptorFactories:
 
     @use_factories
     def test_as_singleton_returns_a_singleton_descriptor(
-        self, factory: Factory[Any]
+        self, factory: ServiceFactory[Any]
     ) -> None:
-        descriptor = as_singleton(factory)
+        descriptor = Singleton(factory)
 
         assert descriptor == FactoryServiceDescriptor(factory, "singleton")
 
     @use_factories
-    def test_as_scoped_returns_a_scoped_descriptor(self, factory: Factory[Any]) -> None:
-        descriptor = as_scoped(factory)
+    def test_as_scoped_returns_a_scoped_descriptor(
+        self, factory: ServiceFactory[Any]
+    ) -> None:
+        descriptor = Scoped(factory)
 
         assert descriptor == FactoryServiceDescriptor(factory, "scoped")
 
     def test_as_impl_returns_a_descriptor_alias(self) -> None:
-        descriptor = as_alias(FakeService)
+        descriptor = Alias(FakeService)
 
         assert descriptor == AliasServiceDescriptor(FakeService)
 
@@ -74,7 +76,7 @@ class TestExplicitRegistration:
     @use_factories
     @use_lifetimes
     def test_register_factory(
-        self, factory: Factory[Any], lifetime: Lifetime | None
+        self, factory: ServiceFactory[Any], lifetime: Lifetime | None
     ) -> None:
         svcs = Registry()
 
@@ -95,7 +97,7 @@ class TestExplicitRegistration:
         assert_has_factory_descriptor(svcs, FakeService, FakeService, lifetime=lifetime)
 
     @use_factories
-    def test_register_singleton(self, factory: Factory[Any]) -> None:
+    def test_register_singleton(self, factory: ServiceFactory[Any]) -> None:
         svcs = Registry()
 
         ret = svcs.register_singleton(FakeService, factory)
@@ -112,7 +114,7 @@ class TestExplicitRegistration:
         assert_has_singleton_descriptor(svcs, FakeService, FakeService)
 
     @use_factories
-    def test_register_scoped(self, factory: Factory[Any]) -> None:
+    def test_register_scoped(self, factory: ServiceFactory[Any]) -> None:
         svcs = Registry()
 
         ret = svcs.register_scoped(FakeService, factory)
@@ -214,7 +216,7 @@ class TestDictLikeRegistration:
 
         assert_has_descriptor(svcs, FakeService, descriptor)
 
-    def test_set_a_type_registers_an_implementation(self) -> None:
+    def test_set_a_type_registers_an_alias(self) -> None:
         svcs = Registry()
 
         svcs[FakeService] = FakeServiceImpl
@@ -235,6 +237,13 @@ class TestDictLikeRegistration:
         svcs[FakeService] = fake
 
         assert_has_value_descriptor(svcs, FakeService, fake)
+
+    def test_set_an_ellipsis_registers_the_type_itself_as_a_factory(self) -> None:
+        svcs = Registry()
+
+        svcs[FakeService] = ...
+
+        assert_has_factory_descriptor(svcs, FakeService, FakeService)
 
 
 class TestDecoratorRegistration:

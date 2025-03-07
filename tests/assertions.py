@@ -2,10 +2,10 @@ from typing_extensions import Any
 
 from handless.descriptor import (
     AliasServiceDescriptor,
-    Factory,
     FactoryServiceDescriptor,
     Lifetime,
     ServiceDescriptor,
+    ServiceFactory,
     ValueServiceDescriptor,
 )
 from handless.registry import Registry
@@ -20,7 +20,7 @@ def assert_has_descriptor(
 def assert_has_factory_descriptor(
     registry: Registry,
     service_type: type,
-    factory: Factory[Any],
+    factory: ServiceFactory[Any],
     *,
     lifetime: Lifetime | None = None,
 ):
@@ -30,13 +30,13 @@ def assert_has_factory_descriptor(
 
 
 def assert_has_singleton_descriptor(
-    registry: Registry, service_type: type, factory: Factory[Any]
+    registry: Registry, service_type: type, factory: ServiceFactory[Any]
 ):
     assert_has_factory_descriptor(registry, service_type, factory, lifetime="singleton")
 
 
 def assert_has_scoped_descriptor(
-    registry: Registry, service_type: type, factory: Factory[Any]
+    registry: Registry, service_type: type, factory: ServiceFactory[Any]
 ):
     assert_has_factory_descriptor(registry, service_type, factory, lifetime="scoped")
 

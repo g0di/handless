@@ -1,9 +1,3 @@
-- think of adding service type in service descriptor (if this makes any sense)
-  - This imply that the `registry[MyService] = as_singleton(...)` form can not work anymore this way.
-- think of removing the value registration and merge it with singleton?
-  - NO -> or we can not register plain functions as-is
-- Maybe replace `as_value` and others with classes like `Value(...)`, `Singleton(...)`, ...
-
 ## Context management
 
 - add handling of context managers
@@ -39,6 +33,7 @@
 - add function for registering many services in one call in the registry
   - We may also add a function for updating one registry with another
 - add ability to register local values on scoped container to inject, for example, HTTP request scoped objects
+- registering a type with itself must ensure the given type is not abstract or protocol
 
 ## Testing
 

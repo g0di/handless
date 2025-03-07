@@ -91,10 +91,13 @@ class Container:
             self._cache[descriptor] = self._get_instance(descriptor, cached=False)
         return cast(_T, self._cache[descriptor])
 
+    def create_scope(self) -> "ScopedContainer":
+        return ScopedContainer(self)
+
 
 class ScopedContainer(Container):
-    def __init__(self, registry: "Registry", parent: Container) -> None:
-        super().__init__(registry)
+    def __init__(self, parent: Container) -> None:
+        super().__init__(parent._registry)
         self._parent = parent
 
     def _resolve_singleton(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
