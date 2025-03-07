@@ -29,9 +29,9 @@ class Registry:
         """Get descriptor registered for given service type, if any or None."""
         return self._services.get(type_)
 
-    def create_container(self) -> Container:
+    def create_container(self, *, strict: bool = False) -> Container:
         """Create and return a new container using this registry."""
-        return Container(self)
+        return Container(self, strict=strict)
 
     ###########################
     # Imperative registration #

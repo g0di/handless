@@ -22,18 +22,32 @@ class FakeServiceWithContextManager:
 class TestResolvingUnregisteredServiceType:
     @pytest.mark.parametrize(
         "container",
-        [Registry().create_container(), Registry().create_container().create_scope()],
+        [
+            Registry().create_container(strict=True),
+            Registry().create_container(strict=True).create_scope(),
+        ],
         ids=["Root container", "Scoped container"],
     )
     def test_resolve_unregistered_service_type_raise_an_error(
         self, container: Container
     ):
         with pytest.raises(ServiceNotFoundError):
-            container.resolve(object)
+            container.resolve(FakeService)
 
-    @pytest.mark.xfail(reason="Not implemented")
-    def test_resolve_unregistered_service_type_works_when_enabled(self) -> None:
-        raise NotImplementedError
+    @pytest.mark.parametrize(
+        "container",
+        [
+            Registry().create_container(),
+            Registry().create_container().create_scope(),
+        ],
+        ids=["Root container", "Scoped container"],
+    )
+    def test_resolve_unregistered_service_type_works_when_enabled(
+        self, container: Container
+    ) -> None:
+        resolved = container.resolve(FakeService)
+
+        assert isinstance(resolved, FakeService)
 
 
 class TestResolvingValueDescriptor:

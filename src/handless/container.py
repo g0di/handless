@@ -19,7 +19,8 @@ _T = TypeVar("_T")
 
 
 class Container:
-    def __init__(self, registry: "Registry") -> None:
+    def __init__(self, registry: "Registry", *, strict: bool = False) -> None:
+        self._strict = strict
         self._registry = registry
         self._cache: dict[FactoryServiceDescriptor[Any], Any] = {}
         self._exit_stack = ExitStack()
@@ -31,7 +32,9 @@ class Container:
 
         descriptor = self._registry.get_descriptor(type_)
         if descriptor is None:
-            raise ServiceNotFoundError(type_)
+            if self._strict:
+                raise ServiceNotFoundError(type_)
+            descriptor = FactoryServiceDescriptor(type_)
 
         try:
             if isinstance(descriptor, ValueServiceDescriptor):
@@ -89,7 +92,7 @@ class Container:
 
 class ScopedContainer(Container):
     def __init__(self, parent: Container) -> None:
-        super().__init__(parent._registry)
+        super().__init__(parent._registry, strict=parent._strict)
         self._parent = parent
 
     def _resolve_singleton(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
