@@ -12,10 +12,15 @@ def lint(c):
 
 
 @task
+def typecheck(c):
+    c.run("mypy")
+
+
+@task
 def test(c):
     c.run("pytest --cov --cov-report=term-missing")
 
 
-@task(format, lint, test)
+@task(format, lint, typecheck, test)
 def qa(c):
     pass

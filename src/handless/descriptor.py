@@ -31,7 +31,6 @@ class ServiceDescriptor(Generic[_T]):
 @dataclass(frozen=True)
 class ValueServiceDescriptor(ServiceDescriptor[_T]):
     value: _T
-    enter: bool = False
 
 
 @dataclass(frozen=True)
@@ -43,10 +42,6 @@ class AliasServiceDescriptor(ServiceDescriptor[_T]):
 class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     factory: ServiceFactory[_T]
     lifetime: Lifetime = "transient"
-    enter: bool = True
-    # TODO: If the factory is a function decorated with context manager, enter must not
-    # be False otherwise the container will return the context manager object...
-    # ping: Callable[[_T], None] | None = None
 
     def __post_init__(self) -> None:
         if is_lambda_function(self.factory) and count_func_params(self.factory) > 1:

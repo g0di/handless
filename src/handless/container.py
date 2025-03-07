@@ -83,7 +83,7 @@ class Container:
                 if pname != "return"
             }
             instance = descriptor.factory(**args)
-            if descriptor.enter and isinstance(instance, AbstractContextManager):
+            if isinstance(instance, AbstractContextManager):
                 return self._exit_stack.enter_context(instance)
             return instance
 
