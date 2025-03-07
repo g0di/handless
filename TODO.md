@@ -27,6 +27,7 @@
 - add function for verifying scopes validities at registration time
 - add log messages/dev warnings when there is scopes mismatches
 - add docstrings
+- Move private API on private modules and prefix private stuff with leading underscore
 
 ## Registration
 
