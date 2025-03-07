@@ -103,10 +103,6 @@ def get_return_type(func: Callable[..., _T]) -> type[_T]:
     return cast(type[_T], get_type_hints(func).get("return"))
 
 
-def is_dataclass_instance(obj: Any) -> bool:
-    return is_dataclass(obj) and not isclass(obj)
-
-
 def is_lambda_function(value: Any) -> bool:
     return isinstance(value, LambdaType) and value.__name__ == "<lambda>"
 
