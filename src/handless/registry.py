@@ -1,3 +1,4 @@
+import logging
 from inspect import isclass
 from types import EllipsisType
 from typing import Callable, TypeVar, cast, get_type_hints, overload
@@ -24,6 +25,7 @@ _T = TypeVar("_T")
 class Registry:
     def __init__(self) -> None:
         self._services: dict[type, ServiceDescriptor[Any]] = {}
+        self._logger = logging.getLogger(__name__)
 
     def get_descriptor(self, type_: type[_T]) -> ServiceDescriptor[_T] | None:
         """Get descriptor registered for given service type, if any or None."""
@@ -118,7 +120,7 @@ class Registry:
         # NOTE: ensure given impl type is a subclass of service type because
         # mypy currently allows passing any classes to impl
         if not isclass(alias) or not issubclass(alias, type_):
-            raise TypeError(f"{alias} is not a subclass of {type_}")
+            raise RegistrationError(f"{alias} is not a subclass of {type_}")
         return self._register(type_, Alias(alias))
 
     # Low level API
@@ -126,6 +128,7 @@ class Registry:
         self, type_: type[_T], service_descriptor: ServiceDescriptor[_T]
     ) -> Self:
         self._services[type_] = service_descriptor
+        self._logger.info("Registered %s: %s", type_, service_descriptor)
         return self
 
     ############################

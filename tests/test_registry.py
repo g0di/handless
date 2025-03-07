@@ -145,7 +145,7 @@ class TestExplicitRegistration:
     def test_register_alias_with_not_a_subclass_raise_an_error(self) -> None:
         svcs = Registry()
 
-        with pytest.raises(TypeError):
+        with pytest.raises(RegistrationError):
             svcs.register_alias(FakeService, object)
 
 
