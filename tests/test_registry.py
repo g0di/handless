@@ -1,12 +1,10 @@
 import pytest
 from typing_extensions import Any
 
-from handless import Alias, Factory, Lifetime, Registry, Scoped, Singleton, Value
+from handless import Lifetime, Registry
 from handless.descriptor import (
-    AliasServiceDescriptor,
     FactoryServiceDescriptor,
     ServiceFactory,
-    ValueServiceDescriptor,
 )
 from handless.exceptions import RegistrationError
 from tests.assertions import (
@@ -24,47 +22,6 @@ from tests.helpers import (
     use_factories,
     use_lifetimes,
 )
-
-
-class TestServiceDescriptorFactories:
-    def test_as_value_returns_a_value_descriptor(self) -> None:
-        value = object()
-
-        descriptor = Value(value)
-
-        assert descriptor == ValueServiceDescriptor(value)
-
-    @use_factories
-    @use_lifetimes
-    def test_as_factory_returns_a_factory_descriptor(
-        self, factory: ServiceFactory[Any], lifetime: Lifetime | None
-    ) -> None:
-        descriptor = Factory(factory, lifetime=lifetime)
-
-        assert descriptor == FactoryServiceDescriptor(
-            factory, lifetime=lifetime or "transient"
-        )
-
-    @use_factories
-    def test_as_singleton_returns_a_singleton_descriptor(
-        self, factory: ServiceFactory[Any]
-    ) -> None:
-        descriptor = Singleton(factory)
-
-        assert descriptor == FactoryServiceDescriptor(factory, "singleton")
-
-    @use_factories
-    def test_as_scoped_returns_a_scoped_descriptor(
-        self, factory: ServiceFactory[Any]
-    ) -> None:
-        descriptor = Scoped(factory)
-
-        assert descriptor == FactoryServiceDescriptor(factory, "scoped")
-
-    def test_as_impl_returns_a_descriptor_alias(self) -> None:
-        descriptor = Alias(FakeService)
-
-        assert descriptor == AliasServiceDescriptor(FakeService)
 
 
 class TestExplicitRegistration:
