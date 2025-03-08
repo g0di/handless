@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from inspect import Parameter
 from types import LambdaType
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Generic,
@@ -15,6 +16,9 @@ from typing import (
 )
 
 from handless.exceptions import RegistrationError
+
+if TYPE_CHECKING:
+    from handless.container import Container
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
@@ -90,6 +94,19 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
             raise RegistrationError(msg)
 
         self.params.update(params)
+
+    def get_instance(self, container: "Container") -> _T | AbstractContextManager[_T]:
+        args = {
+            # NOTE: pass the container when the parameter is empty
+            # This happens when resolving a lambda function
+            pname: (
+                container.resolve(ptype.annotation)
+                if ptype.annotation != Parameter.empty
+                else container
+            )
+            for pname, ptype in self.params.items()
+        }
+        return self.factory(**args)
 
 
 def _is_lambda_function(value: Any) -> bool:

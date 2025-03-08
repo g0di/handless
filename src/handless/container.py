@@ -69,8 +69,7 @@ class Container:
         self, descriptor: FactoryServiceDescriptor[_T], *, cached: bool
     ) -> _T:
         if not cached:
-            args = self._resolve_parameters(descriptor)
-            instance = descriptor.factory(**args)
+            instance = descriptor.get_instance(self)
             if isinstance(instance, AbstractContextManager):
                 return self._exit_stack.enter_context(instance)
             return instance
@@ -78,21 +77,6 @@ class Container:
         if descriptor not in self._cache:
             self._cache[descriptor] = self._get_instance(descriptor, cached=False)
         return cast(_T, self._cache[descriptor])
-
-    def _resolve_parameters(
-        self, descriptor: FactoryServiceDescriptor
-    ) -> dict[str, Any]:
-        return {
-            # NOTE: pass the container when the parameter is empty
-            # This happens when resolving a lambda function
-            pname: (
-                self.resolve(ptype.annotation)
-                if ptype.annotation != Parameter.empty
-                else self
-            )
-            for pname, ptype in descriptor.params.items()
-            if pname != "return"
-        }
 
     def create_scope(self) -> "ScopedContainer":
         return ScopedContainer(self)
