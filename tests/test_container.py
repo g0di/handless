@@ -1,3 +1,5 @@
+import gc
+import sys
 from unittest.mock import create_autospec
 
 import pytest
@@ -214,19 +216,37 @@ class TestResolveAnyFactoryDescriptorWithParameters:
     # people to put a container as a dependency of its own classes
 
 
+class MyContext:
+    entered = False
+    exited = False
+
+    def __enter__(self):
+        MyContext.entered = True
+        return self
+
+    def __exit__(self, *args: object):
+        MyContext.exited = True
+
+
 class TestResolveAnyFactoryDescriptorWithContextManager:
-    def test_resolve_a_factory_descriptor_returning_context_manager_enter_context(
+    # TODO: test cases: Function returning a context manager, Class being a context manager
+    # TODO: class instance being context manager
+    @pytest.mark.xfail(reason="not implemented")
+    def test_resolve_a_transient_factory_descriptor_returning_context_manager_enter_context_and_exit_when_dereferenced(
         self,
     ):
-        value = FakeServiceWithContextManager()
-        container = (
-            Registry().register_factory(FakeService, lambda: value).create_container()
-        )
+        container = Registry().register_factory(MyContext).create_container()
 
-        resolved = container.resolve(FakeService)
+        resolved = container.resolve(MyContext)
 
-        assert resolved is value
-        assert value.entered
+        assert isinstance(resolved, MyContext)
+        assert MyContext.entered
+
+        assert not sys.getrefcount(resolved)
+        assert gc.get_referrers(resolved) == ""
+        del resolved
+
+        assert MyContext.exited
 
 
 class TestResolveAliasDescriptor:

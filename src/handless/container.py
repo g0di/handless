@@ -7,6 +7,7 @@ from typing_extensions import TYPE_CHECKING, Any
 from handless.descriptor import (
     AliasServiceDescriptor,
     FactoryServiceDescriptor,
+    ServiceDescriptor,
     ValueServiceDescriptor,
 )
 from handless.exceptions import ServiceNotFoundError, ServiceResolveError
@@ -31,13 +32,7 @@ class Container:
             # NOTE: When receiving lambda parameter, just return the container
             return cast(_T, self)
 
-        implicit = False
-        descriptor = self._registry.get_descriptor(type_)
-        if descriptor is None:
-            if self._strict:
-                raise ServiceNotFoundError(type_)
-            descriptor = FactoryServiceDescriptor(type_)
-            implicit = True
+        descriptor = self._resolve_descriptor(type_)
 
         try:
             if isinstance(descriptor, ValueServiceDescriptor):
@@ -49,13 +44,24 @@ class Container:
             raise NotImplementedError("Unhandled descriptor {descriptor}")
         except Exception as error:
             raise ServiceResolveError(type_, str(error)) from error
-        finally:
-            self._logger.info(
-                "Resolved %s%s: %s",
-                type_,
-                " (implicit)" if implicit else "",
-                descriptor,
-            )
+
+    def _resolve_descriptor(self, type_: type[_T]) -> ServiceDescriptor[_T]:
+        implicit = False
+        descriptor = self._registry.get_descriptor(type_)
+        if descriptor is None:
+            if self._strict:
+                raise ServiceNotFoundError(type_)
+            descriptor = FactoryServiceDescriptor(type_)
+            implicit = True
+
+        self._logger.info(
+            "Resolved %s%s: %s",
+            type_,
+            " (implicit)" if implicit else "",
+            descriptor,
+        )
+
+        return descriptor
 
     def _resolve_factory(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
         if descriptor.lifetime == "scoped":
@@ -79,7 +85,7 @@ class Container:
         if not cached:
             instance = descriptor.get_instance(self)
             if isinstance(instance, AbstractContextManager):
-                return self._exit_stack.enter_context(instance)
+                return instance.__enter__()
             return instance
 
         if descriptor not in self._cache:

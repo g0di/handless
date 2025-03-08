@@ -37,6 +37,19 @@
   - We may also add a function for updating one registry with another
 - add ability to register local values on scoped container to inject, for example, HTTP request scoped objects
 - registering a type with itself must ensure the given type is not abstract or protocol
+- Allow to `registry[MyType] = Factory()` to autouse the type itself
+- Think about ability to create a container using a Pydantic like Model where fields are types to register
+
+```python
+
+class MyContainer(ContainerModel):
+  my_service: MyService = Factory()
+  my_service: MyService = Singleton(MyServiceImpl)
+  my_service: MyService = Singleton(lambda c: ...)
+  my_service: Annotated[MyService, Singleton(...)]
+
+MyContainer().my_service # resolve
+```
 
 ## Testing
 
