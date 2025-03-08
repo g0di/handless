@@ -21,7 +21,7 @@
 ## Misc
 
 - add resolve stack for debugging
-- add logging for tracking resolving
+- When logging service type resolved, also display the full requiremnt chain
 - handle resolving singleton from different threads
 - add function for resolving all services in container for testing purposes
 - add function for verifying scopes validities at registration time

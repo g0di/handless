@@ -1,6 +1,5 @@
 import logging
 from contextlib import AbstractContextManager, ExitStack
-from inspect import Parameter
 from typing import TypeVar, cast
 
 from typing_extensions import TYPE_CHECKING, Any
@@ -28,15 +27,17 @@ class Container:
         self._logger = logging.getLogger(__name__)
 
     def resolve(self, type_: type[_T]) -> _T:
-        if issubclass(type_, (Parameter, Container)):
+        if issubclass(type_, Container):
             # NOTE: When receiving lambda parameter, just return the container
             return cast(_T, self)
 
+        implicit = False
         descriptor = self._registry.get_descriptor(type_)
         if descriptor is None:
             if self._strict:
                 raise ServiceNotFoundError(type_)
             descriptor = FactoryServiceDescriptor(type_)
+            implicit = True
 
         try:
             if isinstance(descriptor, ValueServiceDescriptor):
@@ -48,6 +49,13 @@ class Container:
             raise NotImplementedError("Unhandled descriptor {descriptor}")
         except Exception as error:
             raise ServiceResolveError(type_, str(error)) from error
+        finally:
+            self._logger.info(
+                "Resolved %s%s: %s",
+                type_,
+                " (implicit)" if implicit else "",
+                descriptor,
+            )
 
     def _resolve_factory(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
         if descriptor.lifetime == "scoped":
@@ -86,6 +94,7 @@ class ScopedContainer(Container):
     def __init__(self, parent: Container) -> None:
         super().__init__(parent._registry, strict=parent._strict)
         self._parent = parent
+        self._logger = logging.getLogger(f"{__name__}.scope")
 
     def _resolve_singleton(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
         return self._parent._resolve_singleton(descriptor)
