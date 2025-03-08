@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import create_autospec
 
 import pytest
 
@@ -219,9 +219,8 @@ class TestResolveAnyFactoryDescriptorWithContextManager:
         self,
     ):
         value = FakeServiceWithContextManager()
-        mock_factory = Mock(return_value=value)
         container = (
-            Registry().register_factory(FakeService, mock_factory).create_container()
+            Registry().register_factory(FakeService, lambda: value).create_container()
         )
 
         resolved = container.resolve(FakeService)
@@ -246,61 +245,47 @@ class TestResolveAliasDescriptor:
 
 class TestResolveTransientFactoryDescriptor:
     def test_resolve_a_transient_factory_descriptor_calls_factory_each_time(self):
-        mock_factory = Mock()
-        container = (
-            Registry().register_factory(FakeService, mock_factory).create_container()
-        )
-
-        container.resolve(FakeService)
-        container.resolve(FakeService)
-
-        assert mock_factory.call_count == 2
-
-    def test_resolve_a_transient_factory_descriptor_from_scope_calls_factory_each_time(
-        self,
-    ):
-        mock_factory = Mock()
-        container = (
-            Registry().register_factory(FakeService, mock_factory).create_container()
-        )
-        scope = container.create_scope()
-
-        container.resolve(FakeService)
-        container.resolve(FakeService)
-        scope.resolve(FakeService)
-        scope.resolve(FakeService)
-
-        assert mock_factory.call_count == 4
-
-
-class TestResolveSingletonDescriptor:
-    def test_resolve_a_singleton_descriptor_calls_and_cache_factory_return_value(self):
-        mock_factory = Mock(side_effect=object)
-        container = (
-            Registry().register_singleton(FakeService, mock_factory).create_container()
-        )
+        container = Registry().register_factory(FakeService).create_container()
 
         v1 = container.resolve(FakeService)
         v2 = container.resolve(FakeService)
 
-        assert mock_factory.call_count == 1
+        assert v1 is not v2
+
+    def test_resolve_a_transient_factory_descriptor_from_scope_calls_factory_each_time(
+        self,
+    ):
+        container = Registry().register_factory(FakeService).create_container()
+        scope = container.create_scope()
+
+        v1 = container.resolve(FakeService)
+        v2 = container.resolve(FakeService)
+        v3 = scope.resolve(FakeService)
+        v4 = scope.resolve(FakeService)
+
+        assert v1 is not v2 is not v3 is not v4
+
+
+class TestResolveSingletonDescriptor:
+    def test_resolve_a_singleton_descriptor_calls_and_cache_factory_return_value(self):
+        container = Registry().register_singleton(FakeService).create_container()
+
+        v1 = container.resolve(FakeService)
+        v2 = container.resolve(FakeService)
+
         assert v1 is v2
 
     def test_resolve_a_singleton_descriptor_calls_and_cache_factory_return_value_accross_scopes(
         self,
     ):
-        mock_factory = Mock(side_effect=object)
-        container = (
-            Registry().register_singleton(object, mock_factory).create_container()
-        )
+        container = Registry().register_singleton(FakeService).create_container()
         scope = container.create_scope()
 
-        v1 = container.resolve(object)
-        v2 = container.resolve(object)
-        v3 = scope.resolve(object)
-        v4 = scope.resolve(object)
+        v1 = container.resolve(FakeService)
+        v2 = container.resolve(FakeService)
+        v3 = scope.resolve(FakeService)
+        v4 = scope.resolve(FakeService)
 
-        assert mock_factory.call_count == 1
         assert v1 is v2 is v3 is v4
 
 
@@ -308,7 +293,7 @@ class TestResolvScopedFactoryDescrptor:
     def test_resolve_a_scoped_factory_descriptor_from_root_container_raise_an_error(
         self,
     ):
-        mock_factory = Mock()
+        mock_factory = create_autospec(lambda: FakeService())
         container = (
             Registry().register_scoped(FakeService, mock_factory).create_container()
         )
@@ -318,20 +303,19 @@ class TestResolvScopedFactoryDescrptor:
 
         mock_factory.assert_not_called
 
-    def test_resolve_a_scoped_factory_descriptor_calls_and_cache_factory_return_value_per_scope(
+    def test_resolve_a_scoped_factory_descriptor_calls_and_cache_factory_returned_value_per_scope(
         self,
     ):
-        mock_factory = Mock(side_effect=object)
-        container = Registry().register_scoped(object, mock_factory).create_container()
+        registry = Registry().register_scoped(FakeService)
+        container = Container(registry)
         scope1 = container.create_scope()
         scope2 = container.create_scope()
 
-        v1 = scope1.resolve(object)
-        v2 = scope1.resolve(object)
-        v3 = scope2.resolve(object)
-        v4 = scope2.resolve(object)
+        v1 = scope1.resolve(FakeService)
+        v2 = scope1.resolve(FakeService)
+        v3 = scope2.resolve(FakeService)
+        v4 = scope2.resolve(FakeService)
 
-        assert mock_factory.call_count == 2
         assert v1 is v2
         assert v3 is v4
         assert v1 is not v3

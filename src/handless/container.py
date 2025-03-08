@@ -1,3 +1,4 @@
+import logging
 from contextlib import AbstractContextManager, ExitStack
 from inspect import Parameter
 from typing import TypeVar, cast
@@ -24,6 +25,7 @@ class Container:
         self._registry = registry
         self._cache: dict[FactoryServiceDescriptor[Any], Any] = {}
         self._exit_stack = ExitStack()
+        self._logger = logging.getLogger(__name__)
 
     def resolve(self, type_: type[_T]) -> _T:
         if issubclass(type_, (Parameter, Container)):
@@ -81,8 +83,14 @@ class Container:
         self, descriptor: FactoryServiceDescriptor
     ) -> dict[str, Any]:
         return {
-            pname: self.resolve(ptype)
-            for pname, ptype in descriptor.type_hints.items()
+            # NOTE: pass the container when the parameter is empty
+            # This happens when resolving a lambda function
+            pname: (
+                self.resolve(ptype.annotation)
+                if ptype.annotation != Parameter.empty
+                else self
+            )
+            for pname, ptype in descriptor.params.items()
             if pname != "return"
         }
 

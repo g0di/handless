@@ -9,14 +9,14 @@
 - prevent ability to pass enter=False to descriptors when providing a contextmanager or a generator
   - We may also think about handling context managers out of the box or not
 
-## Resolving
-
-- add possibility to enable/disable resolving dependencies not registered in the container
-
 ## Async
 
 - add handling of async factories
 - add handling of async context managers
+
+## Resolving
+
+- Handle positional only argument
 
 ## Misc
 

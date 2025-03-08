@@ -1,8 +1,7 @@
 import inspect
 from contextlib import AbstractContextManager
-from dataclasses import dataclass, is_dataclass
-from functools import cached_property
-from inspect import isclass
+from dataclasses import dataclass, field
+from inspect import Parameter
 from types import LambdaType
 from typing import (
     Any,
@@ -10,9 +9,9 @@ from typing import (
     Generic,
     Literal,
     NewType,
+    OrderedDict,
     ParamSpec,
     TypeVar,
-    get_type_hints,
 )
 
 from handless.exceptions import RegistrationError
@@ -71,34 +70,36 @@ class AliasServiceDescriptor(ServiceDescriptor[_T]):
 class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     factory: ServiceFactory[_T]
     lifetime: Lifetime = "transient"
+    params: OrderedDict[str, Parameter] = field(default_factory=OrderedDict, hash=False)
 
     def __post_init__(self) -> None:
-        if _is_lambda_function(self.factory) and _count_func_params(self.factory) > 1:
-            raise RegistrationError("Factory lambda functions can only have up to 1")
+        params = inspect.signature(
+            self.factory.__supertype__
+            if isinstance(self.factory, NewType)
+            else self.factory,
+            eval_str=True,
+        ).parameters
 
-    @cached_property
-    def type_hints(self) -> dict[str, Any]:
         if _is_lambda_function(self.factory):
-            return {
-                pname: inspect.Parameter
-                for pname in inspect.signature(self.factory).parameters
-            }
-        if isinstance(self.factory, NewType):
-            return get_type_hints(self.factory.__supertype__.__init__)  # type: ignore[misc]
-        if isclass(self.factory):
-            return get_type_hints(self.factory.__init__)
-        if is_dataclass(self.factory):
-            # get type hints on dataclass instance returns constructor type hints instead
-            # of __call__ method if any
-            return get_type_hints(self.factory.__call__)
-        try:
-            return get_type_hints(self.factory)
-        except Exception:
-            return get_type_hints(self.factory.__call__)  # type: ignore[operator]
+            if _count_func_params(self.factory) > 1:
+                raise RegistrationError(
+                    "Lambda functions can takes up to only one parameter"
+                )
+        elif empty_params := get_untyped_parameters(dict(params)):
+            msg = f"Factory {self.factory} is missing types for following parameters: {', '.join(empty_params)}"
+            raise RegistrationError(msg)
+
+        self.params.update(params)
 
 
 def _is_lambda_function(value: Any) -> bool:
     return isinstance(value, LambdaType) and value.__name__ == "<lambda>"
+
+
+def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
+    return [
+        pname for pname, param in params.items() if param.annotation is Parameter.empty
+    ]
 
 
 def _count_func_params(value: Callable[..., Any]) -> int:
