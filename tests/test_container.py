@@ -1,5 +1,3 @@
-import gc
-import sys
 from unittest.mock import create_autospec
 
 import pytest
@@ -9,33 +7,7 @@ from handless.exceptions import ServiceNotFoundError, ServiceResolveError
 from tests.helpers import FakeService, FakeServiceFactory, FakeServiceImpl
 
 
-class FakeServiceWithContextManager:
-    entered: bool = False
-    exited: bool = False
-
-    def __enter__(self):
-        self.entered = True
-        return self
-
-    def __exit__(self, *args: object):
-        self.exited = True
-
-
-class TestResolvingUnregisteredServiceType:
-    @pytest.mark.parametrize(
-        "container",
-        [
-            Container(Registry(), strict=True),
-            Container(Registry(), strict=True).create_scope(),
-        ],
-        ids=["Strict root container", "Strict scoped container"],
-    )
-    def test_resolve_unregistered_service_type_raise_an_error(
-        self, container: Container
-    ):
-        with pytest.raises(ServiceNotFoundError):
-            container.resolve(FakeService)
-
+class TestResolveUnregisteredServiceType:
     @pytest.mark.parametrize(
         "container",
         [
@@ -44,15 +16,32 @@ class TestResolvingUnregisteredServiceType:
         ],
         ids=["Root container", "Scoped container"],
     )
-    def test_resolve_unregistered_service_type_works_when_enabled(
+    def test_resolve_unregistered_service_type_use_a_transient_factory_by_default(
         self, container: Container
     ) -> None:
         resolved = container.resolve(FakeService)
+        resolved2 = container.resolve(FakeService)
 
         assert isinstance(resolved, FakeService)
+        assert isinstance(resolved2, FakeService)
+        assert resolved is not resolved2
+
+    @pytest.mark.parametrize(
+        "container",
+        [
+            Container(Registry(), strict=True),
+            Container(Registry(), strict=True).create_scope(),
+        ],
+        ids=["Strict root container", "Strict scoped container"],
+    )
+    def test_resolve_unregistered_service_type_raise_an_error_when_using_strict_model(
+        self, container: Container
+    ):
+        with pytest.raises(ServiceNotFoundError):
+            container.resolve(FakeService)
 
 
-class TestResolvingValueDescriptor:
+class TestResolveValueDescriptor:
     @pytest.fixture
     def value(self) -> FakeService:
         return FakeService()
@@ -216,39 +205,6 @@ class TestResolveAnyFactoryDescriptorWithParameters:
     # people to put a container as a dependency of its own classes
 
 
-class MyContext:
-    entered = False
-    exited = False
-
-    def __enter__(self):
-        MyContext.entered = True
-        return self
-
-    def __exit__(self, *args: object):
-        MyContext.exited = True
-
-
-class TestResolveAnyFactoryDescriptorWithContextManager:
-    # TODO: test cases: Function returning a context manager, Class being a context manager
-    # TODO: class instance being context manager
-    @pytest.mark.xfail(reason="not implemented")
-    def test_resolve_a_transient_factory_descriptor_returning_context_manager_enter_context_and_exit_when_dereferenced(
-        self,
-    ):
-        container = Registry().register_factory(MyContext).create_container()
-
-        resolved = container.resolve(MyContext)
-
-        assert isinstance(resolved, MyContext)
-        assert MyContext.entered
-
-        assert not sys.getrefcount(resolved)
-        assert gc.get_referrers(resolved) == ""
-        del resolved
-
-        assert MyContext.exited
-
-
 class TestResolveAliasDescriptor:
     def test_resolve_an_alias_descriptor_resolves_the_actual_alias(self):
         container = (
@@ -309,7 +265,7 @@ class TestResolveSingletonDescriptor:
         assert v1 is v2 is v3 is v4
 
 
-class TestResolvScopedFactoryDescrptor:
+class TestResolveScopedFactoryDescrptor:
     def test_resolve_a_scoped_factory_descriptor_from_root_container_raise_an_error(
         self,
     ):
@@ -339,6 +295,3 @@ class TestResolvScopedFactoryDescrptor:
         assert v1 is v2
         assert v3 is v4
         assert v1 is not v3
-
-    # TODO: test closing a root container clear its cache (root container clear singletons, scoped containers clear scoped stuff)
-    # TODO: test transient values entered as context manager are exited when the instance is no longer referenced
