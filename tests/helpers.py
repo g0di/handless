@@ -21,14 +21,6 @@ class FakeServiceFactory:
         return FakeService()
 
 
-def untyped_func(foo: str, bar): ...
-
-
-class UntypedClass:
-    def __init__(self, foo, bar: str):
-        pass
-
-
 use_factories = pytest.mark.parametrize(
     "factory",
     [
