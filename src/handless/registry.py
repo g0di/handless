@@ -59,14 +59,14 @@ class Registry:
         self,
         type_: type[_T],
         descriptor: ServiceFactory[_T] | None = ...,
-        lifetime: Lifetime | None = ...,
+        lifetime: Lifetime = ...,
     ) -> Self: ...
 
     def register(
         self,
         type_: type[_T],
         descriptor: ServiceDescriptor[_T] | _T | ServiceFactory[_T] | None = None,
-        lifetime: Lifetime | None = None,
+        lifetime: Lifetime = "transient",
     ) -> Self:
         """Register a descriptor for resolving the given type.
 
@@ -82,26 +82,28 @@ class Registry:
             return self.register_factory(type_, descriptor, lifetime=lifetime)
         return self.register_value(type_, descriptor)
 
-    def register_value(self, type_: type[_T], service_value: _T) -> Self:
+    def register_value(
+        self, type_: type[_T], service_value: _T, *, enter: bool = False
+    ) -> Self:
         """Registers given value to be returned when resolving given service type.
 
         :param type_: Type of the service to register
         :param service_value: Service value
         """
-        return self._register(type_, Value(service_value))
+        return self._register(type_, Value(service_value, enter=enter))
 
     def register_factory(
         self,
         type_: type[_T],
         factory: ServiceFactory[_T] | None = None,
-        lifetime: Lifetime | None = None,
+        lifetime: Lifetime = "transient",
     ) -> Self:
         """Registers given callable to be called to resolve the given type.
 
         Lifetime is transient by default meaning the factory will be executed on each
         resolve.
         """
-        return self._register(type_, Factory(factory or type_, lifetime))
+        return self._register(type_, Factory(factory or type_, lifetime=lifetime))
 
     def register_singleton(
         self, type_: type[_T], factory: ServiceFactory[_T] | None = None
@@ -141,7 +143,7 @@ class Registry:
     def factory(
         self,
         *,
-        lifetime: Lifetime | None = None,
+        lifetime: Lifetime = ...,
     ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
 
     @overload
@@ -151,7 +153,7 @@ class Registry:
         self,
         factory: Callable[_P, _T] | None = None,
         *,
-        lifetime: Lifetime | None = None,
+        lifetime: Lifetime = "transient",
     ) -> Any:
         def wrapper(factory: Callable[_P, _T]) -> Callable[_P, _T]:
             rettype = _get_return_type(factory)
