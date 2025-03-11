@@ -44,7 +44,7 @@ def fake_factory_returning_iterator() -> Iterator[FakeServiceWithContextManager]
 )
 @use_lifetimes
 def test_resolve_a_context_manager_enter_its_context(
-    factory: Callable[..., FakeServiceWithContextManager], lifetime: Lifetime | None
+    factory: Callable[..., FakeServiceWithContextManager], lifetime: Lifetime
 ):
     container = (
         Registry()
