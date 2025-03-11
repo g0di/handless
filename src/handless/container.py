@@ -1,5 +1,6 @@
 import logging
 from contextlib import AbstractContextManager, ExitStack
+from inspect import isclass
 from typing import TypeVar, cast
 
 from typing_extensions import TYPE_CHECKING, Any
@@ -27,8 +28,11 @@ class Container:
         self._exit_stack = ExitStack()
         self._logger = logging.getLogger(__name__)
 
+    def __getitem__(self, type_: type[_T]) -> _T:
+        return self.resolve(type_)
+
     def resolve(self, type_: type[_T]) -> _T:
-        if issubclass(type_, Container):
+        if isclass(type_) and issubclass(type_, Container):
             # NOTE: When receiving lambda parameter, just return the container
             return cast(_T, self)
 
