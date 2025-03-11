@@ -23,13 +23,15 @@ class FakeServiceWithContextManager(AbstractContextManager):
 def fake_factory_returning_context_manager() -> FakeServiceWithContextManager:
     return FakeServiceWithContextManager()
 
+
 @contextmanager
 def fake_factory_returning_iterator() -> Iterator[FakeServiceWithContextManager]:
     srv = FakeServiceWithContextManager()
     try:
         yield srv
     finally:
-        srv.
+        pass
+
 
 # Use cases
 # Registering a type which is context manager (has enter and exit method)
