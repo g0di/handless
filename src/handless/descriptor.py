@@ -33,22 +33,29 @@ Lifetime = Literal["transient", "singleton", "scoped"]
 # Pydantic does.
 
 
-def Value(val: _T) -> "ValueServiceDescriptor[_T]":
-    return ValueServiceDescriptor(val)
+def Value(val: _T, *, enter: bool = False) -> "ValueServiceDescriptor[_T]":
+    return ValueServiceDescriptor(val, enter=enter)
 
 
 def Factory(
-    factory: ServiceFactory[_T], lifetime: Lifetime | None = None
+    factory: ServiceFactory[_T],
+    *,
+    lifetime: Lifetime = "transient",
+    enter: bool = True,
 ) -> "FactoryServiceDescriptor[_T]":
-    return FactoryServiceDescriptor(factory, lifetime=lifetime or "transient")
+    return FactoryServiceDescriptor(factory, lifetime=lifetime, enter=enter)
 
 
-def Singleton(factory: ServiceFactory[_T]) -> "FactoryServiceDescriptor[_T]":
-    return FactoryServiceDescriptor(factory, lifetime="singleton")
+def Singleton(
+    factory: ServiceFactory[_T], *, enter: bool = True
+) -> "FactoryServiceDescriptor[_T]":
+    return FactoryServiceDescriptor(factory, lifetime="singleton", enter=enter)
 
 
-def Scoped(factory: ServiceFactory[_T]) -> "FactoryServiceDescriptor[_T]":
-    return FactoryServiceDescriptor(factory, lifetime="scoped")
+def Scoped(
+    factory: ServiceFactory[_T], *, enter: bool = True
+) -> "FactoryServiceDescriptor[_T]":
+    return FactoryServiceDescriptor(factory, lifetime="scoped", enter=enter)
 
 
 def Alias(service_type: type[_T]) -> "AliasServiceDescriptor[_T]":
@@ -63,6 +70,7 @@ class ServiceDescriptor(Generic[_T]):
 @dataclass(frozen=True)
 class ValueServiceDescriptor(ServiceDescriptor[_T]):
     value: _T
+    enter: bool = False
 
 
 @dataclass(frozen=True)
@@ -74,7 +82,10 @@ class AliasServiceDescriptor(ServiceDescriptor[_T]):
 class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     factory: ServiceFactory[_T]
     lifetime: Lifetime = "transient"
-    params: OrderedDict[str, Parameter] = field(default_factory=OrderedDict, hash=False)
+    enter: bool = True
+    params: OrderedDict[str, Parameter] = field(
+        default_factory=OrderedDict, hash=False, init=False
+    )
 
     def __post_init__(self) -> None:
         params = inspect.signature(
