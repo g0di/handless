@@ -8,92 +8,116 @@ from handless.descriptor import (
     AliasServiceDescriptor,
     FactoryServiceDescriptor,
     RegistrationError,
-    ServiceFactory,
     ValueServiceDescriptor,
 )
 from tests.helpers import (
-    FakeService,
+    use_disallowed_factories,
+    use_enter,
     use_factories,
     use_lifetimes,
 )
 
 
-def test_value_descriptor_factory_returns_a_value_descriptor() -> None:
-    value = object()
+class TestValueDescriptor:
+    def test_value_descriptor_defaults(self) -> None:
+        descriptor = ValueServiceDescriptor(object())
 
-    descriptor = Value(value)
+        assert descriptor.enter is False
 
-    assert descriptor == ValueServiceDescriptor(value)
+    def test_value_factory_returns_a_default_value_descriptor(self) -> None:
+        value = object()
 
+        descriptor = Value(value)
 
-@use_factories
-@use_lifetimes
-def test_factory_descriptor_factory_returns_a_factory_descriptor(
-    factory: ServiceFactory[Any], lifetime: Lifetime | None
-) -> None:
-    descriptor = Factory(factory, lifetime=lifetime)
+        assert descriptor == ValueServiceDescriptor(value, enter=False)
 
-    assert descriptor == FactoryServiceDescriptor(
-        factory, lifetime=lifetime or "transient"
-    )
+    @use_enter
+    def test_value_factory_returns_a_value_descriptor(self, enter: bool) -> None:
+        value = object()
 
+        descriptor = Value(value, enter=enter)
 
-@use_factories
-def test_singleton_descriptor_factory_returns_a_singleton_descriptor(
-    factory: ServiceFactory[Any],
-) -> None:
-    descriptor = Singleton(factory)
-
-    assert descriptor == FactoryServiceDescriptor(factory, lifetime="singleton")
+        assert descriptor == ValueServiceDescriptor(value, enter=enter)
 
 
 @use_factories
-def test_scoped_descriptor_factory_returns_a_scoped_descriptor(
-    factory: ServiceFactory[Any],
-) -> None:
-    descriptor = Scoped(factory)
+class TestFactoryDescriptor:
+    def test_factory_descriptor_defaults(self, factory: Callable[..., Any]) -> None:
+        descriptor = FactoryServiceDescriptor(factory)
 
-    assert descriptor == FactoryServiceDescriptor(factory, lifetime="scoped")
+        assert descriptor.lifetime == "transient"
+
+    def test_factory_factory_returns_a_default_transient_factory_descriptor(
+        self, factory: Callable[..., Any]
+    ) -> None:
+        descriptor = Factory(factory)
+
+        assert descriptor == FactoryServiceDescriptor(
+            factory, lifetime="transient", enter=True
+        )
+
+    def test_singleton_factory_returns_a_default_singleton_factory_descriptor(
+        self, factory: Callable[..., Any]
+    ) -> None:
+        descriptor = Singleton(factory)
+
+        assert descriptor == FactoryServiceDescriptor(
+            factory, lifetime="singleton", enter=True
+        )
+
+    def test_scoped_factory_returns_a_default_scoped_factory_descriptor(
+        self, factory: Callable[..., Any]
+    ) -> None:
+        descriptor = Scoped(factory)
+
+        assert descriptor == FactoryServiceDescriptor(
+            factory, lifetime="scoped", enter=True
+        )
+
+    @use_lifetimes
+    @use_enter
+    def test_factory_factory_returns_a_factory_descriptor(
+        self, factory: Callable[..., Any], lifetime: Lifetime, enter: bool
+    ) -> None:
+        descriptor = Factory(factory, lifetime=lifetime, enter=enter)
+
+        assert descriptor == FactoryServiceDescriptor(
+            factory, lifetime=lifetime or "transient", enter=enter
+        )
+
+    @use_enter
+    def test_singleton_factory_returns_a_singleton_factory_descriptor(
+        self, factory: Callable[..., Any], enter: bool
+    ) -> None:
+        descriptor = Singleton(factory, enter=enter)
+
+        assert descriptor == FactoryServiceDescriptor(
+            factory, lifetime="singleton", enter=enter
+        )
+
+    @use_enter
+    def test_scoped_factory_returns_a_singleton_factory_descriptor(
+        self, factory: Callable[..., Any], enter: bool
+    ) -> None:
+        descriptor = Scoped(factory, enter=enter)
+
+        assert descriptor == FactoryServiceDescriptor(
+            factory, lifetime="scoped", enter=enter
+        )
 
 
-def test_alias_descriptor_factory_returns_a_descriptor_alias() -> None:
-    descriptor = Alias(FakeService)
-
-    assert descriptor == AliasServiceDescriptor(FakeService)
-
-
-def untyped_func(foo: str, bar): ...
-
-
-class UntypedClass:
-    def __init__(self, foo, bar: str):
-        pass
+@use_disallowed_factories
+class TestDisallowedFactoryDescriptorCallable:
+    def test_factory_descriptor_with_disallowed_callable_raise_an_error(
+        self,
+        factory: Callable[..., Any],
+    ) -> None:
+        with pytest.raises(RegistrationError):
+            FactoryServiceDescriptor(factory)
 
 
-@pytest.mark.parametrize("factory", [untyped_func, UntypedClass])
-def test_create_factory_descriptor_with_callable_missing_params_type_annotations_raise_an_error(
-    factory: Callable[..., Any],
-) -> None:
-    with pytest.raises(RegistrationError):
-        FactoryServiceDescriptor(factory)
+class TestAliasDescriptor:
+    def test_alias_factory_returns_an_alias_descriptor(self) -> None:
+        descriptor = Alias(object)
 
-
-def test_create_factory_descriptor_with_lambda_without_parameters() -> None:
-    try:
-        FactoryServiceDescriptor(lambda: "")
-    except Exception:
-        pytest.fail("Expected no error to be raised")
-
-
-def test_create_factory_descriptor_with_lambda_with_a_single_parameter() -> None:
-    try:
-        FactoryServiceDescriptor(lambda c: "")
-    except Exception:
-        pytest.fail("Expected no error to be raised")
-
-
-def test_create_factory_descriptor_with_lambda_having_more_than_1_arg_raises_an_error() -> (
-    None
-):
-    with pytest.raises(RegistrationError):
-        FactoryServiceDescriptor(lambda a, b, c: "")
+        assert descriptor == AliasServiceDescriptor(object)
