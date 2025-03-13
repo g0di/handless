@@ -15,7 +15,7 @@ class FakeService(FakeServiceProtocol):
     pass
 
 
-FakeServiceAlias = NewType("FakeServiceAlias", FakeService)
+FakeServiceNewType = NewType("FakeServiceNewType", FakeService)
 
 
 class ValueDescriptorOptions(TypedDict, total=False):
@@ -25,7 +25,7 @@ class ValueDescriptorOptions(TypedDict, total=False):
 _T = TypeVar("_T", contravariant=True)
 
 
-class TypeRegisterer(Protocol, Generic[_T]):
+class ValueRegisterer(Protocol, Generic[_T]):
     def __call__(
         self,
         registry: Registry,
@@ -81,10 +81,10 @@ def set_value_descriptor(
 
 
 @pytest.mark.parametrize(
-    "service_type", [FakeServiceProtocol, FakeService, FakeServiceAlias]
+    "service_type", [FakeServiceProtocol, FakeService, FakeServiceNewType]
 )
 class TestRegisterValue:
-    """Test that all value registration methods register the same ValueDescriptor."""
+    """Test that all value registration methods register the same ValueServiceDescriptor."""
 
     @pytest.fixture
     def sut(self) -> Registry:
@@ -103,10 +103,12 @@ class TestRegisterValue:
     def test_register_value_set_a_value_descriptor_for_this_type(
         self,
         sut: Registry,
-        register: TypeRegisterer[FakeServiceProtocol | FakeService | FakeServiceAlias],
+        register: ValueRegisterer[
+            FakeServiceProtocol | FakeService | FakeServiceNewType
+        ],
         service_type: type[FakeServiceProtocol]
         | type[FakeService]
-        | type[FakeServiceAlias],
+        | type[FakeServiceNewType],
     ) -> None:
         value = FakeService()
 
@@ -128,10 +130,12 @@ class TestRegisterValue:
     def test_register_value_with_options_set_a_value_descriptor_for_this_type_with_given_options(
         self,
         sut: Registry,
-        register: TypeRegisterer[FakeServiceProtocol | FakeService | FakeServiceAlias],
+        register: ValueRegisterer[
+            FakeServiceProtocol | FakeService | FakeServiceNewType
+        ],
         service_type: type[FakeServiceProtocol]
         | type[FakeService]
-        | type[FakeServiceAlias],
+        | type[FakeServiceNewType],
         enter: bool,
     ) -> None:
         value = FakeService()
@@ -141,3 +145,8 @@ class TestRegisterValue:
         assert sut.get_descriptor(service_type) == ValueServiceDescriptor(
             value, enter=enter
         )
+
+    # def test_register_value_type_hints(self, sut: Registry) -> None:
+    #     sut.register_value(FakeServiceProtocol, object())
+    #     sut.register_value(FakeService, 42)
+    #     sut.register_value(FakeServiceNewType, FakeService())

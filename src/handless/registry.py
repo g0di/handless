@@ -55,7 +55,12 @@ class Registry:
     def register(
         self,
         type_: type[_T],
-        descriptor: ServiceDescriptor[_T] | _T | None = ...,
+        descriptor: ServiceDescriptor[_T],
+    ) -> Self: ...
+
+    @overload
+    def register(
+        self, type_: type[_T], descriptor: _T | None = ..., *, enter: bool | None = ...
     ) -> Self: ...
 
     @overload
@@ -63,14 +68,18 @@ class Registry:
         self,
         type_: type[_T],
         descriptor: ServiceFactory[_T] | None = ...,
+        *,
         lifetime: Lifetime = ...,
+        enter: bool | None = ...,
     ) -> Self: ...
 
     def register(
         self,
         type_: type[_T],
         descriptor: ServiceDescriptor[_T] | _T | ServiceFactory[_T] | None = None,
+        *,
         lifetime: Lifetime = "transient",
+        enter: bool | None = None,
     ) -> Self:
         """Register a descriptor for resolving the given type.
 
@@ -83,8 +92,15 @@ class Registry:
         if isclass(descriptor):
             return self.register_alias(type_, descriptor)
         if descriptor is None or callable(descriptor):
-            return self.register_factory(type_, descriptor, lifetime=lifetime)
-        return self.register_value(type_, descriptor)
+            return self.register_factory(
+                type_,
+                descriptor,
+                lifetime=lifetime,
+                enter=enter if enter is not None else True,
+            )
+        return self.register_value(
+            type_, descriptor, enter=enter if enter is not None else False
+        )
 
     def register_value(
         self, type_: type[_T], service_value: _T, *, enter: bool = False
@@ -94,40 +110,51 @@ class Registry:
         :param type_: Type of the service to register
         :param service_value: Service value
         """
-        return self._register(type_, Value(service_value, enter=enter))
+        descriptor = Value(service_value, enter=enter)
+        return self._register(type_, descriptor)
 
     def register_factory(
         self,
         type_: type[_T],
         factory: ServiceFactory[_T] | None = None,
+        *,
         lifetime: Lifetime = "transient",
+        enter: bool = True,
     ) -> Self:
         """Registers given callable to be called to resolve the given type.
 
         Lifetime is transient by default meaning the factory will be executed on each
         resolve.
         """
-        return self._register(type_, Factory(factory or type_, lifetime=lifetime))
+        descriptor = Factory(factory or type_, lifetime=lifetime, enter=enter)
+        return self._register(type_, descriptor)
 
     def register_singleton(
-        self, type_: type[_T], factory: ServiceFactory[_T] | None = None
+        self,
+        type_: type[_T],
+        factory: ServiceFactory[_T] | None = None,
+        *,
+        enter: bool = True,
     ) -> Self:
         """Registers given callable to be called once when resolving given service type."""
-        return self._register(type_, Singleton(factory or type_))
+        descriptor = Singleton(factory or type_, enter=enter)
+        return self._register(type_, descriptor)
 
     def register_scoped(
-        self, type_: type[_T], factory: ServiceFactory[_T] | None = None
+        self,
+        type_: type[_T],
+        factory: ServiceFactory[_T] | None = None,
+        *,
+        enter: bool = True,
     ) -> Self:
         """Registers given callable to be called once per scope when resolving given service type."""
-        return self._register(type_, Scoped(factory or type_))
+        descriptor = Scoped(factory or type_, enter=enter)
+        return self._register(type_, descriptor)
 
     def register_alias(self, type_: type[_T], alias: type[_T]) -> Self:
         """Registers given registered type to be used when resolving given service type."""
-        # NOTE: ensure given impl type is a subclass of service type because
-        # mypy currently allows passing any classes to impl
-        if not isclass(alias) or not issubclass(alias, type_):
-            raise RegistrationError(f"{alias} is not a subclass of {type_}")
-        return self._register(type_, Alias(alias))
+        descrtipor = Alias(alias)
+        return self._register(type_, descrtipor)
 
     # Low level API
     def _register(

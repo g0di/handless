@@ -144,12 +144,6 @@ class TestExplicitRegistration:
         assert ret is svcs
         assert_has_alias_descriptor(svcs, FakeService, FakeService)
 
-    def test_register_alias_with_not_a_subclass_raise_an_error(self) -> None:
-        svcs = Registry()
-
-        with pytest.raises(RegistrationError):
-            svcs.register_alias(FakeService, object)
-
 
 class TestImplicitRegistration:
     def test_register_a_descriptor_registers_it_as_is(self) -> None:
