@@ -1,4 +1,3 @@
-import inspect
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
@@ -8,7 +7,6 @@ from typing import (
     Callable,
     Generic,
     Literal,
-    NewType,
     OrderedDict,
     ParamSpec,
     TypeVar,
@@ -16,6 +14,7 @@ from typing import (
 
 from handless._utils import (
     count_func_params,
+    get_non_variadic_params,
     get_untyped_parameters,
     is_lambda_function,
 )
@@ -100,24 +99,18 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     )
 
     def __post_init__(self) -> None:
-        signature = inspect.signature(
-            self.factory.__supertype__
-            if isinstance(self.factory, NewType)
-            else self.factory,
-            eval_str=True,
-        )
-        params = {
-            name: param
-            for name, param in signature.parameters.items()
-            if param.kind not in {Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD}
-        }
+        # NOTE: we omit variadic params because we don't know how to autowire them yet
+        params = get_non_variadic_params(self.factory)
 
         if is_lambda_function(self.factory):
+            # NOTE: for lambda function we allow 0 arguments or a single one which will
+            # the container itself
             if count_func_params(self.factory) > 1:
                 raise RegistrationError(
                     "Lambda functions can takes up to only one parameter"
                 )
         elif empty_params := get_untyped_parameters(params):
+            # NOTE: if some parameters are missing type annotation we cannot autowire
             msg = f"Factory {self.factory} is missing types for following parameters: {', '.join(empty_params)}"
             raise RegistrationError(msg)
 

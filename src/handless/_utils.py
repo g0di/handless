@@ -1,7 +1,7 @@
 import inspect
 from inspect import Parameter
 from types import LambdaType
-from typing import Any, Callable, TypeVar, cast, get_type_hints
+from typing import Any, Callable, NewType, TypeVar, cast, get_type_hints
 
 
 def count_func_params(value: Callable[..., Any]) -> int:
@@ -27,3 +27,21 @@ _T = TypeVar("_T")
 def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
     """Get return type of given function if specified or None."""
     return cast(type[_T], get_type_hints(func).get("return"))
+
+
+def get_non_variadic_params(
+    callable_: Callable[..., Any],
+) -> dict[str, Parameter]:
+    """Returns a dict mapping given callable non variadic parameters name to their type.
+
+    Non variadic parameters are all parameters except *args and **kwargs
+    """
+    signature = inspect.signature(
+        callable_.__supertype__ if isinstance(callable_, NewType) else callable_,
+        eval_str=True,
+    )
+    return {
+        name: param
+        for name, param in signature.parameters.items()
+        if param.kind not in {Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD}
+    }
