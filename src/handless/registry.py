@@ -1,10 +1,11 @@
 import logging
 from inspect import isclass
 from types import EllipsisType
-from typing import Callable, TypeVar, cast, get_type_hints, overload
+from typing import Callable, TypeVar, overload
 
 from typing_extensions import Any, ParamSpec, Self
 
+from handless._utils import get_return_type
 from handless.container import Container
 from handless.descriptor import (
     Alias,
@@ -38,6 +39,9 @@ class Registry:
     ###########################
     # Imperative registration #
     ###########################
+
+    def __contains__(self, type_: type[_T]) -> bool:
+        return type_ in self._services
 
     def __setitem__(
         self,
@@ -156,7 +160,7 @@ class Registry:
         lifetime: Lifetime = "transient",
     ) -> Any:
         def wrapper(factory: Callable[_P, _T]) -> Callable[_P, _T]:
-            rettype = _get_return_type(factory)
+            rettype = get_return_type(factory)
             if not rettype:
                 raise RegistrationError(f"{factory} has no return type annotation")
             self.register_factory(rettype, factory, lifetime=lifetime)
@@ -188,7 +192,3 @@ class Registry:
 
     def scoped(self, factory: Callable[_P, _T] | None = None) -> Any:
         return self.factory(factory, lifetime="scoped")  # type: ignore[call-overload]
-
-
-def _get_return_type(func: Callable[..., _T]) -> type[_T] | None:
-    return cast(type[_T], get_type_hints(func).get("return"))

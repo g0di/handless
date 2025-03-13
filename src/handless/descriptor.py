@@ -1,11 +1,10 @@
 import inspect
+from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from inspect import Parameter
-from types import LambdaType
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
     Generic,
     Literal,
@@ -15,6 +14,11 @@ from typing import (
     TypeVar,
 )
 
+from handless._utils import (
+    count_func_params,
+    get_untyped_parameters,
+    is_lambda_function,
+)
 from handless.exceptions import RegistrationError
 
 if TYPE_CHECKING:
@@ -62,9 +66,10 @@ def Alias(service_type: type[_T]) -> "AliasServiceDescriptor[_T]":
     return AliasServiceDescriptor(service_type)
 
 
-class ServiceDescriptor(Generic[_T]):
-    # NOTE: using a real class instead of types union to allow using instance checks
-    pass
+class ServiceDescriptor(ABC, Generic[_T]):
+    @abstractmethod
+    def accept(self, container: "Container") -> _T:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
@@ -72,10 +77,16 @@ class ValueServiceDescriptor(ServiceDescriptor[_T]):
     value: _T
     enter: bool = False
 
+    def accept(self, container) -> _T:
+        return container._resolve_value(self)
+
 
 @dataclass(frozen=True)
 class AliasServiceDescriptor(ServiceDescriptor[_T]):
     alias: type[_T]
+
+    def accept(self, container) -> _T:
+        return container._resolve_alias(self)
 
 
 @dataclass(frozen=True)
@@ -83,52 +94,38 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     factory: ServiceFactory[_T]
     lifetime: Lifetime = "transient"
     enter: bool = True
+
     params: OrderedDict[str, Parameter] = field(
         default_factory=OrderedDict, hash=False, init=False
     )
 
     def __post_init__(self) -> None:
-        params = inspect.signature(
+        signature = inspect.signature(
             self.factory.__supertype__
             if isinstance(self.factory, NewType)
             else self.factory,
             eval_str=True,
-        ).parameters
+        )
+        params = {
+            name: param
+            for name, param in signature.parameters.items()
+            if param.kind not in {Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD}
+        }
 
-        if _is_lambda_function(self.factory):
-            if _count_func_params(self.factory) > 1:
+        if is_lambda_function(self.factory):
+            if count_func_params(self.factory) > 1:
                 raise RegistrationError(
                     "Lambda functions can takes up to only one parameter"
                 )
-        elif empty_params := get_untyped_parameters(dict(params)):
+        elif empty_params := get_untyped_parameters(params):
             msg = f"Factory {self.factory} is missing types for following parameters: {', '.join(empty_params)}"
             raise RegistrationError(msg)
 
         self.params.update(params)
 
-    def get_instance(self, container: "Container") -> _T | AbstractContextManager[_T]:
-        args = {
-            # NOTE: pass the container when the parameter is empty
-            # This happens when resolving a lambda function
-            pname: (
-                container.resolve(ptype.annotation)
-                if ptype.annotation != Parameter.empty
-                else container
-            )
-            for pname, ptype in self.params.items()
-        }
-        return self.factory(**args)
-
-
-def _is_lambda_function(value: Any) -> bool:
-    return isinstance(value, LambdaType) and value.__name__ == "<lambda>"
-
-
-def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
-    return [
-        pname for pname, param in params.items() if param.annotation is Parameter.empty
-    ]
-
-
-def _count_func_params(value: Callable[..., Any]) -> int:
-    return len(inspect.signature(value).parameters)
+    def accept(self, container: "Container") -> _T:
+        if self.lifetime == "scoped":
+            return container._resolve_scoped(self)
+        if self.lifetime == "singleton":
+            return container._resolve_singleton(self)
+        return container._resolve_transient(self)

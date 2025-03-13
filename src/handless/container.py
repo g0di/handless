@@ -1,6 +1,6 @@
 import logging
 from contextlib import AbstractContextManager, ExitStack
-from inspect import isclass
+from inspect import Parameter, isclass
 from typing import TypeVar, cast
 
 from typing_extensions import TYPE_CHECKING, Any
@@ -36,65 +36,62 @@ class Container:
             # NOTE: When receiving lambda parameter, just return the container
             return cast(_T, self)
 
-        descriptor = self._resolve_descriptor(type_)
-
+        descriptor = self._get_descriptor(type_)
         try:
-            if isinstance(descriptor, ValueServiceDescriptor):
-                return descriptor.value
-            if isinstance(descriptor, AliasServiceDescriptor):
-                return self.resolve(descriptor.alias)
-            if isinstance(descriptor, FactoryServiceDescriptor):
-                return self._resolve_factory(descriptor)
-            raise NotImplementedError("Unhandled descriptor {descriptor}")
+            return descriptor.accept(self)
         except Exception as error:
             raise ServiceResolveError(type_, str(error)) from error
+        finally:
+            self._logger.info(
+                "Resolved %s%s: %s",
+                type_,
+                " (unregistered)" if type_ in self._registry else "",
+                descriptor,
+            )
 
-    def _resolve_descriptor(self, type_: type[_T]) -> ServiceDescriptor[_T]:
-        implicit = False
+    def _get_descriptor(self, type_: type[_T]) -> ServiceDescriptor[_T]:
         descriptor = self._registry.get_descriptor(type_)
         if descriptor is None:
             if self._strict:
                 raise ServiceNotFoundError(type_)
-            descriptor = FactoryServiceDescriptor(type_)
-            implicit = True
-
-        self._logger.info(
-            "Resolved %s%s: %s",
-            type_,
-            " (implicit)" if implicit else "",
-            descriptor,
-        )
-
+            return FactoryServiceDescriptor(type_)
         return descriptor
 
-    def _resolve_factory(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
-        if descriptor.lifetime == "scoped":
-            return self._resolve_scoped(descriptor)
-        if descriptor.lifetime == "singleton":
-            return self._resolve_singleton(descriptor)
-        return self._resolve_transient(descriptor)
+    def _resolve_value(self, descriptor: ValueServiceDescriptor[_T]) -> _T:
+        return descriptor.value
+
+    def _resolve_alias(self, descriptor: AliasServiceDescriptor[_T]) -> _T:
+        return self.resolve(descriptor.alias)
 
     def _resolve_transient(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
-        return self._get_instance(descriptor, cached=False)
+        return self._get_instance(descriptor)
 
     def _resolve_singleton(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
-        return self._get_instance(descriptor, cached=True)
+        return self._get_cached_instance(descriptor)
 
     def _resolve_scoped(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
         raise ValueError("Can not resolve scoped service outside a scope")
 
-    def _get_instance(
-        self, descriptor: FactoryServiceDescriptor[_T], *, cached: bool
-    ) -> _T:
-        if not cached:
-            instance = descriptor.get_instance(self)
-            if isinstance(instance, AbstractContextManager):
-                return instance.__enter__()
-            return instance
-
+    def _get_cached_instance(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
         if descriptor not in self._cache:
-            self._cache[descriptor] = self._get_instance(descriptor, cached=False)
+            self._cache[descriptor] = self._get_instance(descriptor)
         return cast(_T, self._cache[descriptor])
+
+    def _get_instance(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
+        args = {
+            # NOTE: pass the container when the parameter is empty
+            # This happens when resolving a lambda function
+            pname: (
+                self.resolve(ptype.annotation)
+                if ptype.annotation != Parameter.empty
+                else self
+            )
+            for pname, ptype in descriptor.params.items()
+        }
+        instance = descriptor.factory(**args)
+        if isinstance(instance, AbstractContextManager):
+            return instance.__enter__()
+        return instance
 
     def create_scope(self) -> "ScopedContainer":
         return ScopedContainer(self)
@@ -110,4 +107,4 @@ class ScopedContainer(Container):
         return self._parent._resolve_singleton(descriptor)
 
     def _resolve_scoped(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
-        return self._get_instance(descriptor, cached=True)
+        return self._get_cached_instance(descriptor)
