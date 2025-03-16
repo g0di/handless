@@ -1,5 +1,4 @@
-from types import EllipsisType
-from typing import Generic, NewType, Protocol, TypeVar
+from typing import NewType, Protocol
 
 import pytest
 
@@ -17,84 +16,195 @@ class FakeService(FakeServiceProtocol):
 FakeServiceNewType = NewType("FakeServiceNewType", FakeService)
 
 
-_T = TypeVar("_T", contravariant=True)
+@pytest.fixture
+def sut() -> Registry:
+    return Registry()
 
 
-class AliasRegisterer(Protocol, Generic[_T]):
-    def __call__(
-        self,
-        registry: Registry,
-        type_: type[_T],
-        alias: type[_T],
-    ) -> None: ...
-
-
-def register_explicit_alias(
-    registry: Registry,
-    service_type: type[_T],
-    alias: type[_T],
-) -> None:
-    registry.register_alias(service_type, alias)
-
-
-def register_implicit_alias(
-    registry: Registry,
-    service_type: type[_T],
-    alias: type[_T],
-) -> None:
-    registry.register(service_type, alias)
-
-
-def register_implicit_alias_descriptor(
-    registry: Registry,
-    service_type: type[_T],
-    alias: type[_T],
-) -> None:
-    registry.register(service_type, Alias(alias))
-
-
-def set_alias(
-    registry: Registry,
-    service_type: type[_T],
-    alias: type[_T] | EllipsisType,
-) -> None:
-    registry[service_type] = alias
-
-
-def set_alias_descriptor(
-    registry: Registry,
-    service_type: type[_T],
-    alias: type[_T],
-) -> None:
-    registry[service_type] = Alias(alias)
-
-
-class TestRegisterValue:
-    """Test that all alias registration methods register the same AliasServiceDescriptor."""
+class TestRegisterExplicitAlias:
+    @pytest.fixture
+    def alias(self) -> type[FakeService]:
+        return FakeService
 
     @pytest.fixture
-    def sut(self) -> Registry:
-        return Registry()
+    def expected(self, alias: type[FakeService]) -> AliasServiceDescriptor[FakeService]:
+        return AliasServiceDescriptor(alias)
 
-    @pytest.mark.parametrize(
-        "register",
-        [
-            register_explicit_alias,
-            register_implicit_alias,
-            register_implicit_alias_descriptor,
-            set_alias,
-            set_alias_descriptor,
-        ],
-    )
-    @pytest.mark.parametrize("service_type", [FakeServiceProtocol, FakeService])
-    def test_register_alias_set_an_alias_descriptor_for_this_type(
+    def test_register_explicit_alias(
         self,
         sut: Registry,
-        register: AliasRegisterer[FakeServiceProtocol | FakeService],
-        service_type: type[FakeServiceProtocol]
-        | type[FakeService]
-        | type[FakeServiceNewType],
+        alias: type[FakeService],
+        expected: AliasServiceDescriptor[FakeService],
     ) -> None:
-        register(sut, service_type, FakeService)
+        ret = sut.register_alias(FakeService, alias)
 
-        assert sut.get_descriptor(service_type) == AliasServiceDescriptor(FakeService)
+        assert ret is sut
+        assert sut[FakeService] == expected
+
+    def test_register_explicit_alias_for_protocol(
+        self,
+        sut: Registry,
+        alias: type[FakeService],
+        expected: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register_alias(FakeServiceProtocol, alias)
+
+        assert ret is sut
+        assert sut[FakeServiceProtocol] == expected
+
+    def test_register_explicit_alias_for_new_type(
+        self,
+        sut: Registry,
+        alias: type[FakeService],
+        expected: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register_alias(FakeServiceNewType, alias)
+
+        assert ret is sut
+        assert sut[FakeServiceNewType] == expected
+
+
+class TestRegisterImplicitAlias:
+    @pytest.fixture
+    def alias(self) -> type[FakeService]:
+        return FakeService
+
+    @pytest.fixture
+    def expected(self, alias: type[FakeService]) -> AliasServiceDescriptor[FakeService]:
+        return AliasServiceDescriptor(alias)
+
+    def test_register_implicit_alias(
+        self,
+        sut: Registry,
+        alias: type[FakeService],
+        expected: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register(FakeService, alias)
+
+        assert ret is sut
+        assert sut[FakeService] == expected
+
+    def test_register_implicit_for_protocol(
+        self,
+        sut: Registry,
+        alias: type[FakeService],
+        expected: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register(FakeServiceProtocol, alias)
+
+        assert ret is sut
+        assert sut[FakeServiceProtocol] == expected
+
+    def test_register_implicit_for_new_type(
+        self,
+        sut: Registry,
+        alias: type[FakeService],
+        expected: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register(FakeServiceNewType, alias)
+
+        assert ret is sut
+        assert sut[FakeServiceNewType] == expected
+
+
+class TestRegisterAliasDescriptor:
+    @pytest.fixture
+    def alias_descriptor(self) -> AliasServiceDescriptor[FakeService]:
+        return Alias(FakeService)
+
+    def test_register_alias_descriptor(
+        self,
+        sut: Registry,
+        alias_descriptor: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register(FakeService, alias_descriptor)
+
+        assert ret is sut
+        assert sut[FakeService] is alias_descriptor
+
+    def test_register_alias_descriptor_for_protocol(
+        self,
+        sut: Registry,
+        alias_descriptor: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register(FakeServiceProtocol, alias_descriptor)
+
+        assert ret is sut
+        assert sut[FakeServiceProtocol] is alias_descriptor
+
+    def test_register_alias_descriptor_new_type(
+        self,
+        sut: Registry,
+        alias_descriptor: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register(FakeServiceNewType, alias_descriptor)
+
+        assert ret is sut
+        assert sut[FakeServiceNewType] is alias_descriptor
+
+
+class TestSetAlias:
+    @pytest.fixture
+    def alias(self) -> type[FakeService]:
+        return FakeService
+
+    @pytest.fixture
+    def expected(self, alias: type[FakeService]) -> AliasServiceDescriptor[FakeService]:
+        return AliasServiceDescriptor(alias)
+
+    def test_set_alias(
+        self,
+        sut: Registry,
+        alias: type[FakeService],
+        expected: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        sut[FakeService] = alias
+
+        assert sut[FakeService] == expected
+
+    def test_set_alias_for_protocol(
+        self,
+        sut: Registry,
+        alias: type[FakeService],
+        expected: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        sut[FakeServiceProtocol] = alias
+
+        assert sut[FakeServiceProtocol] == expected
+
+    def test_set_alias_for_new_type(
+        self,
+        sut: Registry,
+        alias: type[FakeService],
+        expected: AliasServiceDescriptor[FakeService],
+    ) -> None:
+        sut[FakeServiceNewType] = FakeServiceNewType(alias)
+
+        assert sut[FakeServiceNewType] == expected
+
+
+class TestSetAliasDescriptor:
+    @pytest.fixture
+    def alias_descriptor(self) -> AliasServiceDescriptor[FakeService]:
+        return Alias(FakeService)
+
+    def test_set_alias_descriptor(
+        self, sut: Registry, alias_descriptor: type[FakeService]
+    ) -> None:
+        sut[FakeService] = alias_descriptor
+
+        assert sut[FakeService] is alias_descriptor
+
+    def test_set_alias_descriptor_for_protocol(
+        self, sut: Registry, alias_descriptor: type[FakeService]
+    ) -> None:
+        sut[FakeServiceProtocol] = alias_descriptor
+
+        assert sut[FakeServiceProtocol] is alias_descriptor
+
+    def test_set_alias_descriptor_for_new_type(
+        self, sut: Registry, alias_descriptor: type[FakeService]
+    ) -> None:
+        sut[FakeServiceNewType] = FakeServiceNewType(alias_descriptor)
+
+        assert sut[FakeServiceNewType] is alias_descriptor

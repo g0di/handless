@@ -1,11 +1,9 @@
-from typing import Generic, NewType, Protocol, TypedDict, TypeVar
+from typing import NewType, Protocol, TypedDict
 
 import pytest
-from typing_extensions import Unpack
 
 from handless import Registry, Value
 from handless.descriptor import ValueServiceDescriptor
-from tests.test_descriptors import use_enter
 
 
 class FakeServiceProtocol(Protocol): ...
@@ -22,131 +20,231 @@ class ValueDescriptorOptions(TypedDict, total=False):
     enter: bool
 
 
-_T = TypeVar("_T", contravariant=True)
-
-
-class ValueRegisterer(Protocol, Generic[_T]):
-    def __call__(
-        self,
-        registry: Registry,
-        type_: type[_T],
-        value: _T,
-        **kwargs: Unpack[ValueDescriptorOptions],
-    ) -> None: ...
-
-
-def register_explicit_value(
-    registry: Registry,
-    service_type: type[_T],
-    value: _T,
-    **kwargs: Unpack[ValueDescriptorOptions],
-) -> None:
-    registry.register_value(service_type, value, **kwargs)
-
-
-def register_implicit_value(
-    registry: Registry,
-    service_type: type[_T],
-    value: _T,
-    **kwargs: Unpack[ValueDescriptorOptions],
-) -> None:
-    registry.register(service_type, value)
-
-
-def register_implicit_value_descriptor(
-    registry: Registry,
-    service_type: type[_T],
-    value: _T,
-    **kwargs: Unpack[ValueDescriptorOptions],
-) -> None:
-    registry.register(service_type, Value(value, **kwargs))
-
-
-def set_value(
-    registry: Registry,
-    service_type: type[_T],
-    value: _T,
-    **kwargs: Unpack[ValueDescriptorOptions],
-) -> None:
-    registry[service_type] = value
-
-
-def set_value_descriptor(
-    registry: Registry,
-    service_type: type[_T],
-    value: _T,
-    **kwargs: Unpack[ValueDescriptorOptions],
-) -> None:
-    registry[service_type] = Value(value, **kwargs)
-
-
-@pytest.mark.parametrize(
-    "service_type", [FakeServiceProtocol, FakeService, FakeServiceNewType]
+use_value_descriptor_options = pytest.mark.parametrize(
+    "options",
+    [
+        ValueDescriptorOptions(),
+        ValueDescriptorOptions(enter=True),
+        ValueDescriptorOptions(enter=False),
+    ],
 )
-class TestRegisterValue:
-    """Test that all value registration methods register the same ValueServiceDescriptor."""
+
+
+@pytest.fixture
+def sut() -> Registry:
+    return Registry()
+
+
+@use_value_descriptor_options
+class TestRegisterExplicitValue:
+    @pytest.fixture
+    def value(self) -> FakeService:
+        return FakeService()
 
     @pytest.fixture
-    def sut(self) -> Registry:
-        return Registry()
+    def expected(
+        self, value: FakeService, options: ValueDescriptorOptions
+    ) -> ValueServiceDescriptor[FakeService]:
+        options.setdefault("enter", False)
+        return ValueServiceDescriptor(value, **options)
 
-    @pytest.mark.parametrize(
-        "register",
-        [
-            register_explicit_value,
-            register_implicit_value,
-            register_implicit_value_descriptor,
-            set_value,
-            set_value_descriptor,
-        ],
-    )
-    def test_register_value_set_a_value_descriptor_for_this_type(
+    def test_register_explicit_value(
         self,
         sut: Registry,
-        register: ValueRegisterer[
-            FakeServiceProtocol | FakeService | FakeServiceNewType
-        ],
-        service_type: type[FakeServiceProtocol]
-        | type[FakeService]
-        | type[FakeServiceNewType],
+        value: FakeService,
+        expected: ValueServiceDescriptor[FakeService],
+        options: ValueDescriptorOptions,
     ) -> None:
-        value = FakeService()
+        ret = sut.register_value(FakeService, value, **options)
 
-        register(sut, service_type, value)
+        assert ret is sut
+        assert sut[FakeService] == expected
 
-        assert sut.get_descriptor(service_type) == ValueServiceDescriptor(
-            value, enter=False
-        )
-
-    @pytest.mark.parametrize(
-        "register",
-        [
-            register_explicit_value,
-            register_implicit_value_descriptor,
-            set_value_descriptor,
-        ],
-    )
-    @use_enter
-    def test_register_value_with_options_set_a_value_descriptor_for_this_type_with_given_options(
+    def test_register_explicit_value_for_protocol(
         self,
         sut: Registry,
-        register: ValueRegisterer[
-            FakeServiceProtocol | FakeService | FakeServiceNewType
-        ],
-        service_type: type[FakeServiceProtocol]
-        | type[FakeService]
-        | type[FakeServiceNewType],
-        enter: bool,
+        value: FakeService,
+        expected: ValueServiceDescriptor[FakeService],
+        options: ValueDescriptorOptions,
     ) -> None:
-        value = FakeService()
+        ret = sut.register_value(FakeServiceProtocol, value, **options)
 
-        register(sut, service_type, value, enter=enter)
+        assert ret is sut
+        assert sut[FakeServiceProtocol] == expected
 
-        assert sut.get_descriptor(service_type) == ValueServiceDescriptor(
-            value, enter=enter
-        )
+    def test_register_explicit_value_for_new_type(
+        self,
+        sut: Registry,
+        value: FakeService,
+        expected: ValueServiceDescriptor[FakeService],
+        options: ValueDescriptorOptions,
+    ) -> None:
+        ret = sut.register_value(FakeServiceNewType, value, **options)
 
-    # def test_register_value_type_hints(self, sut: Registry) -> None:
-    #     sut.register_value(FakeServiceProtocol, object())
-    #     sut.register_value(FakeService, 42)
-    #     sut.register_value(FakeServiceNewType, FakeService())
+        assert ret is sut
+        assert sut[FakeServiceNewType] == expected
+
+
+@use_value_descriptor_options
+class TestRegisterImplicitValue:
+    @pytest.fixture
+    def value(self) -> FakeService:
+        return FakeService()
+
+    @pytest.fixture
+    def expected(
+        self, value: FakeService, options: ValueDescriptorOptions
+    ) -> ValueServiceDescriptor[FakeService]:
+        options.setdefault("enter", False)
+        return ValueServiceDescriptor(value, **options)
+
+    def test_register_implicit_value(
+        self,
+        sut: Registry,
+        value: FakeService,
+        expected: ValueServiceDescriptor[FakeService],
+        options: ValueDescriptorOptions,
+    ) -> None:
+        ret = sut.register(FakeService, value, **options)
+
+        assert ret is sut
+        assert sut[FakeService] == expected
+
+    def test_register_implicit_for_protocol(
+        self,
+        sut: Registry,
+        value: FakeService,
+        expected: ValueServiceDescriptor[FakeService],
+        options: ValueDescriptorOptions,
+    ) -> None:
+        ret = sut.register(FakeServiceProtocol, value, **options)
+
+        assert ret is sut
+        assert sut[FakeServiceProtocol] == expected
+
+    def test_register_implicit_for_new_type(
+        self,
+        sut: Registry,
+        value: FakeService,
+        expected: ValueServiceDescriptor[FakeService],
+        options: ValueDescriptorOptions,
+    ) -> None:
+        ret = sut.register(FakeServiceNewType, value, **options)
+
+        assert ret is sut
+        assert sut[FakeServiceNewType] == expected
+
+
+@use_value_descriptor_options
+class TestRegisterValueDescriptor:
+    @pytest.fixture
+    def value_descriptor(
+        self, options: ValueDescriptorOptions
+    ) -> ValueServiceDescriptor[FakeService]:
+        return Value(FakeService(), **options)
+
+    def test_register_value_descriptor(
+        self,
+        sut: Registry,
+        value_descriptor: ValueServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register(FakeService, value_descriptor)
+
+        assert ret is sut
+        assert sut[FakeService] is value_descriptor
+
+    def test_register_value_descriptor_for_protocol(
+        self,
+        sut: Registry,
+        value_descriptor: ValueServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register(FakeServiceProtocol, value_descriptor)
+
+        assert ret is sut
+        assert sut[FakeServiceProtocol] is value_descriptor
+
+    def test_register_value_descriptor_new_type(
+        self,
+        sut: Registry,
+        value_descriptor: ValueServiceDescriptor[FakeService],
+    ) -> None:
+        ret = sut.register(FakeServiceNewType, value_descriptor)
+
+        assert ret is sut
+        assert sut[FakeServiceNewType] is value_descriptor
+
+
+class TestSetValue:
+    @pytest.fixture
+    def value(self) -> FakeService:
+        return FakeService()
+
+    @pytest.fixture
+    def expected(self, value: FakeService) -> ValueServiceDescriptor[FakeService]:
+        return ValueServiceDescriptor(value)
+
+    def test_set_value(
+        self,
+        sut: Registry,
+        value: FakeService,
+        expected: ValueServiceDescriptor[FakeService],
+    ) -> None:
+        sut[FakeService] = value
+
+        assert sut[FakeService] == expected
+
+    def test_set_value_for_protocol(
+        self,
+        sut: Registry,
+        value: FakeService,
+        expected: ValueServiceDescriptor[FakeService],
+    ) -> None:
+        sut[FakeServiceProtocol] = value
+
+        assert sut[FakeServiceProtocol] == expected
+
+    def test_set_value_for_new_type(
+        self,
+        sut: Registry,
+        value: FakeService,
+        expected: ValueServiceDescriptor[FakeService],
+    ) -> None:
+        sut[FakeServiceNewType] = FakeServiceNewType(value)
+
+        assert sut[FakeServiceNewType] == expected
+
+
+@use_value_descriptor_options
+class TestSetValueDescriptor:
+    @pytest.fixture
+    def value_descriptor(
+        self, options: ValueDescriptorOptions
+    ) -> ValueServiceDescriptor[FakeService]:
+        return Value(FakeService(), **options)
+
+    def test_set_value_descriptor(
+        self,
+        sut: Registry,
+        value_descriptor: ValueServiceDescriptor[FakeService],
+    ) -> None:
+        sut[FakeService] = value_descriptor
+
+        assert sut[FakeService] is value_descriptor
+
+    def test_set_value_descriptor_for_protocol(
+        self,
+        sut: Registry,
+        value_descriptor: ValueServiceDescriptor[FakeService],
+    ) -> None:
+        sut[FakeServiceProtocol] = value_descriptor
+
+        assert sut[FakeServiceProtocol] is value_descriptor
+
+    def test_set_value_descriptor_for_new_type(
+        self,
+        sut: Registry,
+        value_descriptor: ValueServiceDescriptor[FakeService],
+    ) -> None:
+        sut[FakeServiceNewType] = value_descriptor
+
+        assert sut[FakeServiceNewType] is value_descriptor

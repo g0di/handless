@@ -1,4 +1,4 @@
-from typing import Callable, Generic, NewType, Protocol, TypedDict, TypeVar
+from typing import Any, Callable, NewType, Protocol, TypedDict, TypeVar
 
 import pytest
 from typing_extensions import Unpack
@@ -41,20 +41,20 @@ class FactoryOptions(TypedDict, total=False):
     lifetime: Lifetime
 
 
-class FactoryRegisterer(Protocol, Generic[_T]):
+class FactoryRegisterer(Protocol):
     def __call__(
         self,
         registry: Registry,
-        type_: type[_T],
-        factory: Callable[..., _T],
+        type_: type[Any],
+        factory: Callable[..., Any],
         **options: Unpack[FactoryOptions],
     ) -> None: ...
 
 
 def register_explicit_factory(
     registry: Registry,
-    service_type: type[_T],
-    factory: Callable[..., _T],
+    service_type: type[Any],
+    factory: Callable[..., Any],
     **options: Unpack[FactoryOptions],
 ) -> None:
     registry.register_factory(service_type, factory, **options)
@@ -62,8 +62,8 @@ def register_explicit_factory(
 
 def register_implicit_factory(
     registry: Registry,
-    service_type: type[_T],
-    factory: Callable[..., _T],
+    service_type: type[Any],
+    factory: Callable[..., Any],
     **options: Unpack[FactoryOptions],
 ) -> None:
     registry.register(service_type, factory, **options)
@@ -71,8 +71,8 @@ def register_implicit_factory(
 
 def register_factory_descriptor(
     registry: Registry,
-    service_type: type[_T],
-    factory: Callable[..., _T],
+    service_type: type[Any],
+    factory: Callable[..., Any],
     **options: Unpack[FactoryOptions],
 ) -> None:
     registry.register(service_type, Factory(factory, **options))
@@ -80,16 +80,16 @@ def register_factory_descriptor(
 
 def set_factory(
     registry: Registry,
-    service_type: type[_T],
-    factory: Callable[..., _T],
+    service_type: type[Any],
+    factory: Callable[..., Any],
 ) -> None:
     registry[service_type] = factory
 
 
 def set_factory_descriptor(
     registry: Registry,
-    service_type: type[_T],
-    factory: Callable[..., _T],
+    service_type: type[Any],
+    factory: Callable[..., Any],
     **options: Unpack[FactoryOptions],
 ) -> None:
     registry[service_type] = Factory(factory, **options)
@@ -99,7 +99,7 @@ def set_factory_descriptor(
     "service_type", [FakeServiceProtocol, FakeService, FakeServiceNewType]
 )
 class TestRegisterFactory:
-    """Test that all factory registration methods register the same factoryServiceDescriptor."""
+    """Test that all factory registration methods register the same FactoryServiceDescriptor."""
 
     @pytest.fixture
     def sut(self) -> Registry:
@@ -135,13 +135,9 @@ class TestRegisterFactory:
     def test_register_explicit_factory_set_a_transient_factory_descriptor_for_this_type(
         self,
         sut: Registry,
-        register: FactoryRegisterer[
-            FakeServiceProtocol | FakeService | FakeServiceNewType
-        ],
-        service_type: type[FakeServiceProtocol]
-        | type[FakeService]
-        | type[FakeServiceNewType],
-        factory: type[FakeService] | Callable[..., FakeService],
+        register: FactoryRegisterer,
+        service_type: type[Any],
+        factory: Callable[..., Any],
     ) -> None:
         register(sut, service_type, factory)
 
@@ -171,13 +167,9 @@ class TestRegisterFactory:
     def test_register_implicit_callable_set_a_transient_factory_descriptor_for_this_type(
         self,
         sut: Registry,
-        register: FactoryRegisterer[
-            FakeServiceProtocol | FakeService | FakeServiceNewType
-        ],
-        service_type: type[FakeServiceProtocol]
-        | type[FakeService]
-        | type[FakeServiceNewType],
-        factory: type[FakeService] | Callable[..., FakeService],
+        register: FactoryRegisterer,
+        service_type: type[Any],
+        factory: Callable[..., Any],
     ) -> None:
         register(sut, service_type, factory)
 

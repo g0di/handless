@@ -1,10 +1,7 @@
-from operator import setitem
-
 import pytest
 from typing_extensions import Any
 
-from handless import Lifetime, Registry, Value
-from handless.container import ValueServiceDescriptor
+from handless import Lifetime, Registry
 from handless.descriptor import (
     FactoryServiceDescriptor,
     ServiceFactory,
@@ -25,48 +22,6 @@ from tests.helpers import (
     use_factories,
     use_lifetimes,
 )
-from tests.test_descriptors import use_enter
-
-
-class TestRegisterValue:
-    @pytest.mark.parametrize(
-        "register",
-        [
-            lambda r, v: r.register_value(FakeService, v),
-            lambda r, v: r.register(FakeService, v),
-            lambda r, v: r.register(FakeService, Value(v)),
-            lambda r, v: setitem(r, FakeService, v),
-            lambda r, v: setitem(r, FakeService, Value(v)),
-        ],
-    )
-    def test_register_value_defaults(self, register):
-        svcs = Registry()
-        value = FakeService()
-
-        register(svcs, value)
-
-        assert svcs.get_descriptor(FakeService) == ValueServiceDescriptor(
-            value, enter=False
-        )
-
-    @pytest.mark.parametrize(
-        "register",
-        [
-            lambda r, v, e: r.register_value(FakeService, v, enter=e),
-            lambda r, v, e: r.register(FakeService, Value(v, enter=e)),
-            lambda r, v, e: setitem(r, FakeService, Value(v, enter=e)),
-        ],
-    )
-    @use_enter
-    def test_register_value(self, register, enter):
-        svcs = Registry()
-        value = FakeService()
-
-        register(svcs, value, enter)
-
-        assert svcs.get_descriptor(FakeService) == ValueServiceDescriptor(
-            value, enter=enter
-        )
 
 
 class TestExplicitRegistration:

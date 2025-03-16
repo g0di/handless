@@ -54,7 +54,7 @@ dev = [
 
 [tool.mypy]
 files = ["src", "tests"]
-strict = false
+strict = true
 
 [tool.ruff]
 src = ["src", "tests"]

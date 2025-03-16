@@ -1,7 +1,7 @@
 import logging
 from inspect import isclass
 from types import EllipsisType
-from typing import Callable, TypeVar, overload
+from typing import Callable, Iterator, MutableMapping, TypeVar, overload
 
 from typing_extensions import Any, ParamSpec, Self
 
@@ -23,7 +23,7 @@ _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
 
-class Registry:
+class Registry(MutableMapping[type[Any], Any]):
     def __init__(self) -> None:
         self._services: dict[type, ServiceDescriptor[Any]] = {}
         self._logger = logging.getLogger(__name__)
@@ -40,13 +40,25 @@ class Registry:
     # Imperative registration #
     ###########################
 
-    def __contains__(self, type_: type[_T]) -> bool:
+    def __contains__(self, type_: object) -> bool:
         return type_ in self._services
+
+    def __getitem__(self, key: type[_T] | type[Any]) -> ServiceDescriptor[_T]:
+        return self._services[key]
+
+    def __delitem__(self, key: type) -> None:
+        del self._services[key]
+
+    def __iter__(self) -> Iterator[type[Any]]:
+        return iter(self._services)
+
+    def __len__(self) -> int:
+        return len(self._services)
 
     def __setitem__(
         self,
-        type_: type[_T],
-        descriptor: ServiceDescriptor[_T] | _T | ServiceFactory[_T] | EllipsisType,
+        type_: type[_T] | type[Any],
+        descriptor: EllipsisType | _T | ServiceFactory[_T] | ServiceDescriptor[_T],
     ) -> None:
         _service_descriptor = None if descriptor is ... else descriptor
         self.register(type_, _service_descriptor)
@@ -60,7 +72,11 @@ class Registry:
 
     @overload
     def register(
-        self, type_: type[_T], descriptor: _T | None = ..., *, enter: bool | None = ...
+        self,
+        type_: type[_T] | type[Any],
+        descriptor: _T | None = ...,
+        *,
+        enter: bool | None = ...,
     ) -> Self: ...
 
     @overload
@@ -103,7 +119,7 @@ class Registry:
         )
 
     def register_value(
-        self, type_: type[_T], service_value: _T, *, enter: bool = False
+        self, type_: type[_T] | type[Any], service_value: _T, *, enter: bool = False
     ) -> Self:
         """Registers given value to be returned when resolving given service type.
 
@@ -151,7 +167,7 @@ class Registry:
         descriptor = Scoped(factory or type_, enter=enter)
         return self._register(type_, descriptor)
 
-    def register_alias(self, type_: type[_T], alias: type[_T]) -> Self:
+    def register_alias(self, type_: type[_T] | type[Any], alias: type[_T]) -> Self:
         """Registers given registered type to be used when resolving given service type."""
         descrtipor = Alias(alias)
         return self._register(type_, descrtipor)
