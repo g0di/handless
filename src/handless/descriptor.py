@@ -76,7 +76,7 @@ class ValueServiceDescriptor(ServiceDescriptor[_T]):
     value: _T
     enter: bool = False
 
-    def accept(self, container) -> _T:
+    def accept(self, container: "Container") -> _T:
         return container._resolve_value(self)
 
 
@@ -84,7 +84,7 @@ class ValueServiceDescriptor(ServiceDescriptor[_T]):
 class AliasServiceDescriptor(ServiceDescriptor[_T]):
     alias: type[_T]
 
-    def accept(self, container) -> _T:
+    def accept(self, container: "Container") -> _T:
         return container._resolve_alias(self)
 
 

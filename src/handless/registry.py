@@ -1,5 +1,5 @@
 import logging
-from inspect import isclass
+from inspect import isclass, isfunction
 from types import EllipsisType
 from typing import Callable, Iterator, MutableMapping, TypeVar, overload
 
@@ -28,25 +28,13 @@ class Registry(MutableMapping[type[Any], Any]):
         self._services: dict[type, ServiceDescriptor[Any]] = {}
         self._logger = logging.getLogger(__name__)
 
-    def get_descriptor(self, type_: type[_T]) -> ServiceDescriptor[_T] | None:
-        """Get descriptor registered for given service type, if any or None."""
-        return self._services.get(type_)
+    def __contains__(self, key: object) -> bool:
+        return key in self._services
 
-    def create_container(self, *, strict: bool = False) -> Container:
-        """Create and return a new container using this registry."""
-        return Container(self, strict=strict)
-
-    ###########################
-    # Imperative registration #
-    ###########################
-
-    def __contains__(self, type_: object) -> bool:
-        return type_ in self._services
-
-    def __getitem__(self, key: type[_T] | type[Any]) -> ServiceDescriptor[_T]:
+    def __getitem__(self, key: type[_T]) -> ServiceDescriptor[_T]:
         return self._services[key]
 
-    def __delitem__(self, key: type) -> None:
+    def __delitem__(self, key: type[Any]) -> None:
         del self._services[key]
 
     def __iter__(self) -> Iterator[type[Any]]:
@@ -57,11 +45,25 @@ class Registry(MutableMapping[type[Any], Any]):
 
     def __setitem__(
         self,
-        type_: type[_T] | type[Any],
-        descriptor: EllipsisType | _T | ServiceFactory[_T] | ServiceDescriptor[_T],
+        key: type[_T],
+        value: _T | ServiceFactory[_T] | ServiceDescriptor[_T] | EllipsisType,
     ) -> None:
-        _service_descriptor = None if descriptor is ... else descriptor
-        self.register(type_, _service_descriptor)
+        _service_descriptor = None if value is ... else value
+        self.register(key, _service_descriptor)
+
+    @overload
+    def get_descriptor(self, type_: type[_T]) -> ServiceDescriptor[_T] | None: ...
+
+    @overload
+    def get_descriptor(self, type_: type[Any]) -> ServiceDescriptor[Any] | None: ...
+
+    def get_descriptor(self, type_: type[_T]) -> ServiceDescriptor[_T] | None:
+        """Get descriptor registered for given service type, if any or None."""
+        return self._services.get(type_)
+
+    def create_container(self, *, strict: bool = False) -> Container:
+        """Create and return a new container using this registry."""
+        return Container(self, strict=strict)
 
     @overload
     def register(
@@ -73,9 +75,10 @@ class Registry(MutableMapping[type[Any], Any]):
     @overload
     def register(
         self,
-        type_: type[_T] | type[Any],
-        descriptor: _T | None = ...,
+        type_: type[_T],
+        descriptor: ServiceFactory[_T] | None = ...,
         *,
+        lifetime: Lifetime = ...,
         enter: bool | None = ...,
     ) -> Self: ...
 
@@ -83,9 +86,8 @@ class Registry(MutableMapping[type[Any], Any]):
     def register(
         self,
         type_: type[_T],
-        descriptor: ServiceFactory[_T] | None = ...,
+        descriptor: _T | None = ...,
         *,
-        lifetime: Lifetime = ...,
         enter: bool | None = ...,
     ) -> Self: ...
 
@@ -107,7 +109,7 @@ class Registry(MutableMapping[type[Any], Any]):
             return self._register(type_, descriptor)
         if isclass(descriptor):
             return self.register_alias(type_, descriptor)
-        if descriptor is None or callable(descriptor):
+        if descriptor is None or isfunction(descriptor):
             return self.register_factory(
                 type_,
                 descriptor,

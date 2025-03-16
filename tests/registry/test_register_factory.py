@@ -1,178 +1,52 @@
-from typing import Any, Callable, NewType, Protocol, TypedDict, TypeVar
+from typing import Callable
 
 import pytest
-from typing_extensions import Unpack
 
-from handless import Factory, Lifetime, Registry
+from handless import Lifetime, Registry
 from handless.descriptor import FactoryServiceDescriptor
-from tests.registry.test_register_alias import FakeServiceNewType
+from handless.exceptions import RegistrationError
+from tests import helpers
 
 
-class FakeServiceProtocol(Protocol): ...
-
-
-class FakeService(FakeServiceProtocol):
-    pass
-
-
-class FakeServiceWithTypedParams(FakeServiceProtocol):
-    def __init__(self, foo: object, bar: object) -> None:
-        pass
-
-
-FakeServiceNewType = NewType("FakeServiceNewType", FakeService)
-
-
-def fake_service_factory() -> FakeService:
-    return FakeService()
-
-
-def fake_service_factory_with_typed_params(
-    foo: object, bar: object
-) -> FakeServiceWithTypedParams:
-    return FakeServiceWithTypedParams(foo, bar)
-
-
-_T = TypeVar("_T", contravariant=True)
-
-
-class FactoryOptions(TypedDict, total=False):
-    enter: bool
-    lifetime: Lifetime
-
-
-class FactoryRegisterer(Protocol):
-    def __call__(
-        self,
-        registry: Registry,
-        type_: type[Any],
-        factory: Callable[..., Any],
-        **options: Unpack[FactoryOptions],
-    ) -> None: ...
-
-
-def register_explicit_factory(
-    registry: Registry,
-    service_type: type[Any],
-    factory: Callable[..., Any],
-    **options: Unpack[FactoryOptions],
+def test_register_factory_without_factory_registers_a_transient_factory_service_descriptor_for_given_type(
+    sut: Registry,
 ) -> None:
-    registry.register_factory(service_type, factory, **options)
+    ret = sut.register_factory(helpers.FakeService)
 
-
-def register_implicit_factory(
-    registry: Registry,
-    service_type: type[Any],
-    factory: Callable[..., Any],
-    **options: Unpack[FactoryOptions],
-) -> None:
-    registry.register(service_type, factory, **options)
-
-
-def register_factory_descriptor(
-    registry: Registry,
-    service_type: type[Any],
-    factory: Callable[..., Any],
-    **options: Unpack[FactoryOptions],
-) -> None:
-    registry.register(service_type, Factory(factory, **options))
-
-
-def set_factory(
-    registry: Registry,
-    service_type: type[Any],
-    factory: Callable[..., Any],
-) -> None:
-    registry[service_type] = factory
-
-
-def set_factory_descriptor(
-    registry: Registry,
-    service_type: type[Any],
-    factory: Callable[..., Any],
-    **options: Unpack[FactoryOptions],
-) -> None:
-    registry[service_type] = Factory(factory, **options)
-
-
-@pytest.mark.parametrize(
-    "service_type", [FakeServiceProtocol, FakeService, FakeServiceNewType]
-)
-class TestRegisterFactory:
-    """Test that all factory registration methods register the same FactoryServiceDescriptor."""
-
-    @pytest.fixture
-    def sut(self) -> Registry:
-        return Registry()
-
-    @pytest.mark.parametrize(
-        "register",
-        [
-            register_explicit_factory,
-            register_factory_descriptor,
-            set_factory_descriptor,
-        ],
+    assert ret is sut
+    assert sut.get_descriptor(helpers.FakeService) == FactoryServiceDescriptor(
+        helpers.FakeService, lifetime="transient", enter=True
     )
-    @pytest.mark.parametrize(
-        "factory",
-        [
-            FakeService,
-            lambda: FakeService(),
-            lambda c: FakeService(),
-            FakeServiceWithTypedParams,
-            fake_service_factory,
-            fake_service_factory_with_typed_params,
-        ],
-        ids=[
-            "Class constructor",
-            "Lambda",
-            "Lambda with single param",
-            "Class constructor with typed params",
-            "Function without parameters",
-            "Function with typed parameters",
-        ],
-    )
-    def test_register_explicit_factory_set_a_transient_factory_descriptor_for_this_type(
-        self,
-        sut: Registry,
-        register: FactoryRegisterer,
-        service_type: type[Any],
-        factory: Callable[..., Any],
-    ) -> None:
-        register(sut, service_type, factory)
 
-        assert sut.get_descriptor(service_type) == FactoryServiceDescriptor(
-            factory, enter=True, lifetime="transient"
-        )
 
-    @pytest.mark.parametrize(
-        "register",
-        [register_implicit_factory, set_factory],
-    )
-    @pytest.mark.parametrize(
-        "factory",
-        [
-            lambda: FakeService(),
-            lambda c: FakeService(),
-            fake_service_factory,
-            fake_service_factory_with_typed_params,
-        ],
-        ids=[
-            "Lambda",
-            "Lambda with single param",
-            "Function without parameters",
-            "Function with typed parameters",
-        ],
-    )
-    def test_register_implicit_callable_set_a_transient_factory_descriptor_for_this_type(
-        self,
-        sut: Registry,
-        register: FactoryRegisterer,
-        service_type: type[Any],
-        factory: Callable[..., Any],
-    ) -> None:
-        register(sut, service_type, factory)
+@helpers.use_factory_callable
+def test_register_factory_registers_a_transient_factory_service_descriptor(
+    sut: Registry, factory: Callable[..., helpers.FakeService]
+) -> None:
+    ret = sut.register_factory(helpers.FakeService, factory)
 
-        assert sut.get_descriptor(service_type) == FactoryServiceDescriptor(
-            factory, enter=True, lifetime="transient"
-        )
+    assert ret is sut
+    assert sut.get_descriptor(helpers.FakeService) == FactoryServiceDescriptor(
+        factory, lifetime="transient", enter=True
+    )
+
+
+@helpers.use_lifetimes
+@helpers.use_enter
+def test_register_factory_with_options_registers_a_factory_service_descriptor_with_given_options(
+    sut: Registry, enter: bool, lifetime: Lifetime
+) -> None:
+    ret = sut.register_factory(helpers.FakeService, lifetime=lifetime, enter=enter)
+
+    assert ret is sut
+    assert sut.get_descriptor(helpers.FakeService) == FactoryServiceDescriptor(
+        helpers.FakeService, lifetime=lifetime, enter=enter
+    )
+
+
+@helpers.use_invalid_factory_callable
+def test_register_factory_with_untyped_callable_raise_an_error(
+    sut: Registry, factory: Callable[..., helpers.FakeService]
+) -> None:
+    with pytest.raises(RegistrationError):
+        sut.register_factory(helpers.FakeService, factory)

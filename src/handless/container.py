@@ -1,7 +1,7 @@
 import logging
 from contextlib import AbstractContextManager, ExitStack
 from inspect import Parameter, isclass
-from typing import TypeVar, cast
+from typing import TypeVar, cast, overload
 
 from typing_extensions import TYPE_CHECKING, Any
 
@@ -31,6 +31,12 @@ class Container:
     def __getitem__(self, type_: type[_T]) -> _T:
         return self.resolve(type_)
 
+    @overload
+    def resolve(self, type_: type[_T]) -> _T: ...
+
+    @overload
+    def resolve(self, type_: type[Any]) -> Any: ...
+
     def resolve(self, type_: type[_T]) -> _T:
         if isclass(type_) and issubclass(type_, Container):
             # NOTE: When receiving lambda parameter, just return the container
@@ -58,6 +64,8 @@ class Container:
         return descriptor
 
     def _resolve_value(self, descriptor: ValueServiceDescriptor[_T]) -> _T:
+        if descriptor.enter and isinstance(descriptor.value, AbstractContextManager):
+            return cast(_T, descriptor.value.__enter__())
         return descriptor.value
 
     def _resolve_alias(self, descriptor: AliasServiceDescriptor[_T]) -> _T:

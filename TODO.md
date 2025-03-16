@@ -20,6 +20,7 @@
 
 ## Misc
 
+- Fix the type-abstract mypy issues
 - add resolve stack for debugging
 - When logging service type resolved, also display the full requiremnt chain
 - handle resolving singleton from different threads
