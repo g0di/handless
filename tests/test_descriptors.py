@@ -5,8 +5,7 @@ from typing_extensions import Any
 
 from handless import Alias, Factory, Lifetime, Scoped, Singleton, Value
 from handless.descriptor import (
-    AliasServiceDescriptor,
-    FactoryServiceDescriptor,
+    ServiceDescriptor,
 )
 from handless.exceptions import RegistrationError
 from tests import helpers
@@ -22,8 +21,8 @@ class TestValueDescriptor:
 
         descriptor = Value(value)
 
-        assert descriptor == FactoryServiceDescriptor(
-            lambda: value, enter=False, lifetime="singleton"
+        assert descriptor == ServiceDescriptor(
+            factory=lambda: value, enter=False, lifetime="singleton"
         )
 
     @use_enter
@@ -32,15 +31,15 @@ class TestValueDescriptor:
 
         descriptor = Value(value, enter=enter)
 
-        assert descriptor == FactoryServiceDescriptor(
-            lambda: value, enter=enter, lifetime="singleton"
+        assert descriptor == ServiceDescriptor(
+            factory=lambda: value, enter=enter, lifetime="singleton"
         )
 
 
 @helpers.use_factory_callable
 class TestFactoryDescriptor:
     def test_factory_descriptor_defaults(self, factory: Callable[..., Any]) -> None:
-        descriptor = FactoryServiceDescriptor(factory)
+        descriptor = ServiceDescriptor(factory=factory)
 
         assert descriptor.lifetime == "transient"
 
@@ -49,7 +48,7 @@ class TestFactoryDescriptor:
     ) -> None:
         descriptor = Factory(factory)
 
-        assert descriptor == FactoryServiceDescriptor(
+        assert descriptor == ServiceDescriptor(
             factory, lifetime="transient", enter=True
         )
 
@@ -60,7 +59,7 @@ class TestFactoryDescriptor:
     ) -> None:
         descriptor = Factory(factory, lifetime=lifetime, enter=enter)
 
-        assert descriptor == FactoryServiceDescriptor(
+        assert descriptor == ServiceDescriptor(
             factory, lifetime=lifetime or "transient", enter=enter
         )
 
@@ -69,7 +68,7 @@ class TestFactoryDescriptor:
     ) -> None:
         descriptor = Singleton(factory)
 
-        assert descriptor == FactoryServiceDescriptor(
+        assert descriptor == ServiceDescriptor(
             factory, lifetime="singleton", enter=True
         )
 
@@ -79,7 +78,7 @@ class TestFactoryDescriptor:
     ) -> None:
         descriptor = Singleton(factory, enter=enter)
 
-        assert descriptor == FactoryServiceDescriptor(
+        assert descriptor == ServiceDescriptor(
             factory, lifetime="singleton", enter=enter
         )
 
@@ -88,9 +87,7 @@ class TestFactoryDescriptor:
     ) -> None:
         descriptor = Scoped(factory)
 
-        assert descriptor == FactoryServiceDescriptor(
-            factory, lifetime="scoped", enter=True
-        )
+        assert descriptor == ServiceDescriptor(factory, lifetime="scoped", enter=True)
 
     @use_enter
     def test_scoped_factory_returns_a_singleton_factory_descriptor(
@@ -98,9 +95,7 @@ class TestFactoryDescriptor:
     ) -> None:
         descriptor = Scoped(factory, enter=enter)
 
-        assert descriptor == FactoryServiceDescriptor(
-            factory, lifetime="scoped", enter=enter
-        )
+        assert descriptor == ServiceDescriptor(factory, lifetime="scoped", enter=enter)
 
 
 @helpers.use_invalid_factory_callable
@@ -110,11 +105,11 @@ class TestDisallowedFactoryDescriptorCallable:
         factory: Callable[..., Any],
     ) -> None:
         with pytest.raises(RegistrationError):
-            FactoryServiceDescriptor(factory)
+            ServiceDescriptor(factory)
 
 
 class TestAliasDescriptor:
     def test_alias_factory_returns_an_alias_descriptor(self) -> None:
         descriptor = Alias(object)
 
-        assert descriptor == AliasServiceDescriptor(object)
+        assert descriptor == ServiceDescriptor(implementation=object)

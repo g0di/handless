@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, _GeneratorContextManager, contextmanager
 from dataclasses import dataclass, field
 from inspect import Parameter, isgeneratorfunction
@@ -23,7 +22,7 @@ from handless._utils import (
 from handless.exceptions import RegistrationError
 
 if TYPE_CHECKING:
-    from handless.container import Container
+    pass
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
@@ -43,8 +42,24 @@ Lifetime = Literal["transient", "singleton", "scoped"]
 # Pydantic does.
 
 
-def Value(val: _T, *, enter: bool = False) -> "FactoryServiceDescriptor[_T]":
-    return FactoryServiceDescriptor(lambda: val, enter=enter, lifetime="singleton")
+def Alias(service_type: type[_T]) -> "ServiceDescriptor[_T]":
+    return ServiceDescriptor(implementation=service_type)
+
+
+def Value(val: _T, *, enter: bool = False) -> "ServiceDescriptor[_T]":
+    return Singleton(lambda: val, enter=enter)
+
+
+def Singleton(
+    factory: ServiceFactory[_T], *, enter: bool = True
+) -> "ServiceDescriptor[_T]":
+    return Factory(factory, lifetime="singleton", enter=enter)
+
+
+def Scoped(
+    factory: ServiceFactory[_T], *, enter: bool = True
+) -> "ServiceDescriptor[_T]":
+    return Factory(factory, lifetime="scoped", enter=enter)
 
 
 def Factory(
@@ -52,71 +67,31 @@ def Factory(
     *,
     lifetime: Lifetime = "transient",
     enter: bool = True,
-) -> "FactoryServiceDescriptor[_T]":
-    return FactoryServiceDescriptor(factory, lifetime=lifetime, enter=enter)
-
-
-def Singleton(
-    factory: ServiceFactory[_T], *, enter: bool = True
-) -> "FactoryServiceDescriptor[_T]":
-    return FactoryServiceDescriptor(factory, lifetime="singleton", enter=enter)
-
-
-def Scoped(
-    factory: ServiceFactory[_T], *, enter: bool = True
-) -> "FactoryServiceDescriptor[_T]":
-    return FactoryServiceDescriptor(factory, lifetime="scoped", enter=enter)
-
-
-def Alias(service_type: type[_T]) -> "AliasServiceDescriptor[_T]":
-    return AliasServiceDescriptor(service_type)
-
-
-class ServiceDescriptor(ABC, Generic[_T]):
-    @abstractmethod
-    def accept(self, container: "Container") -> _T:
-        raise NotImplementedError
-
-
-@dataclass(frozen=True)
-class AliasServiceDescriptor(ServiceDescriptor[_T]):
-    alias: type[_T]
-
-    def accept(self, container: "Container") -> _T:
-        return container._resolve_alias(self)
+) -> "ServiceDescriptor[_T]":
+    return ServiceDescriptor(factory=factory, lifetime=lifetime, enter=enter)
 
 
 @dataclass(unsafe_hash=True)
-class FactoryServiceDescriptor(ServiceDescriptor[_T]):
-    factory: ServiceFactory[_T]
+class ServiceDescriptor(Generic[_T]):
+    factory: ServiceFactory[_T] | None = None
+    implementation: type[_T] | None = None
     lifetime: Lifetime = "transient"
     enter: bool = True
     params: OrderedDict[str, Parameter] = field(
         default_factory=OrderedDict, hash=False, init=False
     )
 
-    def __eq__(self, value: object) -> bool:
-        return (
-            isinstance(value, FactoryServiceDescriptor)
-            and self._get_factory_code() == value._get_factory_code()
-            and self.lifetime == value.lifetime
-            and self.enter == value.enter
-        )
-
-    def _get_factory_code(self) -> object:
-        if hasattr(self.factory, "__code__"):
-            return self.factory.__code__.co_code
-        return self.factory
-
     def __post_init__(self) -> None:
+        if self.factory is None:
+            return
         if isgeneratorfunction(self.factory):
             self.factory = contextmanager(self.factory)
+
         # NOTE: we omit variadic params because we don't know how to autowire them yet
         params = get_non_variadic_params(self.factory)
 
         if is_lambda_function(self.factory):
-            # NOTE: for lambda function we allow 0 arguments or a single one which will
-            # the container itself
+            # NOTE: for lambda function we allow 0 arguments or a single one (the container itself)
             if count_func_params(self.factory) > 1:
                 raise RegistrationError(
                     "Lambda functions can takes up to only one parameter"
@@ -128,9 +103,18 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
 
         self.params.update(params)
 
-    def accept(self, container: "Container") -> _T:
-        if self.lifetime == "scoped":
-            return container._resolve_scoped(self)
-        if self.lifetime == "singleton":
-            return container._resolve_singleton(self)
-        return container._resolve_transient(self)
+    def __eq__(self, value: object) -> bool:
+        return (
+            isinstance(value, ServiceDescriptor)
+            and self._get_comparable_factory() == value._get_comparable_factory()
+            and self.implementation == value.implementation
+            and self.lifetime == value.lifetime
+            and self.enter == value.enter
+        )
+
+    def _get_comparable_factory(self) -> object:
+        if self.factory is None:
+            return None
+        if hasattr(self.factory, "__code__"):
+            return self.factory.__code__.co_code
+        return self.factory

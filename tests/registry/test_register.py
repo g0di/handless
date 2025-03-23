@@ -3,10 +3,8 @@ from unittest.mock import create_autospec
 
 import pytest
 
-from handless import Lifetime, Registry
+from handless import Alias, Factory, Lifetime, Registry
 from handless.descriptor import (
-    AliasServiceDescriptor,
-    FactoryServiceDescriptor,
     ServiceDescriptor,
     Value,
 )
@@ -34,7 +32,7 @@ def test_register_type_registers_an_alias_service_descriptor(sut: Registry) -> N
     ret = sut.register(IFakeService, FakeService)  # type: ignore[type-abstract]
 
     assert ret is sut
-    assert sut.get_descriptor(IFakeService) == AliasServiceDescriptor(FakeService)
+    assert sut.get_descriptor(IFakeService) == Alias(FakeService)
 
 
 @use_factory_function
@@ -44,9 +42,7 @@ def test_register_function_registers_a_transient_factory_service_descriptor(
     ret = sut.register(FakeService, function)
 
     assert ret is sut
-    assert sut.get_descriptor(FakeService) == FactoryServiceDescriptor(
-        function, lifetime="transient", enter=True
-    )
+    assert sut.get_descriptor(FakeService) == Factory(function)
 
 
 @use_invalid_factory_function
@@ -63,9 +59,7 @@ def test_register_without_value_registers_a_transient_factory_service_descriptor
     ret = sut.register(FakeService)
 
     assert ret is sut
-    assert sut.get_descriptor(FakeService) == FactoryServiceDescriptor(
-        FakeService, lifetime="transient", enter=True
-    )
+    assert sut.get_descriptor(FakeService) == Factory(FakeService)
 
 
 @use_lifetimes
@@ -76,7 +70,7 @@ def test_register_without_value_and_with_options_registers_a_factory_service_des
     ret = sut.register(FakeService, enter=enter, lifetime=lifetime)
 
     assert ret is sut
-    assert sut.get_descriptor(FakeService) == FactoryServiceDescriptor(
+    assert sut.get_descriptor(FakeService) == Factory(
         FakeService, lifetime=lifetime, enter=enter
     )
 

@@ -3,10 +3,8 @@ from unittest.mock import create_autospec
 
 import pytest
 
-from handless import Registry
+from handless import Alias, Factory, Registry
 from handless.descriptor import (
-    AliasServiceDescriptor,
-    FactoryServiceDescriptor,
     ServiceDescriptor,
     Value,
 )
@@ -30,7 +28,7 @@ def test_set_service_descriptor_registers_it_as_is(sut: Registry) -> None:
 def test_set_type_registers_an_alias_service_descriptor(sut: Registry) -> None:
     sut[IFakeService] = FakeService  # type: ignore[type-abstract]
 
-    assert sut.get_descriptor(IFakeService) == AliasServiceDescriptor(FakeService)
+    assert sut.get_descriptor(IFakeService) == Alias(FakeService)
 
 
 @use_factory_function
@@ -39,9 +37,7 @@ def test_set_function_registers_a_transient_factory_service_descriptor(
 ) -> None:
     sut[FakeService] = function
 
-    assert sut.get_descriptor(FakeService) == FactoryServiceDescriptor(
-        function, lifetime="transient", enter=True
-    )
+    assert sut.get_descriptor(FakeService) == Factory(function, enter=True)
 
 
 @use_invalid_factory_function
@@ -57,9 +53,7 @@ def test_set_without_value_registers_a_transient_factory_service_descriptor_for_
 ) -> None:
     sut[FakeService] = ...
 
-    assert sut.get_descriptor(FakeService) == FactoryServiceDescriptor(
-        FakeService, lifetime="transient", enter=True
-    )
+    assert sut.get_descriptor(FakeService) == Factory(FakeService, enter=True)
 
 
 @pytest.mark.parametrize(

@@ -5,11 +5,7 @@ from typing import TypeVar, cast, overload
 
 from typing_extensions import TYPE_CHECKING, Any
 
-from handless.descriptor import (
-    AliasServiceDescriptor,
-    FactoryServiceDescriptor,
-    ServiceDescriptor,
-)
+from handless.descriptor import Factory, ServiceDescriptor
 from handless.exceptions import ServiceNotFoundError, ServiceResolveError
 
 if TYPE_CHECKING:
@@ -23,7 +19,7 @@ class Container:
     def __init__(self, registry: "Registry", *, strict: bool = False) -> None:
         self._strict = strict
         self._registry = registry
-        self._cache: dict[FactoryServiceDescriptor[Any], Any] = {}
+        self._cache: dict[ServiceDescriptor[Any], Any] = {}
         self._exit_stack = ExitStack()
         self._logger = logging.getLogger(__name__)
 
@@ -49,8 +45,16 @@ class Container:
             return cast(_T, self)
 
         descriptor = self._get_descriptor(type_)
+
         try:
-            return descriptor.accept(self)
+            if descriptor.implementation is not None:
+                return self.resolve(descriptor.implementation)
+            if descriptor.lifetime == "scoped":
+                return self._resolve_scoped(descriptor)
+            if descriptor.lifetime == "singleton":
+                return self._resolve_singleton(descriptor)
+            return self._resolve_transient(descriptor)
+
         except Exception as error:
             raise ServiceResolveError(type_, str(error)) from error
         finally:
@@ -66,27 +70,30 @@ class Container:
         if descriptor is None:
             if self._strict:
                 raise ServiceNotFoundError(type_)
-            return FactoryServiceDescriptor(type_)
+            # NOTE: Defaults to a transient factory
+            return Factory(type_)
         return descriptor
 
-    def _resolve_alias(self, descriptor: AliasServiceDescriptor[_T]) -> _T:
-        return self.resolve(descriptor.alias)
-
-    def _resolve_transient(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
+    def _resolve_transient(self, descriptor: ServiceDescriptor[_T]) -> _T:
         return self._get_instance(descriptor)
 
-    def _resolve_singleton(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
+    def _resolve_singleton(self, descriptor: ServiceDescriptor[_T]) -> _T:
         return self._get_cached_instance(descriptor)
 
-    def _resolve_scoped(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
+    def _resolve_scoped(self, descriptor: ServiceDescriptor[_T]) -> _T:
         raise ValueError("Can not resolve scoped service outside a scope")
 
-    def _get_cached_instance(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
+    def _get_cached_instance(self, descriptor: ServiceDescriptor[_T]) -> _T:
         if descriptor not in self._cache:
             self._cache[descriptor] = self._get_instance(descriptor)
         return cast(_T, self._cache[descriptor])
 
-    def _get_instance(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
+    def _get_instance(self, descriptor: ServiceDescriptor[_T]) -> _T:
+        if not descriptor.factory:
+            raise TypeError(
+                "Can not get instance from given ServiceDescriptor: it has no factory"
+            )
+
         args = {
             # NOTE: pass the container when the parameter is empty
             # This happens when resolving a lambda function
@@ -112,8 +119,8 @@ class ScopedContainer(Container):
         self._parent = parent
         self._logger = logging.getLogger(f"{__name__}.scope")
 
-    def _resolve_singleton(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
+    def _resolve_singleton(self, descriptor: ServiceDescriptor[_T]) -> _T:
         return self._parent._resolve_singleton(descriptor)
 
-    def _resolve_scoped(self, descriptor: FactoryServiceDescriptor[_T]) -> _T:
+    def _resolve_scoped(self, descriptor: ServiceDescriptor[_T]) -> _T:
         return self._get_cached_instance(descriptor)

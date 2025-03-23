@@ -28,6 +28,7 @@
 - create a real documentation page
 - Move private API on private modules and prefix private stuff with leading underscore
 - Add a function for printing the whole dependency tree with lifetimes
+- FInd out if we could move the service type into the descripto directly.
 
 ## Registration
 
