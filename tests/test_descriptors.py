@@ -10,6 +10,7 @@ from handless.descriptor import (
 from handless.exceptions import RegistrationError
 from tests import helpers
 from tests.helpers import (
+    IFakeService,
     use_enter,
     use_lifetimes,
 )
@@ -38,13 +39,15 @@ class TestValueDescriptor:
 
 @helpers.use_factory_callable
 class TestFactoryDescriptor:
-    def test_factory_descriptor_defaults(self, factory: Callable[..., Any]) -> None:
+    def test_factory_descriptor_defaults(
+        self, factory: Callable[..., IFakeService]
+    ) -> None:
         descriptor = ServiceDescriptor(factory=factory)
 
         assert descriptor.lifetime == "transient"
 
     def test_factory_factory_returns_a_default_transient_factory_descriptor(
-        self, factory: Callable[..., Any]
+        self, factory: Callable[..., IFakeService]
     ) -> None:
         descriptor = Factory(factory)
 
@@ -55,7 +58,7 @@ class TestFactoryDescriptor:
     @use_lifetimes
     @use_enter
     def test_factory_factory_returns_a_factory_descriptor(
-        self, factory: Callable[..., Any], lifetime: Lifetime, enter: bool
+        self, factory: Callable[..., IFakeService], lifetime: Lifetime, enter: bool
     ) -> None:
         descriptor = Factory(factory, lifetime=lifetime, enter=enter)
 
@@ -64,7 +67,7 @@ class TestFactoryDescriptor:
         )
 
     def test_singleton_factory_returns_a_default_singleton_factory_descriptor(
-        self, factory: Callable[..., Any]
+        self, factory: Callable[..., IFakeService]
     ) -> None:
         descriptor = Singleton(factory)
 
@@ -74,7 +77,7 @@ class TestFactoryDescriptor:
 
     @use_enter
     def test_singleton_factory_returns_a_singleton_factory_descriptor(
-        self, factory: Callable[..., Any], enter: bool
+        self, factory: Callable[..., IFakeService], enter: bool
     ) -> None:
         descriptor = Singleton(factory, enter=enter)
 
@@ -83,7 +86,7 @@ class TestFactoryDescriptor:
         )
 
     def test_scoped_factory_returns_a_default_scoped_factory_descriptor(
-        self, factory: Callable[..., Any]
+        self, factory: Callable[..., IFakeService]
     ) -> None:
         descriptor = Scoped(factory)
 
@@ -91,7 +94,7 @@ class TestFactoryDescriptor:
 
     @use_enter
     def test_scoped_factory_returns_a_singleton_factory_descriptor(
-        self, factory: Callable[..., Any], enter: bool
+        self, factory: Callable[..., IFakeService], enter: bool
     ) -> None:
         descriptor = Scoped(factory, enter=enter)
 
