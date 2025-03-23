@@ -3,7 +3,7 @@ from typing import Callable
 import pytest
 
 from handless import Registry
-from handless.descriptor import FactoryServiceDescriptor
+from handless.descriptor import Singleton
 from handless.exceptions import RegistrationError
 from tests import helpers
 
@@ -14,8 +14,8 @@ def test_register_singleton_without_factory_registers_a_singleton_factory_servic
     ret = sut.register_singleton(helpers.FakeService)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == FactoryServiceDescriptor(
-        helpers.FakeService, lifetime="singleton", enter=True
+    assert sut.get_descriptor(helpers.FakeService) == Singleton(
+        helpers.FakeService, enter=True
     )
 
 
@@ -26,9 +26,7 @@ def test_register_singleton_registers_a_singleton_factory_service_descriptor(
     ret = sut.register_singleton(helpers.FakeService, factory)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == FactoryServiceDescriptor(
-        factory, lifetime="singleton", enter=True
-    )
+    assert sut.get_descriptor(helpers.FakeService) == Singleton(factory, enter=True)
 
 
 @helpers.use_enter
@@ -38,8 +36,8 @@ def test_register_singleton_with_options_registers_a_factory_service_descriptor_
     ret = sut.register_singleton(helpers.FakeService, enter=enter)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == FactoryServiceDescriptor(
-        helpers.FakeService, lifetime="singleton", enter=enter
+    assert sut.get_descriptor(helpers.FakeService) == Singleton(
+        helpers.FakeService, enter=enter
     )
 
 

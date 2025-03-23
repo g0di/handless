@@ -43,12 +43,39 @@ def test_resolve_a_value_descriptor_do_not_enter_cm_by_default(sut: Container) -
     assert resolved.exited is False
 
 
-def test_resolve_a_value_descriptor_with_enter_true_enters_cm() -> None:
+def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager() -> None:
+    sut = (
+        Registry()
+        .register_value(FakeService, FakeService(), enter=True)
+        .create_container()
+    )
+
+    resolved = sut.resolve(FakeService)
+
+    assert resolved.entered
+    assert not resolved.exited
+
+
+def test_close_container_exit_entered_value_descriptor_context_manager() -> None:
     sut = (
         Registry()
         .register_value(FakeService, FakeService(), enter=True)
         .create_container()
     )
     resolved = sut.resolve(FakeService)
+    sut.close()
 
-    assert resolved.entered is True
+    assert resolved.exited
+
+
+def test_close_scope_not_exit_entered_value_descriptor_context_manager() -> None:
+    sut = (
+        Registry()
+        .register_value(FakeService, FakeService(), enter=True)
+        .create_container()
+        .create_scope()
+    )
+    resolved = sut.resolve(FakeService)
+    sut.close()
+
+    assert not resolved.exited

@@ -8,7 +8,7 @@ from handless.descriptor import (
     AliasServiceDescriptor,
     FactoryServiceDescriptor,
     ServiceDescriptor,
-    ValueServiceDescriptor,
+    Value,
 )
 from handless.exceptions import RegistrationError
 from tests.helpers import (
@@ -72,6 +72,4 @@ def test_set_object_registers_a_value_service_descriptor(
 ) -> None:
     sut[IFakeService] = instance  # type: ignore[type-abstract]
 
-    assert sut.get_descriptor(IFakeService) == ValueServiceDescriptor(
-        instance, enter=False
-    )
+    assert sut.get_descriptor(IFakeService) == Value(instance, enter=False)

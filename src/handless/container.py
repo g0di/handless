@@ -9,7 +9,6 @@ from handless.descriptor import (
     AliasServiceDescriptor,
     FactoryServiceDescriptor,
     ServiceDescriptor,
-    ValueServiceDescriptor,
 )
 from handless.exceptions import ServiceNotFoundError, ServiceResolveError
 
@@ -69,11 +68,6 @@ class Container:
                 raise ServiceNotFoundError(type_)
             return FactoryServiceDescriptor(type_)
         return descriptor
-
-    def _resolve_value(self, descriptor: ValueServiceDescriptor[_T]) -> _T:
-        if descriptor.enter and isinstance(descriptor.value, AbstractContextManager):
-            return cast(_T, descriptor.value.__enter__())
-        return descriptor.value
 
     def _resolve_alias(self, descriptor: AliasServiceDescriptor[_T]) -> _T:
         return self.resolve(descriptor.alias)

@@ -1,5 +1,4 @@
-from handless import Registry
-from handless.descriptor import ValueServiceDescriptor
+from handless import Registry, Value
 from tests.helpers import FakeService, use_enter
 
 
@@ -8,7 +7,7 @@ def test_register_explicit_value(sut: Registry) -> None:
     ret = sut.register_value(FakeService, value)
 
     assert ret is sut
-    assert sut.get_descriptor(FakeService) == ValueServiceDescriptor(value, enter=False)
+    assert sut.get_descriptor(FakeService) == Value(value, enter=False)
 
 
 @use_enter
@@ -17,4 +16,4 @@ def test_register_explicit_value_with_options(sut: Registry, enter: bool) -> Non
     ret = sut.register_value(FakeService, value, enter=enter)
 
     assert ret is sut
-    assert sut.get_descriptor(FakeService) == ValueServiceDescriptor(value, enter=enter)
+    assert sut.get_descriptor(FakeService) == Value(value, enter=enter)

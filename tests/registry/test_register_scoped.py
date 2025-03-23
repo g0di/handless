@@ -3,7 +3,7 @@ from typing import Callable
 import pytest
 
 from handless import Registry
-from handless.descriptor import FactoryServiceDescriptor
+from handless.descriptor import Scoped
 from handless.exceptions import RegistrationError
 from tests import helpers
 
@@ -14,8 +14,8 @@ def test_register_scoped_without_factory_registers_a_scoped_factory_service_desc
     ret = sut.register_scoped(helpers.FakeService)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == FactoryServiceDescriptor(
-        helpers.FakeService, lifetime="scoped", enter=True
+    assert sut.get_descriptor(helpers.FakeService) == Scoped(
+        helpers.FakeService, enter=True
     )
 
 
@@ -26,9 +26,7 @@ def test_register_scoped_registers_a_scoped_factory_service_descriptor(
     ret = sut.register_scoped(helpers.FakeService, factory)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == FactoryServiceDescriptor(
-        factory, lifetime="scoped", enter=True
-    )
+    assert sut.get_descriptor(helpers.FakeService) == Scoped(factory, enter=True)
 
 
 @helpers.use_enter
@@ -38,8 +36,8 @@ def test_register_scoped_with_options_registers_a_factory_service_descriptor_wit
     ret = sut.register_scoped(helpers.FakeService, enter=enter)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == FactoryServiceDescriptor(
-        helpers.FakeService, lifetime="scoped", enter=enter
+    assert sut.get_descriptor(helpers.FakeService) == Scoped(
+        helpers.FakeService, enter=enter
     )
 
 

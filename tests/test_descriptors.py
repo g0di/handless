@@ -6,8 +6,8 @@ from typing_extensions import Any
 from handless import Alias, Factory, Lifetime, Scoped, Singleton, Value
 from handless.descriptor import (
     AliasServiceDescriptor,
+    Constant,
     FactoryServiceDescriptor,
-    ValueServiceDescriptor,
 )
 from handless.exceptions import RegistrationError
 from tests import helpers
@@ -18,17 +18,14 @@ from tests.helpers import (
 
 
 class TestValueDescriptor:
-    def test_value_descriptor_defaults(self) -> None:
-        descriptor = ValueServiceDescriptor(object())
-
-        assert descriptor.enter is False
-
-    def test_value_factory_returns_a_default_value_descriptor(self) -> None:
+    def test_value_factory_returns_a_default_factory_service_descriptor(self) -> None:
         value = object()
 
         descriptor = Value(value)
 
-        assert descriptor == ValueServiceDescriptor(value, enter=False)
+        assert descriptor == FactoryServiceDescriptor(
+            Constant(value), enter=False, lifetime="singleton"
+        )
 
     @use_enter
     def test_value_factory_returns_a_value_descriptor(self, enter: bool) -> None:
@@ -36,7 +33,9 @@ class TestValueDescriptor:
 
         descriptor = Value(value, enter=enter)
 
-        assert descriptor == ValueServiceDescriptor(value, enter=enter)
+        assert descriptor == FactoryServiceDescriptor(
+            Constant(value), enter=enter, lifetime="singleton"
+        )
 
 
 @helpers.use_factory_callable

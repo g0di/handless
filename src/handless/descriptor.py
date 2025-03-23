@@ -36,8 +36,8 @@ Lifetime = Literal["transient", "singleton", "scoped"]
 # Pydantic does.
 
 
-def Value(val: _T, *, enter: bool = False) -> "ValueServiceDescriptor[_T]":
-    return ValueServiceDescriptor(val, enter=enter)
+def Value(val: _T, *, enter: bool = False) -> "FactoryServiceDescriptor[_T]":
+    return FactoryServiceDescriptor(Constant(val), enter=enter, lifetime="singleton")
 
 
 def Factory(
@@ -72,15 +72,6 @@ class ServiceDescriptor(ABC, Generic[_T]):
 
 
 @dataclass(frozen=True)
-class ValueServiceDescriptor(ServiceDescriptor[_T]):
-    value: _T
-    enter: bool = False
-
-    def accept(self, container: "Container") -> _T:
-        return container._resolve_value(self)
-
-
-@dataclass(frozen=True)
 class AliasServiceDescriptor(ServiceDescriptor[_T]):
     alias: type[_T]
 
@@ -88,12 +79,19 @@ class AliasServiceDescriptor(ServiceDescriptor[_T]):
         return container._resolve_alias(self)
 
 
+@dataclass(frozen=True, slots=True)
+class Constant(Generic[_T]):
+    value: _T
+
+    def __call__(self) -> _T:
+        return self.value
+
+
 @dataclass(frozen=True)
 class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     factory: ServiceFactory[_T]
     lifetime: Lifetime = "transient"
     enter: bool = True
-
     params: OrderedDict[str, Parameter] = field(
         default_factory=OrderedDict, hash=False, init=False
     )
