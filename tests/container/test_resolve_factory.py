@@ -61,6 +61,3 @@ def test_resolve_a_factory_descriptor_resolves_its_parameters_before_calling_it(
     assert isinstance(resolved1, FakeServiceWithParams)
     assert resolved1.foo == "a"
     assert resolved1.bar == 42
-
-    # NOTE: we omit testing injecting container in classes constructors because we dont except any sane
-    # people to put a container as a dependency of its own classes

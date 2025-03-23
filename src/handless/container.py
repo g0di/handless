@@ -28,6 +28,12 @@ class Container:
         self._exit_stack = ExitStack()
         self._logger = logging.getLogger(__name__)
 
+    def create_scope(self) -> "ScopedContainer":
+        return ScopedContainer(self)
+
+    def clear(self) -> None:
+        self._cache.clear()
+
     def __getitem__(self, type_: type[_T]) -> _T:
         return self.resolve(type_)
 
@@ -100,9 +106,6 @@ class Container:
         if isinstance(instance, AbstractContextManager):
             return instance.__enter__()
         return instance
-
-    def create_scope(self) -> "ScopedContainer":
-        return ScopedContainer(self)
 
 
 class ScopedContainer(Container):
