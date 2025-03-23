@@ -56,6 +56,22 @@ def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager() -> 
     assert not resolved.exited
 
 
+def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager_only_once() -> (
+    None
+):
+    sut = (
+        Registry()
+        .register_value(FakeService, FakeService(), enter=True)
+        .create_container()
+    )
+    scope = sut.create_scope()
+
+    resolved = sut.resolve(FakeService)
+    scope.resolve(FakeService)
+
+    assert not resolved.reentered
+
+
 def test_close_container_exit_entered_value_descriptor_context_manager() -> None:
     sut = (
         Registry()

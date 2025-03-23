@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, _GeneratorContextManager, contextmanager
 from dataclasses import dataclass, field
-from inspect import Parameter
+from inspect import Parameter, isgeneratorfunction
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
     Generic,
+    Iterator,
     Literal,
     OrderedDict,
     ParamSpec,
@@ -26,7 +28,12 @@ if TYPE_CHECKING:
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
-ServiceFactory = Callable[..., _T] | Callable[..., AbstractContextManager[_T]]
+ServiceFactory = (
+    Callable[..., _T]
+    | Callable[..., _GeneratorContextManager[Any]]
+    | Callable[..., AbstractContextManager[_T]]
+    | Callable[..., Iterator[_T]]
+)
 Lifetime = Literal["transient", "singleton", "scoped"]
 
 
@@ -37,7 +44,7 @@ Lifetime = Literal["transient", "singleton", "scoped"]
 
 
 def Value(val: _T, *, enter: bool = False) -> "FactoryServiceDescriptor[_T]":
-    return FactoryServiceDescriptor(Constant(val), enter=enter, lifetime="singleton")
+    return FactoryServiceDescriptor(lambda: val, enter=enter, lifetime="singleton")
 
 
 def Factory(
@@ -79,15 +86,7 @@ class AliasServiceDescriptor(ServiceDescriptor[_T]):
         return container._resolve_alias(self)
 
 
-@dataclass(frozen=True, slots=True)
-class Constant(Generic[_T]):
-    value: _T
-
-    def __call__(self) -> _T:
-        return self.value
-
-
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class FactoryServiceDescriptor(ServiceDescriptor[_T]):
     factory: ServiceFactory[_T]
     lifetime: Lifetime = "transient"
@@ -96,7 +95,22 @@ class FactoryServiceDescriptor(ServiceDescriptor[_T]):
         default_factory=OrderedDict, hash=False, init=False
     )
 
+    def __eq__(self, value: object) -> bool:
+        return (
+            isinstance(value, FactoryServiceDescriptor)
+            and self._get_factory_code() == value._get_factory_code()
+            and self.lifetime == value.lifetime
+            and self.enter == value.enter
+        )
+
+    def _get_factory_code(self) -> object:
+        if hasattr(self.factory, "__code__"):
+            return self.factory.__code__.co_code
+        return self.factory
+
     def __post_init__(self) -> None:
+        if isgeneratorfunction(self.factory):
+            self.factory = contextmanager(self.factory)
         # NOTE: we omit variadic params because we don't know how to autowire them yet
         params = get_non_variadic_params(self.factory)
 

@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Callable
 
 import pytest
@@ -48,3 +50,16 @@ def test_register_factory_with_untyped_callable_raise_an_error(
 ) -> None:
     with pytest.raises(RegistrationError):
         sut.register_factory(helpers.FakeService, factory)
+
+
+def test_register_factory_with_generator_function_wraps_it_as_a_context_manager(
+    sut: Registry,
+) -> None:
+    def fake_service_generator(foo: str, bar: int) -> Iterator[helpers.FakeService]:
+        yield helpers.FakeService()
+
+    sut.register_factory(helpers.FakeService, fake_service_generator)
+
+    assert sut.get_descriptor(helpers.FakeService) == Factory(
+        contextmanager(fake_service_generator)
+    )

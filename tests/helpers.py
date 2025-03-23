@@ -13,9 +13,12 @@ class IFakeService(Protocol): ...
 class FakeService(IFakeService):
     def __init__(self) -> None:
         self.entered = False
+        self.reentered = False
         self.exited = False
 
     def __enter__(self) -> "FakeService":
+        if self.entered:
+            self.reentered = True
         self.entered = True
         return self
 

@@ -1,11 +1,8 @@
 ## Context management
 
 - add handling of context managers
-  - handle context managers for values
-  - add a function for manually releasing a value from the container
+  - add a function for manually releasing a value from the container -> Not sure if useful
   - If possible, find a way to clear transient factories before having to call close
-- add autowrapping generators into context manager
-  - Add ability to disable this as well
 - prevent ability to pass enter=False when providing a factory returning a context manager which **enter** method does not return an instance of expected object
 
 ## Async

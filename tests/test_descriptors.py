@@ -6,7 +6,6 @@ from typing_extensions import Any
 from handless import Alias, Factory, Lifetime, Scoped, Singleton, Value
 from handless.descriptor import (
     AliasServiceDescriptor,
-    Constant,
     FactoryServiceDescriptor,
 )
 from handless.exceptions import RegistrationError
@@ -24,7 +23,7 @@ class TestValueDescriptor:
         descriptor = Value(value)
 
         assert descriptor == FactoryServiceDescriptor(
-            Constant(value), enter=False, lifetime="singleton"
+            lambda: value, enter=False, lifetime="singleton"
         )
 
     @use_enter
@@ -34,7 +33,7 @@ class TestValueDescriptor:
         descriptor = Value(value, enter=enter)
 
         assert descriptor == FactoryServiceDescriptor(
-            Constant(value), enter=enter, lifetime="singleton"
+            lambda: value, enter=enter, lifetime="singleton"
         )
 
 
