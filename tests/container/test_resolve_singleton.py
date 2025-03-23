@@ -31,22 +31,30 @@ def test_resolve_a_singleton_descriptor_calls_and_cache_factory_return_value_acc
     assert v1 is v2 is v3 is v4
 
 
-def test_singletons_are_cleared_on_container_clear(sut: Container) -> None:
+def test_singletons_are_cleared_on_container_close(sut: Container) -> None:
     v1 = sut.resolve(FakeService)
 
-    sut.clear()
+    sut.close()
 
     v2 = sut.resolve(FakeService)
 
     assert v1 is not v2
 
 
-def test_singletons_are_not_cleared_on_scope_clear(sut: Container) -> None:
+def test_singletons_are_not_cleared_on_scope_close(sut: Container) -> None:
     scope = sut.create_scope()
     v1 = scope.resolve(FakeService)
 
-    scope.clear()
+    scope.close()
 
     v2 = sut.resolve(FakeService)
 
     assert v1 is v2
+
+
+def test_singletons_with_context_manager_are_exited_on_close(sut: Container) -> None:
+    v1 = sut.resolve(FakeService)
+
+    sut.close()
+
+    assert v1.exited

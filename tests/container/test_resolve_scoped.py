@@ -37,12 +37,22 @@ def test_resolve_a_scoped_factory_descriptor_calls_and_cache_factory_returned_va
     assert v1 is not v3
 
 
-def test_scoped_are_cleared_on_scope_clear() -> None:
+def test_scoped_factories_are_cleared_on_scope_close() -> None:
     sut = Registry().register_scoped(FakeService).create_container().create_scope()
     v1 = sut.resolve(FakeService)
 
-    sut.clear()
+    sut.close()
 
     v2 = sut.resolve(FakeService)
 
     assert v1 is not v2
+
+
+def test_scoped_factories_with_context_manager_are_exited_on_close() -> None:
+    sut = Registry().register_scoped(FakeService).create_container().create_scope()
+
+    resolved = sut.resolve(FakeService)
+
+    sut.close()
+
+    assert resolved.exited

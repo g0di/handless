@@ -31,7 +31,8 @@ class Container:
     def create_scope(self) -> "ScopedContainer":
         return ScopedContainer(self)
 
-    def clear(self) -> None:
+    def close(self) -> None:
+        self._exit_stack.close()
         self._cache.clear()
 
     def __getitem__(self, type_: type[_T]) -> _T:
@@ -103,9 +104,12 @@ class Container:
             for pname, ptype in descriptor.params.items()
         }
         instance = descriptor.factory(**args)
-        if isinstance(instance, AbstractContextManager):
-            return instance.__enter__()
-        return instance
+        if descriptor.enter and isinstance(instance, AbstractContextManager):
+            return cast(_T, self._exit_stack.enter_context(instance))
+        # NOTE: we blindly trust and return the instance. There is no point in raising an
+        # error here.
+        # TODO: maybe send a dev warning if instance if not an instance of requested type
+        return cast(_T, instance)
 
 
 class ScopedContainer(Container):

@@ -61,3 +61,23 @@ def test_resolve_a_factory_descriptor_resolves_its_parameters_before_calling_it(
     assert isinstance(resolved1, FakeServiceWithParams)
     assert resolved1.foo == "a"
     assert resolved1.bar == 42
+
+
+def test_resolve_factory_enter_context_manager_if_one_is_returned() -> None:
+    sut = Registry().register_factory(FakeService).create_container()
+
+    resolved = sut.resolve(FakeService)
+
+    assert resolved.entered
+    assert not resolved.exited
+
+
+def test_resolve_factory_not_enter_context_manager_if_one_is_returned_but_enter_is_false() -> (
+    None
+):
+    sut = Registry().register_factory(FakeService, enter=False).create_container()
+
+    resolved = sut.resolve(FakeService)
+
+    assert not resolved.entered
+    assert not resolved.exited
