@@ -1,13 +1,12 @@
 ## Context management
 
 - add handling of context managers
-  - enter context managers
-  - exit context managers on container close for scoped and singleton (and values)
-  - exit context managers for transient when value is not referenced anymore
+  - handle context managers for values
+  - add a function for manually releasing a value from the container
+  - If possible, find a way to clear transient factories before having to call close
 - add autowrapping generators into context manager
   - Add ability to disable this as well
-- prevent ability to pass enter=False to descriptors when providing a contextmanager or a generator
-  - We may also think about handling context managers out of the box or not
+- prevent ability to pass enter=False when providing a factory returning a context manager which **enter** method does not return an instance of expected object
 
 ## Async
 
@@ -31,6 +30,7 @@
 - Update readme file
 - create a real documentation page
 - Move private API on private modules and prefix private stuff with leading underscore
+- Add a function for printing the whole dependency tree with lifetimes
 
 ## Registration
 
