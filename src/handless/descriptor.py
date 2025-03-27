@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, _GeneratorContextManager, contextmanager
 from dataclasses import dataclass, field
 from inspect import Parameter, isgeneratorfunction
@@ -23,7 +22,7 @@ from handless._utils import (
 from handless.exceptions import RegistrationError
 
 if TYPE_CHECKING:
-    from handless import Container
+    pass
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
@@ -70,15 +69,12 @@ def Scoped(
 
 
 def Factory(
-    factory: ServiceGetter[_T],
-    *,
-    lifetime: Lifetime = "transient",
-    enter: bool = True,
+    factory: ServiceGetter[_T], *, lifetime: Lifetime = "transient", enter: bool = True
 ) -> "ServiceDescriptor[_T]":
     return ServiceDescriptor.factory(factory, lifetime=lifetime, enter=enter)
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(unsafe_hash=True, slots=True)
 class ServiceDescriptor(Generic[_T]):
     """Describe how to resolve a service."""
 
@@ -136,20 +132,10 @@ class ServiceDescriptor(Generic[_T]):
             and self._get_getter_comparator() == value._get_getter_comparator()
             and self.lifetime == value.lifetime
             and self.enter == value.enter
+            and self.params == value.params
         )
 
     def _get_getter_comparator(self) -> object:
         if hasattr(self.getter, "__code__"):
             return self.getter.__code__.co_code
         return self.getter
-
-
-class Lifetime_(ABC):
-    @abstractmethod
-    def accept(self, container: "Container", descriptor: ServiceDescriptor[_T]) -> _T:
-        pass
-
-
-class SingletonLifetime(Lifetime_):
-    def accept(self, container: "Container", descriptor: ServiceDescriptor[_T]) -> _T:
-        return container._resolve_singleton(descriptor)
