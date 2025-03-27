@@ -3,6 +3,8 @@ from inspect import Parameter
 from types import LambdaType
 from typing import Any, Callable, NewType, TypeVar, cast, get_type_hints
 
+_T = TypeVar("_T")
+
 
 def count_func_params(value: Callable[..., Any]) -> int:
     """Return the total number of parameters of given function."""
@@ -19,9 +21,6 @@ def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
 def is_lambda_function(value: Any) -> bool:
     """Returns true if given function is a lambda."""
     return isinstance(value, LambdaType) and value.__name__ == "<lambda>"
-
-
-_T = TypeVar("_T")
 
 
 def get_return_type(func: Callable[..., _T]) -> type[_T] | None:

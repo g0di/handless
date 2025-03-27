@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, _GeneratorContextManager, contextmanager
 from dataclasses import dataclass, field
 from inspect import Parameter, isgeneratorfunction
@@ -8,33 +9,39 @@ from typing import (
     Generic,
     Iterator,
     Literal,
-    OrderedDict,
     ParamSpec,
     TypeVar,
+    cast,
 )
 
+from typing_extensions import Self
+
 from handless._utils import (
-    count_func_params,
     get_non_variadic_params,
     get_untyped_parameters,
-    is_lambda_function,
 )
 from handless.exceptions import RegistrationError
 
 if TYPE_CHECKING:
-    pass
+    from handless import Container
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
-ServiceFactory = (
+
+ServiceGetter = (
+    Callable[..., _T]
+    | Callable[..., _GeneratorContextManager[Any]]
+    | Callable[..., AbstractContextManager[_T]]
+)
+ServiceGetterIn = (
     Callable[..., _T]
     | Callable[..., _GeneratorContextManager[Any]]
     | Callable[..., AbstractContextManager[_T]]
     | Callable[..., Iterator[_T]]
 )
-Lifetime = Literal["transient", "singleton", "scoped"]
 
+Lifetime = Literal["transient", "singleton", "scoped"]
 
 # NOTE: Following functions are factories for building various service descriptors
 # The name is capitalized even if it is functions to emphasis on the fact that those
@@ -43,78 +50,106 @@ Lifetime = Literal["transient", "singleton", "scoped"]
 
 
 def Alias(service_type: type[_T]) -> "ServiceDescriptor[_T]":
-    return ServiceDescriptor(implementation=service_type)
+    return ServiceDescriptor.alias(service_type)
 
 
-def Value(val: _T, *, enter: bool = False) -> "ServiceDescriptor[_T]":
-    return Singleton(lambda: val, enter=enter)
+def Value(value: _T, *, enter: bool = False) -> "ServiceDescriptor[_T]":
+    return ServiceDescriptor.value(value, enter=enter)
 
 
 def Singleton(
-    factory: ServiceFactory[_T], *, enter: bool = True
+    factory: ServiceGetter[_T], *, enter: bool = True
 ) -> "ServiceDescriptor[_T]":
-    return Factory(factory, lifetime="singleton", enter=enter)
+    return ServiceDescriptor.factory(factory, lifetime="singleton", enter=enter)
 
 
 def Scoped(
-    factory: ServiceFactory[_T], *, enter: bool = True
+    factory: ServiceGetter[_T], *, enter: bool = True
 ) -> "ServiceDescriptor[_T]":
-    return Factory(factory, lifetime="scoped", enter=enter)
+    return ServiceDescriptor.factory(factory, lifetime="scoped", enter=enter)
 
 
 def Factory(
-    factory: ServiceFactory[_T],
+    factory: ServiceGetter[_T],
     *,
     lifetime: Lifetime = "transient",
     enter: bool = True,
 ) -> "ServiceDescriptor[_T]":
-    return ServiceDescriptor(factory=factory, lifetime=lifetime, enter=enter)
+    return ServiceDescriptor.factory(factory, lifetime=lifetime, enter=enter)
 
 
 @dataclass(unsafe_hash=True)
 class ServiceDescriptor(Generic[_T]):
-    factory: ServiceFactory[_T] | None = None
-    implementation: type[_T] | None = None
+    """Describe how to resolve a service."""
+
+    getter: ServiceGetter[_T]
+    """Callable that returns an instance of the service."""
     lifetime: Lifetime = "transient"
+    """Service instance lifetime."""
     enter: bool = True
-    params: OrderedDict[str, Parameter] = field(
-        default_factory=OrderedDict, hash=False, init=False
-    )
+    """Whether or not to enter servcice instance context manager, if any."""
+    params: dict[str, Parameter] = field(default_factory=dict, hash=False)
+    """Service getter parameters types merged with given ones, if any."""
+
+    @classmethod
+    def factory(
+        cls,
+        getter: ServiceGetterIn[_T],
+        lifetime: Lifetime = "transient",
+        enter: bool = True,
+        params: dict[str, type[Any]] | None = None,
+    ) -> Self:
+        if isgeneratorfunction(getter):
+            getter = contextmanager(getter)
+        actual_params = {
+            p: Parameter(p, Parameter.POSITIONAL_OR_KEYWORD, annotation=ptype)
+            for p, ptype in (params or {}).items()
+        }
+        return cls(
+            cast(ServiceGetter[_T], getter),
+            lifetime=lifetime,
+            enter=enter,
+            params=actual_params,
+        )
+
+    @classmethod
+    def value(cls, value: _T, enter: bool = False) -> Self:
+        return cls.factory(lambda: value, lifetime="singleton", enter=enter)
+
+    @classmethod
+    def alias(cls, alias_type: type[_T]) -> Self:
+        return cls.factory(lambda x: x, enter=False, params={"x": alias_type})
 
     def __post_init__(self) -> None:
-        if self.factory is None:
-            return
-        if isgeneratorfunction(self.factory):
-            self.factory = contextmanager(self.factory)
-
+        # Merge given callable inspected params with provided ones.
         # NOTE: we omit variadic params because we don't know how to autowire them yet
-        params = get_non_variadic_params(self.factory)
+        self.params = get_non_variadic_params(self.getter) | self.params
 
-        if is_lambda_function(self.factory):
-            # NOTE: for lambda function we allow 0 arguments or a single one (the container itself)
-            if count_func_params(self.factory) > 1:
-                raise RegistrationError(
-                    "Lambda functions can takes up to only one parameter"
-                )
-        elif empty_params := get_untyped_parameters(params):
+        if empty_params := get_untyped_parameters(self.params):
             # NOTE: if some parameters are missing type annotation we cannot autowire
-            msg = f"Factory {self.factory} is missing types for following parameters: {', '.join(empty_params)}"
+            msg = f"Factory {self.getter} is missing types for following parameters: {', '.join(empty_params)}"
             raise RegistrationError(msg)
-
-        self.params.update(params)
 
     def __eq__(self, value: object) -> bool:
         return (
             isinstance(value, ServiceDescriptor)
-            and self._get_comparable_factory() == value._get_comparable_factory()
-            and self.implementation == value.implementation
+            and self._get_getter_comparator() == value._get_getter_comparator()
             and self.lifetime == value.lifetime
             and self.enter == value.enter
         )
 
-    def _get_comparable_factory(self) -> object:
-        if self.factory is None:
-            return None
-        if hasattr(self.factory, "__code__"):
-            return self.factory.__code__.co_code
-        return self.factory
+    def _get_getter_comparator(self) -> object:
+        if hasattr(self.getter, "__code__"):
+            return self.getter.__code__.co_code
+        return self.getter
+
+
+class Lifetime_(ABC):
+    @abstractmethod
+    def accept(self, container: "Container", descriptor: ServiceDescriptor[_T]) -> _T:
+        pass
+
+
+class SingletonLifetime(Lifetime_):
+    def accept(self, container: "Container", descriptor: ServiceDescriptor[_T]) -> _T:
+        return container._resolve_singleton(descriptor)

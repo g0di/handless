@@ -1,11 +1,10 @@
 import logging
 from contextlib import AbstractContextManager, ExitStack
-from inspect import Parameter, isclass
 from typing import TypeVar, cast, overload
 
 from typing_extensions import TYPE_CHECKING, Any
 
-from handless.descriptor import Factory, ServiceDescriptor
+from handless.descriptor import ServiceDescriptor
 from handless.exceptions import ServiceNotFoundError, ServiceResolveError
 
 if TYPE_CHECKING:
@@ -40,21 +39,14 @@ class Container:
     def resolve(self, type_: type[Any]) -> Any: ...
 
     def resolve(self, type_: type[_T]) -> _T:
-        if isclass(type_) and issubclass(type_, Container):
-            # NOTE: When receiving lambda parameter, just return the container
-            return cast(_T, self)
-
         descriptor = self._get_descriptor(type_)
 
         try:
-            if descriptor.implementation is not None:
-                return self.resolve(descriptor.implementation)
             if descriptor.lifetime == "scoped":
                 return self._resolve_scoped(descriptor)
             if descriptor.lifetime == "singleton":
                 return self._resolve_singleton(descriptor)
             return self._resolve_transient(descriptor)
-
         except Exception as error:
             raise ServiceResolveError(type_, str(error)) from error
         finally:
@@ -71,7 +63,7 @@ class Container:
             if self._strict:
                 raise ServiceNotFoundError(type_)
             # NOTE: Defaults to a transient factory
-            return Factory(type_)
+            return ServiceDescriptor(type_)
         return descriptor
 
     def _resolve_transient(self, descriptor: ServiceDescriptor[_T]) -> _T:
@@ -89,24 +81,13 @@ class Container:
         return cast(_T, self._cache[descriptor])
 
     def _get_instance(self, descriptor: ServiceDescriptor[_T]) -> _T:
-        if not descriptor.factory:
-            raise TypeError(
-                "Can not get instance from given ServiceDescriptor: it has no factory"
-            )
-
         args = {
-            # NOTE: pass the container when the parameter is empty
-            # This happens when resolving a lambda function
-            pname: (
-                self.resolve(ptype.annotation)
-                if ptype.annotation != Parameter.empty
-                else self
-            )
+            pname: self.resolve(ptype.annotation)
             for pname, ptype in descriptor.params.items()
         }
-        instance = descriptor.factory(**args)
-        if descriptor.enter and isinstance(instance, AbstractContextManager):
-            return cast(_T, self._exit_stack.enter_context(instance))
+        instance = descriptor.getter(**args)
+        if isinstance(instance, AbstractContextManager) and descriptor.enter:
+            instance = self._exit_stack.enter_context(instance)
         # NOTE: we blindly trust and return the instance. There is no point in raising an
         # error here.
         # TODO: maybe send a dev warning if instance if not an instance of requested type

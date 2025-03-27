@@ -1,3 +1,4 @@
+from inspect import Parameter
 from typing import Callable
 
 import pytest
@@ -23,7 +24,7 @@ class TestValueDescriptor:
         descriptor = Value(value)
 
         assert descriptor == ServiceDescriptor(
-            factory=lambda: value, enter=False, lifetime="singleton"
+            getter=lambda: value, enter=False, lifetime="singleton"
         )
 
     @use_enter
@@ -33,7 +34,7 @@ class TestValueDescriptor:
         descriptor = Value(value, enter=enter)
 
         assert descriptor == ServiceDescriptor(
-            factory=lambda: value, enter=enter, lifetime="singleton"
+            getter=lambda: value, enter=enter, lifetime="singleton"
         )
 
 
@@ -42,7 +43,7 @@ class TestFactoryDescriptor:
     def test_factory_descriptor_defaults(
         self, factory: Callable[..., IFakeService]
     ) -> None:
-        descriptor = ServiceDescriptor(factory=factory)
+        descriptor = ServiceDescriptor(getter=factory)
 
         assert descriptor.lifetime == "transient"
 
@@ -115,4 +116,11 @@ class TestAliasDescriptor:
     def test_alias_factory_returns_an_alias_descriptor(self) -> None:
         descriptor = Alias(object)
 
-        assert descriptor == ServiceDescriptor(implementation=object)
+        assert descriptor == ServiceDescriptor(
+            lambda x: x,
+            lifetime="transient",
+            enter=False,
+            params={
+                "x": Parameter("x", Parameter.POSITIONAL_OR_KEYWORD, annotation=object)
+            },
+        )

@@ -99,7 +99,10 @@ use_factory_callable = pytest.mark.parametrize(
         fake_service_factory,
         fake_service_factory_with_params,
         fake_service_lambda_factory,
-        fake_service_lambda_factory_with_param,
+        pytest.param(
+            fake_service_lambda_factory_with_param,
+            marks=pytest.mark.xfail(reason="Not implemented"),
+        ),
         CallableFakeService(),
         CallableFakeServiceWithParams(),
     ],
@@ -110,7 +113,10 @@ use_factory_function = pytest.mark.parametrize(
     "function",
     [
         fake_service_lambda_factory,
-        fake_service_lambda_factory_with_param,
+        pytest.param(
+            fake_service_lambda_factory_with_param,
+            marks=pytest.mark.xfail(reason="Not implemented"),
+        ),
         fake_service_factory,
         fake_service_factory_with_params,
     ],

@@ -13,7 +13,7 @@ from handless.descriptor import (
     Lifetime,
     Scoped,
     ServiceDescriptor,
-    ServiceFactory,
+    ServiceGetter,
     Singleton,
     Value,
 )
@@ -46,7 +46,7 @@ class Registry(MutableMapping[type[Any], Any]):
     def __setitem__(
         self,
         key: type[_T],
-        value: _T | ServiceFactory[_T] | ServiceDescriptor[_T] | EllipsisType,
+        value: _T | ServiceGetter[_T] | ServiceDescriptor[_T] | EllipsisType,
     ) -> None:
         _service_descriptor = None if value is ... else value
         self.register(key, _service_descriptor)
@@ -76,7 +76,7 @@ class Registry(MutableMapping[type[Any], Any]):
     def register(
         self,
         type_: type[_T],
-        descriptor: ServiceFactory[_T] | None = ...,
+        descriptor: ServiceGetter[_T] | None = ...,
         *,
         lifetime: Lifetime = ...,
         enter: bool | None = ...,
@@ -94,7 +94,7 @@ class Registry(MutableMapping[type[Any], Any]):
     def register(
         self,
         type_: type[_T],
-        descriptor: ServiceDescriptor[_T] | _T | ServiceFactory[_T] | None = None,
+        descriptor: ServiceDescriptor[_T] | _T | ServiceGetter[_T] | None = None,
         *,
         lifetime: Lifetime = "transient",
         enter: bool | None = None,
@@ -134,7 +134,7 @@ class Registry(MutableMapping[type[Any], Any]):
     def register_factory(
         self,
         type_: type[_T],
-        factory: ServiceFactory[_T] | None = None,
+        factory: ServiceGetter[_T] | None = None,
         *,
         lifetime: Lifetime = "transient",
         enter: bool = True,
@@ -150,7 +150,7 @@ class Registry(MutableMapping[type[Any], Any]):
     def register_singleton(
         self,
         type_: type[_T],
-        factory: ServiceFactory[_T] | None = None,
+        factory: ServiceGetter[_T] | None = None,
         *,
         enter: bool = True,
     ) -> Self:
@@ -161,7 +161,7 @@ class Registry(MutableMapping[type[Any], Any]):
     def register_scoped(
         self,
         type_: type[_T],
-        factory: ServiceFactory[_T] | None = None,
+        factory: ServiceGetter[_T] | None = None,
         *,
         enter: bool = True,
     ) -> Self:
