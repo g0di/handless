@@ -47,3 +47,9 @@
 
 - add ability to copy registry/containers for testing purposes
 - add ability to temporarily override container/registry for testing purposes
+
+# github
+
+- Add readme badges (tests, coverage, ...)
+- Publish code coverage (codecov?)
+- enable build on PRs + other nice stuff
