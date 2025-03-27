@@ -14,6 +14,7 @@ from handless.descriptor import (
     Scoped,
     ServiceDescriptor,
     ServiceGetter,
+    ServiceGetterIn,
     Singleton,
     Value,
 )
@@ -121,7 +122,7 @@ class Registry(MutableMapping[type[Any], Any]):
         )
 
     def register_value(
-        self, type_: type[_T] | type[Any], service_value: _T, *, enter: bool = False
+        self, type_: type[Any], service_value: object, *, enter: bool = False
     ) -> Self:
         """Registers given value to be returned when resolving given service type.
 
@@ -134,7 +135,7 @@ class Registry(MutableMapping[type[Any], Any]):
     def register_factory(
         self,
         type_: type[_T],
-        factory: ServiceGetter[_T] | None = None,
+        factory: ServiceGetterIn[_T] | None = None,
         *,
         lifetime: Lifetime = "transient",
         enter: bool = True,
@@ -150,7 +151,7 @@ class Registry(MutableMapping[type[Any], Any]):
     def register_singleton(
         self,
         type_: type[_T],
-        factory: ServiceGetter[_T] | None = None,
+        factory: ServiceGetterIn[_T] | None = None,
         *,
         enter: bool = True,
     ) -> Self:
@@ -161,7 +162,7 @@ class Registry(MutableMapping[type[Any], Any]):
     def register_scoped(
         self,
         type_: type[_T],
-        factory: ServiceGetter[_T] | None = None,
+        factory: ServiceGetterIn[_T] | None = None,
         *,
         enter: bool = True,
     ) -> Self:
@@ -169,7 +170,7 @@ class Registry(MutableMapping[type[Any], Any]):
         descriptor = Scoped(factory or type_, enter=enter)
         return self._register(type_, descriptor)
 
-    def register_alias(self, type_: type[_T] | type[Any], alias: type[_T]) -> Self:
+    def register_alias(self, type_: type[Any], alias: type[Any]) -> Self:
         """Registers given registered type to be used when resolving given service type."""
         descrtipor = Alias(alias)
         return self._register(type_, descrtipor)
