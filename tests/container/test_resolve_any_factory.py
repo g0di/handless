@@ -40,10 +40,7 @@ def test_resolve_a_factory_descriptor_calls_given_callable_and_returns_its_resul
     [
         FakeServiceWithParams,
         fake_service_factory_with_params,
-        pytest.param(
-            fake_service_factory_with_container_param,
-            marks=pytest.mark.xfail(reason="Not implemented"),
-        ),
+        fake_service_factory_with_container_param,
         CallableFakeServiceWithParams(),
         pytest.param(
             fake_service_lambda_factory_with_param,

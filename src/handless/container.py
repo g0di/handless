@@ -39,6 +39,8 @@ class Container:
     def resolve(self, type_: type[Any]) -> Any: ...
 
     def resolve(self, type_: type[_T]) -> _T:
+        if issubclass(type_, Container):
+            return cast(_T, self)
         descriptor = self._get_descriptor(type_)
 
         try:
