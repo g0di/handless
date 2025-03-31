@@ -11,12 +11,12 @@ from handless.exceptions import RegistrationError
 _T = TypeVar("_T")
 
 
-ServiceGetter = (
+ServiceDescriptorFactory = (
     Callable[..., _T]
     | Callable[..., _GeneratorContextManager[_T]]
     | Callable[..., AbstractContextManager[_T]]
 )
-ServiceGetterIn = (
+ServiceDescriptorFactoryIn = (
     Callable[..., _T]
     | Callable[..., _GeneratorContextManager[Any]]
     | Callable[..., AbstractContextManager[_T]]
@@ -30,53 +30,59 @@ Lifetime = Literal["transient", "singleton", "scoped"]
 class ServiceDescriptor(Generic[_T]):
     """Describe how to resolve a service."""
 
-    getter: ServiceGetter[_T]
-    """Callable that returns an instance of the service."""
+    factory: ServiceDescriptorFactory[_T]
+    """Factory that returns an instance of the descibed service."""
     lifetime: Lifetime = "transient"
     """Service instance lifetime."""
     enter: bool = True
-    """Whether or not to enter servcice instance context manager, if any."""
-    params: dict[str, Parameter] = field(default_factory=dict, hash=False)
-    """Service getter parameters types merged with given ones, if any."""
+    """Whether or not to enter `factory` returned objects context manager, if any."""
+    params: tuple[Parameter, ...] = field(default_factory=tuple)
+    """`factory` parameters. If provided, it will be merged into ones extracted from its signature."""
 
     @classmethod
-    def factory(
+    def for_factory(
         cls,
-        getter: ServiceGetterIn[_T],
+        factory: ServiceDescriptorFactoryIn[_T],
         lifetime: Lifetime = "transient",
         enter: bool = True,
         params: dict[str, type[Any]] | None = None,
     ) -> Self:
-        if isgeneratorfunction(getter):
-            getter = contextmanager(getter)
-        actual_params = {
-            p: Parameter(p, Parameter.POSITIONAL_OR_KEYWORD, annotation=ptype)
+        if isgeneratorfunction(factory):
+            factory = contextmanager(factory)
+        actual_params = tuple(
+            Parameter(p, Parameter.POSITIONAL_OR_KEYWORD, annotation=ptype)
             for p, ptype in (params or {}).items()
-        }
+        )
         return cls(
-            cast(ServiceGetter[_T], getter),
+            cast(ServiceDescriptorFactory[_T], factory),
             lifetime=lifetime,
             enter=enter,
             params=actual_params,
         )
 
     @classmethod
-    def value(cls, value: _T, enter: bool = False) -> Self:
-        return cls.factory(lambda: value, lifetime="singleton", enter=enter)
+    def for_instance(cls, instance: _T, enter: bool = False) -> Self:
+        return cls.for_factory(lambda: instance, lifetime="singleton", enter=enter)
 
     @classmethod
-    def implementation(cls, alias_type: type[_T]) -> Self:
-        return cls.factory(lambda x: x, enter=False, params={"x": alias_type})
+    def for_implementation(cls, alias_type: type[_T]) -> Self:
+        return cls.for_factory(lambda x: x, enter=False, params={"x": alias_type})
 
     def __post_init__(self) -> None:
         # Merge given callable inspected params with provided ones.
         # NOTE: we omit variadic params because we don't know how to autowire them yet
-        self.params = get_non_variadic_params(self.getter) | self.params
+        params = get_non_variadic_params(self.factory)
+        for override in self.params:
+            params[override.name] = params[override.name].replace(
+                annotation=override.annotation
+            )
 
-        if empty_params := get_untyped_parameters(self.params):
+        if empty_params := get_untyped_parameters(params):
             # NOTE: if some parameters are missing type annotation we cannot autowire
-            msg = f"Factory {self.getter} is missing types for following parameters: {', '.join(empty_params)}"
+            msg = f"Factory {self.factory} is missing types for following parameters: {', '.join(empty_params)}"
             raise RegistrationError(msg)
+
+        self.params = tuple(params.values())
 
     def __eq__(self, value: object) -> bool:
         return (
@@ -88,6 +94,6 @@ class ServiceDescriptor(Generic[_T]):
         )
 
     def _get_getter_comparator(self) -> object:
-        if hasattr(self.getter, "__code__"):
-            return self.getter.__code__.co_code
-        return self.getter
+        if hasattr(self.factory, "__code__"):
+            return self.factory.__code__.co_code
+        return self.factory

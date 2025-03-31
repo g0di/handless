@@ -14,7 +14,7 @@ def test_register_scoped_without_factory_registers_a_scoped_service_descriptor_f
     ret = sut.register_scoped(helpers.FakeService)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         helpers.FakeService, enter=True, lifetime="scoped"
     )
 
@@ -26,7 +26,7 @@ def test_register_scoped_registers_a_scoped_service_descriptor_for_given_callabl
     ret = sut.register_scoped(helpers.FakeService, factory)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         factory, enter=True, lifetime="scoped"
     )
 
@@ -38,7 +38,7 @@ def test_register_scoped_with_options_registers_a_scoped_service_descriptor_with
     ret = sut.register_scoped(helpers.FakeService, enter=enter)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         helpers.FakeService, enter=enter, lifetime="scoped"
     )
 

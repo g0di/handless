@@ -13,7 +13,7 @@ def test_register_singleton_without_factory_registers_a_singleton_factory_servic
     ret = sut.register_singleton(helpers.FakeService)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         helpers.FakeService, enter=True, lifetime="singleton"
     )
 
@@ -25,7 +25,7 @@ def test_register_singleton_with_value_registers_a_singleton_service_descriptor_
     ret = sut.register_singleton(helpers.FakeService, value)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.value(value)
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_instance(value)
 
 
 @helpers.use_enter
@@ -36,7 +36,9 @@ def test_register_singleton_with_value_and_options_registers_a_singleton_service
     ret = sut.register_singleton(helpers.FakeService, value, enter=enter)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.value(value, enter=enter)
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_instance(
+        value, enter=enter
+    )
 
 
 @helpers.use_factory_callable
@@ -46,7 +48,7 @@ def test_register_singleton_registers_a_singleton_factory_service_descriptor(
     ret = sut.register_singleton(helpers.FakeService, factory)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         factory, enter=True, lifetime="singleton"
     )
 
@@ -58,7 +60,7 @@ def test_register_singleton_with_options_registers_a_factory_service_descriptor_
     ret = sut.register_singleton(helpers.FakeService, enter=enter)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         helpers.FakeService, enter=enter, lifetime="singleton"
     )
 

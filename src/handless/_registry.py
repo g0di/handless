@@ -4,7 +4,7 @@ from typing import Callable, Iterator, TypeVar, overload
 from typing_extensions import Any, ParamSpec, Self
 
 from handless._container import Container
-from handless._descriptor import Lifetime, ServiceDescriptor, ServiceGetterIn
+from handless._descriptor import Lifetime, ServiceDescriptor, ServiceDescriptorFactoryIn
 from handless._utils import get_return_type
 from handless.exceptions import RegistrationError
 
@@ -61,7 +61,7 @@ class Registry:
     def register_factory(
         self,
         type_: type[_T],
-        factory: ServiceGetterIn[_T] | None = None,
+        factory: ServiceDescriptorFactoryIn[_T] | None = None,
         *,
         lifetime: Lifetime = "transient",
         enter: bool = True,
@@ -73,13 +73,15 @@ class Registry:
         """
         return self.register(
             type_,
-            ServiceDescriptor.factory(factory or type_, lifetime=lifetime, enter=enter),
+            ServiceDescriptor.for_factory(
+                factory or type_, lifetime=lifetime, enter=enter
+            ),
         )
 
     def register_singleton(
         self,
         type_: type[_T],
-        singleton: _T | ServiceGetterIn[_T] | None = None,
+        singleton: _T | ServiceDescriptorFactoryIn[_T] | None = None,
         *,
         enter: bool | None = None,
     ) -> Self:
@@ -95,13 +97,13 @@ class Registry:
         :return: _description_
         """
         descriptor = (
-            ServiceDescriptor.factory(
+            ServiceDescriptor.for_factory(
                 singleton or type_,
                 enter=True if enter is None else enter,
                 lifetime="singleton",
             )
             if singleton is None or callable(singleton)
-            else ServiceDescriptor.value(
+            else ServiceDescriptor.for_instance(
                 singleton, enter=False if enter is None else enter
             )
         )
@@ -110,19 +112,21 @@ class Registry:
     def register_scoped(
         self,
         type_: type[_T],
-        factory: ServiceGetterIn[_T] | None = None,
+        factory: ServiceDescriptorFactoryIn[_T] | None = None,
         *,
         enter: bool = True,
     ) -> Self:
         """Registers given callable to be called once per scope when resolving given service type."""
         return self.register(
             type_,
-            ServiceDescriptor.factory(factory or type_, enter=enter, lifetime="scoped"),
+            ServiceDescriptor.for_factory(
+                factory or type_, enter=enter, lifetime="scoped"
+            ),
         )
 
     def register_implementation(self, type_: type[Any], alias: type[Any]) -> Self:
         """Registers given registered type to be used when resolving given service type."""
-        return self.register(type_, ServiceDescriptor.implementation(alias))
+        return self.register(type_, ServiceDescriptor.for_implementation(alias))
 
     ############################
     # Declarative registration #

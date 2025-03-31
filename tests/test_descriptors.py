@@ -13,10 +13,10 @@ class TestValueServiceDescriptor:
     def test_value_returns_a_singleton_service_descriptor(self) -> None:
         value = object()
 
-        descriptor = ServiceDescriptor.value(value)
+        descriptor = ServiceDescriptor.for_instance(value)
 
         assert descriptor == ServiceDescriptor(
-            getter=lambda: value, enter=False, lifetime="singleton"
+            lambda: value, enter=False, lifetime="singleton"
         )
 
     @helpers.use_enter
@@ -25,10 +25,10 @@ class TestValueServiceDescriptor:
     ) -> None:
         value = object()
 
-        descriptor = ServiceDescriptor.value(value, enter=enter)
+        descriptor = ServiceDescriptor.for_instance(value, enter=enter)
 
         assert descriptor == ServiceDescriptor(
-            getter=lambda: value, enter=enter, lifetime="singleton"
+            lambda: value, enter=enter, lifetime="singleton"
         )
 
 
@@ -37,14 +37,14 @@ class TestFactoryServiceDescriptor:
     def test_service_descriptor_is_transient_by_default(
         self, factory: Callable[..., helpers.IFakeService]
     ) -> None:
-        descriptor = ServiceDescriptor(getter=factory)
+        descriptor = ServiceDescriptor(factory)
 
         assert descriptor.lifetime == "transient"
 
     def test_factory_returns_a_transient_service_descriptor(
         self, factory: Callable[..., helpers.IFakeService]
     ) -> None:
-        descriptor = ServiceDescriptor.factory(factory)
+        descriptor = ServiceDescriptor.for_factory(factory)
 
         assert descriptor == ServiceDescriptor(
             factory, lifetime="transient", enter=True
@@ -58,7 +58,9 @@ class TestFactoryServiceDescriptor:
         lifetime: Lifetime,
         enter: bool,
     ) -> None:
-        descriptor = ServiceDescriptor.factory(factory, lifetime=lifetime, enter=enter)
+        descriptor = ServiceDescriptor.for_factory(
+            factory, lifetime=lifetime, enter=enter
+        )
 
         assert descriptor == ServiceDescriptor(factory, lifetime=lifetime, enter=enter)
 
@@ -73,13 +75,11 @@ def test_service_descriptor_with_invalid_callable_raises_an_error(
 
 class TestImplementationDescriptor:
     def test_implementation_returns_a_transient_service_descriptor(self) -> None:
-        descriptor = ServiceDescriptor.implementation(object)
+        descriptor = ServiceDescriptor.for_implementation(object)
 
         assert descriptor == ServiceDescriptor(
             lambda x: x,
             lifetime="transient",
             enter=False,
-            params={
-                "x": Parameter("x", Parameter.POSITIONAL_OR_KEYWORD, annotation=object)
-            },
+            params=[Parameter("x", Parameter.POSITIONAL_OR_KEYWORD, annotation=object)],
         )

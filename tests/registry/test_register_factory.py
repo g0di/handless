@@ -16,7 +16,7 @@ def test_register_factory_without_callable_registers_a_transient_service_descrip
     ret = sut.register_factory(helpers.FakeService)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         helpers.FakeService, enter=True
     )
 
@@ -28,7 +28,7 @@ def test_register_factory_registers_a_transient_factory_service_descriptor(
     ret = sut.register_factory(helpers.FakeService, factory)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         factory, enter=True
     )
 
@@ -41,7 +41,7 @@ def test_register_factory_with_options_registers_a_factory_service_descriptor_wi
     ret = sut.register_factory(helpers.FakeService, lifetime=lifetime, enter=enter)
 
     assert ret is sut
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         helpers.FakeService, lifetime=lifetime, enter=enter
     )
 
@@ -62,6 +62,6 @@ def test_register_factory_with_generator_function_wraps_it_as_a_context_manager(
 
     sut.register_factory(helpers.FakeService, fake_service_generator)
 
-    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.for_factory(
         contextmanager(fake_service_generator)
     )

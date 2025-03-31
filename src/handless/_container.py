@@ -75,10 +75,9 @@ class Container:
 
     def _get_instance(self, descriptor: ServiceDescriptor[_T]) -> _T:
         args = {
-            pname: self.resolve(ptype.annotation)
-            for pname, ptype in descriptor.params.items()
+            param.name: self.resolve(param.annotation) for param in descriptor.params
         }
-        instance = descriptor.getter(**args)
+        instance = descriptor.factory(**args)
         if isinstance(instance, AbstractContextManager) and descriptor.enter:
             instance = self._exit_stack.enter_context(instance)
         # NOTE: we blindly trust and return the instance. There is no point in raising an
