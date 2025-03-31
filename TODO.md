@@ -21,7 +21,6 @@
 
 - Handle positional only argument
 - Simply inject getters parameters default value if we could not resolve its type
-- Consider mark regitry as strict rather than container itself
 
 ## Misc
 

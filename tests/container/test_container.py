@@ -34,10 +34,7 @@ def test_resolve_unregistered_service_type_uses_a_transient_factory_by_default(
 
 @pytest.mark.parametrize(
     "sut",
-    [
-        Container(Registry(), strict=True),
-        Container(Registry(), strict=True).create_scope(),
-    ],
+    [Container(Registry(strict=True)), Container(Registry(strict=True)).create_scope()],
     ids=["Strict root container", "Strict scoped container"],
 )
 def test_resolve_unregistered_service_type_raise_an_error_when_using_strict_model(

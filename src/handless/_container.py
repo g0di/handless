@@ -56,10 +56,7 @@ class Container:
     def _get_descriptor(self, type_: type[_T]) -> ServiceDescriptor[_T]:
         descriptor = self._registry.get(type_)
         if descriptor is None:
-            if self._strict:
-                raise ServiceNotFoundError(type_)
-            # NOTE: Defaults to a transient factory
-            return ServiceDescriptor(type_)
+            raise ServiceNotFoundError(type_)
         return descriptor
 
     def _resolve_transient(self, descriptor: ServiceDescriptor[_T]) -> _T:

@@ -13,7 +13,8 @@ _T = TypeVar("_T")
 
 
 class Registry:
-    def __init__(self) -> None:
+    def __init__(self, strict: bool = False) -> None:
+        self.strict = strict
         self._services: dict[type, ServiceDescriptor[Any]] = {}
         self._logger = logging.getLogger(__name__)
 
@@ -44,7 +45,10 @@ class Registry:
 
     def get(self, type_: type[_T]) -> ServiceDescriptor[_T] | None:
         """Get descriptor registered for given service type, if any or None."""
-        return self._services.get(type_)
+        descriptor = self._services.get(type_)
+        if descriptor is None and not self.strict:
+            return ServiceDescriptor(type_)
+        return descriptor
 
     def create_container(self, *, strict: bool = False) -> Container:
         """Create and return a new container using this registry."""
