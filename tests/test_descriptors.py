@@ -81,5 +81,7 @@ class TestImplementationDescriptor:
             lambda x: x,
             lifetime="transient",
             enter=False,
-            params=[Parameter("x", Parameter.POSITIONAL_OR_KEYWORD, annotation=object)],
+            params=(
+                Parameter("x", Parameter.POSITIONAL_OR_KEYWORD, annotation=object),
+            ),
         )
