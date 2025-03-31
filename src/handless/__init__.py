@@ -1,15 +1,5 @@
-from handless.container import Container, ScopedContainer
-from handless.descriptor import Alias, Factory, Lifetime, Scoped, Singleton, Value
-from handless.registry import Registry
+from handless._container import Container, ScopedContainer
+from handless._descriptor import Lifetime, ServiceDescriptor
+from handless._registry import Registry
 
-__all__ = [
-    "Lifetime",
-    "Alias",
-    "Container",
-    "Factory",
-    "Registry",
-    "Scoped",
-    "ScopedContainer",
-    "Singleton",
-    "Value",
-]
+__all__ = ["Lifetime", "Container", "Registry", "ScopedContainer", "ServiceDescriptor"]

@@ -5,18 +5,18 @@ from typing import Callable
 import pytest
 
 from handless import Lifetime, Registry
-from handless.descriptor import Factory
+from handless._descriptor import ServiceDescriptor
 from handless.exceptions import RegistrationError
 from tests import helpers
 
 
-def test_register_factory_without_factory_registers_a_transient_factory_service_descriptor_for_given_type(
+def test_register_factory_without_callable_registers_a_transient_service_descriptor_for_given_type(
     sut: Registry,
 ) -> None:
     ret = sut.register_factory(helpers.FakeService)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == Factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
         helpers.FakeService, enter=True
     )
 
@@ -28,7 +28,9 @@ def test_register_factory_registers_a_transient_factory_service_descriptor(
     ret = sut.register_factory(helpers.FakeService, factory)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == Factory(factory, enter=True)
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+        factory, enter=True
+    )
 
 
 @helpers.use_lifetimes
@@ -39,13 +41,13 @@ def test_register_factory_with_options_registers_a_factory_service_descriptor_wi
     ret = sut.register_factory(helpers.FakeService, lifetime=lifetime, enter=enter)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == Factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
         helpers.FakeService, lifetime=lifetime, enter=enter
     )
 
 
 @helpers.use_invalid_factory_callable
-def test_register_factory_with_untyped_callable_raise_an_error(
+def test_register_factory_with_invalid_callable_raise_an_error(
     sut: Registry, factory: Callable[..., helpers.FakeService]
 ) -> None:
     with pytest.raises(RegistrationError):
@@ -60,6 +62,6 @@ def test_register_factory_with_generator_function_wraps_it_as_a_context_manager(
 
     sut.register_factory(helpers.FakeService, fake_service_generator)
 
-    assert sut.get_descriptor(helpers.FakeService) == Factory(
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
         contextmanager(fake_service_generator)
     )

@@ -18,13 +18,10 @@ def test_create_scope_returns_a_new_scoped_container() -> None:
 
 @pytest.mark.parametrize(
     "sut",
-    [
-        Container(Registry()),
-        Container(Registry()).create_scope(),
-    ],
+    [Container(Registry()), Container(Registry()).create_scope()],
     ids=["Root container", "Scoped container"],
 )
-def test_resolve_unregistered_service_type_use_a_transient_factory_by_default(
+def test_resolve_unregistered_service_type_uses_a_transient_factory_by_default(
     sut: Container,
 ) -> None:
     resolved = sut.resolve(FakeService)

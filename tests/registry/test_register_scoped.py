@@ -3,46 +3,48 @@ from typing import Callable
 import pytest
 
 from handless import Registry
-from handless.descriptor import Scoped
+from handless._descriptor import ServiceDescriptor
 from handless.exceptions import RegistrationError
 from tests import helpers
 
 
-def test_register_scoped_without_factory_registers_a_scoped_factory_service_descriptor_for_given_type(
+def test_register_scoped_without_factory_registers_a_scoped_service_descriptor_for_given_type(
     sut: Registry,
 ) -> None:
     ret = sut.register_scoped(helpers.FakeService)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == Scoped(
-        helpers.FakeService, enter=True
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+        helpers.FakeService, enter=True, lifetime="scoped"
     )
 
 
 @helpers.use_factory_callable
-def test_register_scoped_registers_a_scoped_factory_service_descriptor(
+def test_register_scoped_registers_a_scoped_service_descriptor_for_given_callable(
     sut: Registry, factory: Callable[..., helpers.FakeService]
 ) -> None:
     ret = sut.register_scoped(helpers.FakeService, factory)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == Scoped(factory, enter=True)
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+        factory, enter=True, lifetime="scoped"
+    )
 
 
 @helpers.use_enter
-def test_register_scoped_with_options_registers_a_factory_service_descriptor_with_given_options(
+def test_register_scoped_with_options_registers_a_scoped_service_descriptor_with_given_options(
     sut: Registry, enter: bool
 ) -> None:
     ret = sut.register_scoped(helpers.FakeService, enter=enter)
 
     assert ret is sut
-    assert sut.get_descriptor(helpers.FakeService) == Scoped(
-        helpers.FakeService, enter=enter
+    assert sut.get(helpers.FakeService) == ServiceDescriptor.factory(
+        helpers.FakeService, enter=enter, lifetime="scoped"
     )
 
 
 @helpers.use_invalid_factory_callable
-def test_register_scoped_with_untyped_callable_raise_an_error(
+def test_register_scoped_with_invalid_callable_raises_an_error(
     sut: Registry, factory: Callable[..., helpers.FakeService]
 ) -> None:
     with pytest.raises(RegistrationError):

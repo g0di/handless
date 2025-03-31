@@ -1,14 +1,14 @@
 import logging
 from contextlib import AbstractContextManager, ExitStack
-from typing import TypeVar, cast, overload
+from typing import TypeVar, cast
 
 from typing_extensions import TYPE_CHECKING, Any
 
-from handless.descriptor import ServiceDescriptor
+from handless._descriptor import ServiceDescriptor
 from handless.exceptions import ServiceNotFoundError, ServiceResolveError
 
 if TYPE_CHECKING:
-    from handless.registry import Registry
+    from handless._registry import Registry
 
 
 _T = TypeVar("_T")
@@ -32,12 +32,6 @@ class Container:
     def __getitem__(self, type_: type[_T]) -> _T:
         return self.resolve(type_)
 
-    @overload
-    def resolve(self, type_: type[_T]) -> _T: ...
-
-    @overload
-    def resolve(self, type_: type[Any]) -> Any: ...
-
     def resolve(self, type_: type[_T]) -> _T:
         if issubclass(type_, Container):
             return cast(_T, self)
@@ -60,7 +54,7 @@ class Container:
             )
 
     def _get_descriptor(self, type_: type[_T]) -> ServiceDescriptor[_T]:
-        descriptor = self._registry.get_descriptor(type_)
+        descriptor = self._registry.get(type_)
         if descriptor is None:
             if self._strict:
                 raise ServiceNotFoundError(type_)

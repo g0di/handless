@@ -25,7 +25,7 @@ from tests.helpers import (
         CallableFakeService(),
     ],
 )
-def test_resolve_a_factory_descriptor_calls_given_callable_and_returns_its_result(
+def test_resolve_service_descriptor_calls_given_callable_and_returns_its_result(
     factory: Callable[..., FakeService],
 ) -> None:
     container = Registry().register_factory(FakeService, factory).create_container()
@@ -48,13 +48,13 @@ def test_resolve_a_factory_descriptor_calls_given_callable_and_returns_its_resul
         ),
     ],
 )
-def test_resolve_a_factory_descriptor_resolves_its_parameters_before_calling_it(
+def test_resolve_service_descriptor_resolves_its_parameters_before_calling_it(
     factory: Callable[..., FakeServiceWithParams],
 ) -> None:
     container = (
         Registry()
-        .register_value(str, "a")
-        .register_value(int, 42)
+        .register_singleton(str, "a")
+        .register_singleton(int, 42)
         .register_factory(FakeServiceWithParams, factory)
         .create_container()
     )
@@ -66,13 +66,24 @@ def test_resolve_a_factory_descriptor_resolves_its_parameters_before_calling_it(
     assert resolved1.bar == 42
 
 
-def test_resolve_factory_enter_context_manager_if_one_is_returned() -> None:
+def test_resolve_service_descriptor_enters_context_manager_if_one_is_returned() -> None:
     sut = Registry().register_factory(FakeService).create_container()
 
     resolved = sut.resolve(FakeService)
 
     assert resolved.entered
     assert not resolved.exited
+
+
+def test_service_descriptor_returned_context_manager_is_exited_on_container_close() -> (
+    None
+):
+    sut = Registry().register_factory(FakeService).create_container()
+    resolved = sut.resolve(FakeService)
+
+    sut.close()
+
+    assert resolved.exited
 
 
 def test_resolve_factory_not_enter_context_manager_if_one_is_returned_but_enter_is_false() -> (
@@ -84,3 +95,14 @@ def test_resolve_factory_not_enter_context_manager_if_one_is_returned_but_enter_
 
     assert not resolved.entered
     assert not resolved.exited
+
+
+def test_resolve_service_descriptor_not_enter_non_context_manager_returned_object() -> (
+    None
+):
+    sut = Registry().register_factory(object, enter=True).create_container()
+
+    try:
+        sut.resolve(object)
+    except AttributeError as error:
+        pytest.fail(reason=str(error))

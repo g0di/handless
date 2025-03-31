@@ -1,36 +1,19 @@
 from contextlib import AbstractContextManager, _GeneratorContextManager, contextmanager
 from dataclasses import dataclass, field
 from inspect import Parameter, isgeneratorfunction
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Generic,
-    Iterator,
-    Literal,
-    ParamSpec,
-    TypeVar,
-    cast,
-)
+from typing import Any, Callable, Generic, Iterator, Literal, TypeVar, cast
 
 from typing_extensions import Self
 
-from handless._utils import (
-    get_non_variadic_params,
-    get_untyped_parameters,
-)
+from handless._utils import get_non_variadic_params, get_untyped_parameters
 from handless.exceptions import RegistrationError
 
-if TYPE_CHECKING:
-    pass
-
-_P = ParamSpec("_P")
 _T = TypeVar("_T")
 
 
 ServiceGetter = (
     Callable[..., _T]
-    | Callable[..., _GeneratorContextManager[Any]]
+    | Callable[..., _GeneratorContextManager[_T]]
     | Callable[..., AbstractContextManager[_T]]
 )
 ServiceGetterIn = (
@@ -41,37 +24,6 @@ ServiceGetterIn = (
 )
 
 Lifetime = Literal["transient", "singleton", "scoped"]
-
-# NOTE: Following functions are factories for building various service descriptors
-# The name is capitalized even if it is functions to emphasis on the fact that those
-# function are for building objects without any particular side effect just as what
-# Pydantic does.
-
-
-def Alias(service_type: type[_T]) -> "ServiceDescriptor[_T]":
-    return ServiceDescriptor.alias(service_type)
-
-
-def Value(value: _T, *, enter: bool = False) -> "ServiceDescriptor[_T]":
-    return ServiceDescriptor.value(value, enter=enter)
-
-
-def Singleton(
-    factory: ServiceGetter[_T], *, enter: bool = True
-) -> "ServiceDescriptor[_T]":
-    return ServiceDescriptor.factory(factory, lifetime="singleton", enter=enter)
-
-
-def Scoped(
-    factory: ServiceGetter[_T], *, enter: bool = True
-) -> "ServiceDescriptor[_T]":
-    return ServiceDescriptor.factory(factory, lifetime="scoped", enter=enter)
-
-
-def Factory(
-    factory: ServiceGetter[_T], *, lifetime: Lifetime = "transient", enter: bool = True
-) -> "ServiceDescriptor[_T]":
-    return ServiceDescriptor.factory(factory, lifetime=lifetime, enter=enter)
 
 
 @dataclass(unsafe_hash=True, slots=True)
@@ -113,7 +65,7 @@ class ServiceDescriptor(Generic[_T]):
         return cls.factory(lambda: value, lifetime="singleton", enter=enter)
 
     @classmethod
-    def alias(cls, alias_type: type[_T]) -> Self:
+    def implementation(cls, alias_type: type[_T]) -> Self:
         return cls.factory(lambda x: x, enter=False, params={"x": alias_type})
 
     def __post_init__(self) -> None:

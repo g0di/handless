@@ -9,7 +9,7 @@ def sut() -> Container:
     return Registry().register_singleton(FakeService).create_container()
 
 
-def test_resolve_a_singleton_descriptor_calls_and_cache_factory_return_value(
+def test_resolve_a_singleton_descriptor_calls_and_cache_factory_returned_value(
     sut: Container,
 ) -> None:
     v1 = sut.resolve(FakeService)
@@ -18,7 +18,7 @@ def test_resolve_a_singleton_descriptor_calls_and_cache_factory_return_value(
     assert v1 is v2
 
 
-def test_resolve_a_singleton_descriptor_calls_and_cache_factory_return_value_accross_scopes(
+def test_resolve_a_singleton_descriptor_calls_and_cache_returned_value_accross_scopes(
     sut: Container,
 ) -> None:
     scope = sut.create_scope()
@@ -50,11 +50,4 @@ def test_singletons_are_not_cleared_on_scope_close(sut: Container) -> None:
     v2 = sut.resolve(FakeService)
 
     assert v1 is v2
-
-
-def test_singletons_with_context_manager_are_exited_on_close(sut: Container) -> None:
-    v1 = sut.resolve(FakeService)
-
-    sut.close()
-
-    assert v1.exited
+    assert not v1.exited

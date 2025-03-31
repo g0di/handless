@@ -28,9 +28,7 @@ def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
     return cast(type[_T], get_type_hints(func).get("return"))
 
 
-def get_non_variadic_params(
-    callable_: Callable[..., Any],
-) -> dict[str, Parameter]:
+def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Parameter]:
     """Returns a dict mapping given callable non variadic parameters name to their type.
 
     Non variadic parameters are all parameters except *args and **kwargs

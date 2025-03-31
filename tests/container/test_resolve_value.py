@@ -11,7 +11,7 @@ def value() -> FakeService:
 
 @pytest.fixture
 def sut(value: FakeService) -> Container:
-    return Registry().register_value(FakeService, value).create_container()
+    return Registry().register_singleton(FakeService, value).create_container()
 
 
 def test_resolve_a_value_descriptor_returns_the_value(
@@ -46,7 +46,7 @@ def test_resolve_a_value_descriptor_do_not_enter_cm_by_default(sut: Container) -
 def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager() -> None:
     sut = (
         Registry()
-        .register_value(FakeService, FakeService(), enter=True)
+        .register_singleton(FakeService, FakeService(), enter=True)
         .create_container()
     )
 
@@ -61,7 +61,7 @@ def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager_only_
 ):
     sut = (
         Registry()
-        .register_value(FakeService, FakeService(), enter=True)
+        .register_singleton(FakeService, FakeService(), enter=True)
         .create_container()
     )
     scope = sut.create_scope()
@@ -75,7 +75,7 @@ def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager_only_
 def test_close_container_exit_entered_value_descriptor_context_manager() -> None:
     sut = (
         Registry()
-        .register_value(FakeService, FakeService(), enter=True)
+        .register_singleton(FakeService, FakeService(), enter=True)
         .create_container()
     )
     resolved = sut.resolve(FakeService)
@@ -87,7 +87,7 @@ def test_close_container_exit_entered_value_descriptor_context_manager() -> None
 def test_close_scope_not_exit_entered_value_descriptor_context_manager() -> None:
     sut = (
         Registry()
-        .register_value(FakeService, FakeService(), enter=True)
+        .register_singleton(FakeService, FakeService(), enter=True)
         .create_container()
         .create_scope()
     )

@@ -4,7 +4,7 @@ import pytest
 from typing_extensions import get_args
 
 from handless import Container
-from handless.descriptor import Lifetime
+from handless._descriptor import Lifetime
 
 
 class IFakeService(Protocol): ...

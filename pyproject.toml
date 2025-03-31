@@ -81,6 +81,7 @@ ignore = [
 
 [tool.ruff.format]
 docstring-code-format = true
+skip-magic-trailing-comma = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
