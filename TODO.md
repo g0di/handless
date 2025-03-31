@@ -10,7 +10,6 @@
   - If possible, find a way to clear transient factories before having to call close
 - prevent ability to pass enter=False when providing a factory returning a context manager which **enter** method does not return an instance of expected object
   - This must be managed through typings because we can not ensure at runtime that a function returns a particular value without calling it
-  - Maybe just add a dev warning when a type is resolved with an object not being an instance of it.
 
 ## Async
 

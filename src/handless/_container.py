@@ -1,5 +1,6 @@
 import logging
-from contextlib import AbstractContextManager, ExitStack
+import warnings
+from contextlib import AbstractContextManager, ExitStack, suppress
 from typing import TypeVar, cast
 
 from typing_extensions import TYPE_CHECKING, Any
@@ -39,10 +40,19 @@ class Container:
 
         try:
             if descriptor.lifetime == "scoped":
-                return self._resolve_scoped(descriptor)
+                instance = self._resolve_scoped(descriptor)
             if descriptor.lifetime == "singleton":
-                return self._resolve_singleton(descriptor)
-            return self._resolve_transient(descriptor)
+                instance = self._resolve_singleton(descriptor)
+            else:
+                instance = self._resolve_transient(descriptor)
+            with suppress():
+                if not isinstance(instance, type_):
+                    warnings.warn(
+                        f"Container resolved {type_} with {instance} which is not an instance of this type. "
+                        "This could lead to unexpected results.",
+                        RuntimeWarning,
+                    )
+            return instance
         except Exception as error:
             raise ServiceResolveError(type_, str(error)) from error
         finally:

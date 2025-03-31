@@ -87,13 +87,13 @@ class ServiceDescriptor(Generic[_T]):
     def __eq__(self, value: object) -> bool:
         return (
             isinstance(value, ServiceDescriptor)
-            and self._get_getter_comparator() == value._get_getter_comparator()
+            and self._get_comparable_factory() == value._get_comparable_factory()
             and self.lifetime == value.lifetime
             and self.enter == value.enter
             and self.params == value.params
         )
 
-    def _get_getter_comparator(self) -> object:
+    def _get_comparable_factory(self) -> object:
         if hasattr(self.factory, "__code__"):
             return self.factory.__code__.co_code
         return self.factory
