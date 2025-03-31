@@ -1,21 +1,7 @@
-Notes for myself:
+## doc
 
-- Whatever API we use for registering passing an abstract or protocol type to be registered always lead mypy to complete about abstract class
-- However, it will properly ensure the second given value match that abstract class
-
-ATM we can:
-
-- Provide register\_\* functions for explicitly registering stuff (singleton, scoped, factory, implementation, ..., pooled, threaded)
-- Provide decorators for singleton, factory, scoped, pooled and threaded
-- Provide the register() function which will register a service descriptor only (no implicit registration)
-- Provide another public API for binding through chain calls as experimentation
-- Update the service descriptor class to use chained functions for building it
-
-We will end up with three ways to register srvices:
-
-- Explicitly using functions
-- Explicitly using a service descriptor class directly
-- Using a binder
+- Mention the mypu type-abstract issue and how to disable it
+- Mention the caveat for singletons and callables objects
 
 ## Context management
 
@@ -66,6 +52,7 @@ We will end up with three ways to register srvices:
 
 - add ability to copy registry/containers for testing purposes
 - add ability to temporarily override container/registry for testing purposes
+- use nox for local testing on many python
 
 # github
 
