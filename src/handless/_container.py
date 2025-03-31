@@ -41,11 +41,11 @@ class Container:
         try:
             if descriptor.lifetime == "scoped":
                 instance = self._resolve_scoped(descriptor)
-            if descriptor.lifetime == "singleton":
+            elif descriptor.lifetime == "singleton":
                 instance = self._resolve_singleton(descriptor)
             else:
                 instance = self._resolve_transient(descriptor)
-            with suppress():
+            with suppress(TypeError):
                 if not isinstance(instance, type_):
                     warnings.warn(
                         f"Container resolved {type_} with {instance} which is not an instance of this type. "
