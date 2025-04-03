@@ -16,8 +16,7 @@ _T = TypeVar("_T")
 
 
 class Container:
-    def __init__(self, registry: "Registry", *, strict: bool = False) -> None:
-        self._strict = strict
+    def __init__(self, registry: "Registry") -> None:
         self._registry = registry
         self._cache: dict[ServiceDescriptor[Any], Any] = {}
         self._exit_stack = ExitStack()
@@ -98,7 +97,7 @@ class Container:
 
 class ScopedContainer(Container):
     def __init__(self, parent: Container) -> None:
-        super().__init__(parent._registry, strict=parent._strict)
+        super().__init__(parent._registry)
         self._parent = parent
         self._logger = logging.getLogger(f"{__name__}.scope")
 
