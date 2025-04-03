@@ -50,9 +50,9 @@ class Registry:
             return ServiceDescriptor(type_)
         return descriptor
 
-    def create_container(self, *, strict: bool = False) -> Container:
+    def create_container(self) -> Container:
         """Create and return a new container using this registry."""
-        return Container(self, strict=strict)
+        return Container(self)
 
     def register(self, type_: type[_T], descriptor: ServiceDescriptor[_T]) -> Self:
         self._services[type_] = descriptor
