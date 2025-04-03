@@ -54,7 +54,7 @@ class Container:
                     )
             return instance
         except Exception as error:
-            raise ServiceResolveError(type_, str(error)) from error
+            raise ServiceResolveError(type_) from error
         finally:
             self._logger.info(
                 "Resolved %s%s: %s",

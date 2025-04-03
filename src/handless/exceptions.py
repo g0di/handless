@@ -20,5 +20,5 @@ class ServiceNotFoundError(ContainerException):
 
 
 class ServiceResolveError(ContainerException):
-    def __init__(self, service_type: type, reason: str) -> None:
-        super().__init__(f"Failed resolving {service_type}: {reason}")
+    def __init__(self, service_type: type) -> None:
+        super().__init__(f"Failed resolving {service_type}")
