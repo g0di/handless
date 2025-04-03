@@ -5,7 +5,6 @@ import pytest
 from typing_extensions import Any
 
 from handless import Lifetime, ServiceDescriptor
-from handless.exceptions import RegistrationError
 from tests import helpers
 
 
@@ -69,7 +68,7 @@ class TestFactoryServiceDescriptor:
 def test_service_descriptor_with_invalid_callable_raises_an_error(
     factory: Callable[..., Any],
 ) -> None:
-    with pytest.raises(RegistrationError):
+    with pytest.raises(ValueError):
         ServiceDescriptor(factory)
 
 

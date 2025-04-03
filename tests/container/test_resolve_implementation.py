@@ -8,7 +8,7 @@ def test_resolve_an_implementation_descriptor_resolves_the_actual_implementation
     sut: Container = (
         Registry()
         .register_singleton(FakeService, value := FakeService())
-        .register_implementation(IFakeService, FakeService)
+        .register_implementation(IFakeService, FakeService)  # type: ignore[type-abstract]
         .create_container()
     )
 

@@ -60,6 +60,7 @@ strict = true
 src = ["src", "tests"]
 
 [tool.ruff.lint]
+extend-select = ["B", "D", "W"]
 ignore = [
     # Disable rules conflicting with formatter. See: https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "COM812",
@@ -77,6 +78,7 @@ ignore = [
     "Q002",
     "Q003",
     "W191",
+    "D10",    # It's fine not to document all functions, modules and classes
 ]
 
 [tool.ruff.format]

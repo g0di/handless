@@ -19,7 +19,7 @@ def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
 
 
 def is_lambda_function(value: Any) -> bool:
-    """Returns true if given function is a lambda."""
+    """Return true if given function is a lambda."""
     return isinstance(value, LambdaType) and value.__name__ == "<lambda>"
 
 
@@ -29,7 +29,7 @@ def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
 
 
 def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Parameter]:
-    """Returns a dict mapping given callable non variadic parameters name to their type.
+    """Return a dict mapping given callable non variadic parameters name to their type.
 
     Non variadic parameters are all parameters except *args and **kwargs
     """

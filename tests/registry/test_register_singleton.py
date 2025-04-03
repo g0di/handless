@@ -3,7 +3,6 @@ from typing import Callable
 import pytest
 
 from handless import Registry, ServiceDescriptor
-from handless.exceptions import RegistrationError
 from tests import helpers
 
 
@@ -69,5 +68,5 @@ def test_register_singleton_with_options_registers_a_factory_service_descriptor_
 def test_register_singleton_with_invalid_callable_raises_an_error(
     sut: Registry, factory: Callable[..., helpers.FakeService]
 ) -> None:
-    with pytest.raises(RegistrationError):
+    with pytest.raises(ValueError):
         sut.register_singleton(helpers.FakeService, factory)

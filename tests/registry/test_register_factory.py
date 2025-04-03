@@ -6,7 +6,6 @@ import pytest
 
 from handless import Lifetime, Registry
 from handless._descriptor import ServiceDescriptor
-from handless.exceptions import RegistrationError
 from tests import helpers
 
 
@@ -50,7 +49,7 @@ def test_register_factory_with_options_registers_a_factory_service_descriptor_wi
 def test_register_factory_with_invalid_callable_raise_an_error(
     sut: Registry, factory: Callable[..., helpers.FakeService]
 ) -> None:
-    with pytest.raises(RegistrationError):
+    with pytest.raises(ValueError):
         sut.register_factory(helpers.FakeService, factory)
 
 

@@ -4,7 +4,6 @@ import pytest
 
 from handless import Registry
 from handless._descriptor import ServiceDescriptor
-from handless.exceptions import RegistrationError
 from tests import helpers
 
 
@@ -47,5 +46,5 @@ def test_register_scoped_with_options_registers_a_scoped_service_descriptor_with
 def test_register_scoped_with_invalid_callable_raises_an_error(
     sut: Registry, factory: Callable[..., helpers.FakeService]
 ) -> None:
-    with pytest.raises(RegistrationError):
+    with pytest.raises(ValueError):
         sut.register_scoped(helpers.FakeService, factory)

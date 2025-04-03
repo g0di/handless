@@ -16,6 +16,16 @@ _T = TypeVar("_T")
 
 
 class Container:
+    """A dependency injection container used to resolve types from a registry.
+
+    The `Container` class is responsible for resolving instances of types that
+    have been registered on a :class:`handless.Registry` object. It get service descriptors
+    from the registry and uses them to create instances of the requested types.
+
+    If service descriptor factory has parameters, the container will resolve them first before
+    calling it (also known as autowiring).
+    """
+
     def __init__(self, registry: "Registry") -> None:
         self._registry = registry
         self._cache: dict[ServiceDescriptor[Any], Any] = {}
@@ -23,9 +33,20 @@ class Container:
         self._logger = logging.getLogger(__name__)
 
     def create_scope(self) -> "ScopedContainer":
+        """Create a child scoped container.
+
+        :return: Scoped container
+        """
         return ScopedContainer(self)
 
     def close(self) -> None:
+        """Close this container.
+
+        This will close all the context managers entered in this container and any
+        cached singletons.
+
+        Note that closing a container does not actually prevent to reusing it.
+        """
         self._exit_stack.close()
         self._cache.clear()
 
@@ -33,6 +54,17 @@ class Container:
         return self.resolve(type_)
 
     def resolve(self, type_: type[_T]) -> _T:
+        """Resolve given type with an instance of this type.
+
+        Container will ask underlying registry for a descriptor registered for given type.
+        It will then get an instance of this type using the descriptor registered factory
+        depending on its lifetime.
+
+        :param type_: Type to resolve
+        :raises ServiceResolveError: If an error occurs while resolving the service
+        :raises ServiceNotFoundError: If no descriptor is registered for this type
+        :return: An instance of given type
+        """
         if issubclass(type_, Container):
             return cast(_T, self)
         descriptor = self._get_descriptor(type_)
@@ -50,6 +82,7 @@ class Container:
                         f"Container resolved {type_} with {instance} which is not an instance of this type. "
                         "This could lead to unexpected results.",
                         RuntimeWarning,
+                        stacklevel=2,
                     )
             return instance
         except Exception as error:
@@ -96,6 +129,8 @@ class Container:
 
 
 class ScopedContainer(Container):
+    """Container that can be used to resolve services with a scoped lifetime."""
+
     def __init__(self, parent: Container) -> None:
         super().__init__(parent._registry)
         self._parent = parent
