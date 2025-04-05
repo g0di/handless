@@ -1,8 +1,7 @@
 import pytest
 
 from handless import Lifetime, Provider, Registry
-from tests.helpers import FakeService
-from tests.registry.test_register import use_enter, use_lifetimes
+from tests.helpers import FakeService, use_enter, use_lifetimes
 
 
 @pytest.fixture

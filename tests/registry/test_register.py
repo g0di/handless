@@ -46,7 +46,7 @@ class TestRegisterType:
     def test_register_type_registers_an_alias(self, sut: Registry) -> None:
         registry = sut.register(IFakeService, FakeService)  # type: ignore[type-abstract]
 
-        assert sut[IFakeService] == Provider(
+        assert sut[IFakeService] == Provider(  # type: ignore[type-abstract]
             lambda x: x,
             enter=False,
             params=(

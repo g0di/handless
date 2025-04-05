@@ -54,6 +54,7 @@ dev = [
 
 [tool.mypy]
 files = ["src", "tests"]
+exclude = "src/handless/registry"
 strict = true
 
 [tool.ruff]

@@ -110,10 +110,7 @@ class Registry:
                 " is given.",
                 stacklevel=3,
             )
-        self[type_] = Provider.for_value(
-            value,  # type: ignore[arg-type]
-            enter=default(enter, False),
-        )
+        self[type_] = Provider.for_value(value, enter=default(enter, False))
         return self
 
     def _register_alias(
