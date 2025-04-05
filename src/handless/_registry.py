@@ -50,7 +50,7 @@ class Registry:
     def register(
         self,
         type_: type[_T],
-        provider: _T | type[_T] | ProviderFactoryIn[_T] | None = None,
+        provider: _T | type[_T] | ProviderFactoryIn[_T] | Provider[_T] | None = None,
         lifetime: Lifetime | None = None,
         enter: bool | None = None,
     ) -> Self:
