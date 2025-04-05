@@ -21,7 +21,7 @@ def test_create_scope_returns_a_new_scoped_container() -> None:
     [Container(Registry()), Container(Registry()).create_scope()],
     ids=["Root container", "Scoped container"],
 )
-def test_resolve_unregistered_service_type_uses_a_transient_factory_by_default(
+def test_resolve_unregistered_service_type_autobind_a_transient_factory_by_default(
     sut: Container,
 ) -> None:
     resolved = sut.resolve(FakeService)
@@ -34,10 +34,13 @@ def test_resolve_unregistered_service_type_uses_a_transient_factory_by_default(
 
 @pytest.mark.parametrize(
     "sut",
-    [Container(Registry(strict=True)), Container(Registry(strict=True)).create_scope()],
+    [
+        Container(Registry(autobind=False)),
+        Container(Registry(autobind=False)).create_scope(),
+    ],
     ids=["Strict root container", "Strict scoped container"],
 )
-def test_resolve_unregistered_service_type_raise_an_error_when_using_strict_model(
+def test_resolve_unregistered_service_type_raise_an_error_when_autobind_is_disabled(
     sut: Container,
 ) -> None:
     with pytest.raises(ServiceNotFoundError):
