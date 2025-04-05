@@ -42,3 +42,8 @@ def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Paramete
         for name, param in signature.parameters.items()
         if param.kind not in {Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD}
     }
+
+
+def default(value: _T | None, default_value: _T) -> _T:
+    """Return default value if given value is None."""
+    return default_value if value is None else value

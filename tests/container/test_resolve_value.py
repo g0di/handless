@@ -11,10 +11,10 @@ def value() -> FakeService:
 
 @pytest.fixture
 def sut(value: FakeService) -> Container:
-    return Registry().register_singleton(FakeService, value).create_container()
+    return Registry().register(FakeService, value).create_container()
 
 
-def test_resolve_a_value_descriptor_returns_the_value(
+def test_resolve_a_value_provider_returns_the_value(
     sut: Container, value: FakeService
 ) -> None:
     resolved = sut.resolve(FakeService)
@@ -24,7 +24,7 @@ def test_resolve_a_value_descriptor_returns_the_value(
     assert resolved2 is value
 
 
-def test_resolve_a_value_descriptor_from_scoped_container_returns_the_value(
+def test_resolve_a_value_provider_from_scoped_container_returns_the_value(
     sut: Container, value: FakeService
 ) -> None:
     scope = sut.create_scope()
@@ -36,19 +36,15 @@ def test_resolve_a_value_descriptor_from_scoped_container_returns_the_value(
     assert resolved2 is value
 
 
-def test_resolve_a_value_descriptor_do_not_enter_cm_by_default(sut: Container) -> None:
+def test_resolve_a_value_provider_do_not_enter_cm_by_default(sut: Container) -> None:
     resolved = sut.resolve(FakeService)
 
     assert resolved.entered is False
     assert resolved.exited is False
 
 
-def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager() -> None:
-    sut = (
-        Registry()
-        .register_singleton(FakeService, FakeService(), enter=True)
-        .create_container()
-    )
+def test_resolve_a_value_provider_with_enter_true_enters_context_manager() -> None:
+    sut = Registry().register(FakeService, FakeService(), enter=True).create_container()
 
     resolved = sut.resolve(FakeService)
 
@@ -56,14 +52,10 @@ def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager() -> 
     assert not resolved.exited
 
 
-def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager_only_once() -> (
+def test_resolve_a_value_provider_with_enter_true_enters_context_manager_only_once() -> (
     None
 ):
-    sut = (
-        Registry()
-        .register_singleton(FakeService, FakeService(), enter=True)
-        .create_container()
-    )
+    sut = Registry().register(FakeService, FakeService(), enter=True).create_container()
     scope = sut.create_scope()
 
     resolved = sut.resolve(FakeService)
@@ -72,22 +64,18 @@ def test_resolve_a_value_descriptor_with_enter_true_enters_context_manager_only_
     assert not resolved.reentered
 
 
-def test_close_container_exit_entered_value_descriptor_context_manager() -> None:
-    sut = (
-        Registry()
-        .register_singleton(FakeService, FakeService(), enter=True)
-        .create_container()
-    )
+def test_close_container_exit_entered_value_provider_context_manager() -> None:
+    sut = Registry().register(FakeService, FakeService(), enter=True).create_container()
     resolved = sut.resolve(FakeService)
     sut.close()
 
     assert resolved.exited
 
 
-def test_close_scope_not_exit_entered_value_descriptor_context_manager() -> None:
+def test_close_scope_not_exit_entered_value_provider_context_manager() -> None:
     sut = (
         Registry()
-        .register_singleton(FakeService, FakeService(), enter=True)
+        .register(FakeService, FakeService(), enter=True)
         .create_container()
         .create_scope()
     )

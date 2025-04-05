@@ -6,10 +6,10 @@ from tests.helpers import FakeService
 
 @pytest.fixture
 def sut() -> Container:
-    return Registry().register_singleton(FakeService).create_container()
+    return Registry().register(FakeService, lifetime="singleton").create_container()
 
 
-def test_resolve_a_singleton_descriptor_calls_and_cache_factory_returned_value(
+def test_resolve_type_binded_to_singleton_factory_calls_and_cache_factory_returned_value(
     sut: Container,
 ) -> None:
     v1 = sut.resolve(FakeService)
@@ -18,7 +18,7 @@ def test_resolve_a_singleton_descriptor_calls_and_cache_factory_returned_value(
     assert v1 is v2
 
 
-def test_resolve_a_singleton_descriptor_calls_and_cache_returned_value_accross_scopes(
+def test_resolve_type_binded_to_singleton_factory_calls_and_cache_returned_value_accross_scopes(
     sut: Container,
 ) -> None:
     scope = sut.create_scope()

@@ -6,10 +6,10 @@ from tests.helpers import FakeService
 
 @pytest.fixture
 def sut() -> Container:
-    return Registry().register_factory(FakeService).create_container()
+    return Registry().register(FakeService, lifetime="transient").create_container()
 
 
-def test_resolve_a_transient_factory_descriptor_calls_factory_each_time(
+def test_resolve_type_binded_to_transient_factory_calls_factory_each_time(
     sut: Container,
 ) -> None:
     v1 = sut.resolve(FakeService)
@@ -18,7 +18,7 @@ def test_resolve_a_transient_factory_descriptor_calls_factory_each_time(
     assert v1 is not v2
 
 
-def test_resolve_a_transient_factory_descriptor_from_scope_calls_factory_each_time(
+def test_resolve_type_binded_to_transient_factory_from_scope_calls_factory_each_time(
     sut: Container,
 ) -> None:
     scope = sut.create_scope()
@@ -31,9 +31,9 @@ def test_resolve_a_transient_factory_descriptor_from_scope_calls_factory_each_ti
     assert v1 is not v2 is not v3 is not v4
 
 
-def test_transient_factories_with_context_manager_are_exited_on_scope_close() -> None:
-    sut = Registry().register_factory(FakeService).create_container().create_scope()
-
+def test_resolve_type_binded_to_transient_factory_with_context_manager_are_exited_on_scope_close(
+    sut: Container,
+) -> None:
     resolved = sut.resolve(FakeService)
 
     sut.close()

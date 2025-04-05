@@ -1,12 +1,14 @@
 import logging
+import warnings
+from types import FunctionType, MethodType
 from typing import Callable, Iterator, TypeVar, overload
 
 from typing_extensions import Any, ParamSpec, Self
 
 from handless._container import Container
-from handless._descriptor import Lifetime, ServiceDescriptor, ServiceDescriptorFactoryIn
-from handless._utils import get_return_type
-from handless.exceptions import RegistrationError
+from handless._provider import Lifetime, Provider, ProviderFactoryIn
+from handless._utils import default, get_return_type
+from handless.exceptions import ProviderNotFoundError
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
@@ -15,111 +17,117 @@ _T = TypeVar("_T")
 class Registry:
     def __init__(self, autobind: bool = True) -> None:
         self._autobind = autobind
-        self._services: dict[type, ServiceDescriptor[Any]] = {}
+        self._bindings: dict[type, Provider[Any]] = {}
         self._logger = logging.getLogger(__name__)
 
     def __contains__(self, key: object) -> bool:
-        return key in self._services
+        return key in self._bindings
 
-    def __getitem__(self, key: type[_T]) -> ServiceDescriptor[_T]:
-        return self._services[key]
+    def __getitem__(self, key: type[_T]) -> Provider[_T]:
+        if key not in self:
+            if not self._autobind:
+                raise ProviderNotFoundError(key)
+            self.register(key)
+        return self._bindings[key]
 
     def __delitem__(self, key: type[Any]) -> None:
-        del self._services[key]
+        del self._bindings[key]
 
     def __iter__(self) -> Iterator[type[Any]]:
-        return iter(self._services)
+        return iter(self._bindings)
 
     def __len__(self) -> int:
-        return len(self._services)
+        return len(self._bindings)
 
-    def __setitem__(self, key: type[_T], descriptor: ServiceDescriptor[_T]) -> None:
-        self._services[key] = descriptor
-        self._logger.info("Registered %s: %s", key, descriptor)
-
-    def get(self, type_: type[_T]) -> ServiceDescriptor[_T] | None:
-        """Get descriptor registered for given service type, if any or None."""
-        if type_ not in self and self._autobind:
-            self[type_] = ServiceDescriptor(type_)
-        return self._services.get(type_)
+    def __setitem__(self, key: type[_T], provider: Provider[_T]) -> None:
+        self._bindings[key] = provider
+        self._logger.info("Registered %s: %s", key, provider)
 
     def create_container(self) -> Container:
         """Create and return a new container using this registry."""
         return Container(self)
 
-    def register(self, type_: type[_T], descriptor: ServiceDescriptor[_T]) -> Self:
-        self._services[type_] = descriptor
-        return self
-
-    def register_factory(
+    def register(
         self,
         type_: type[_T],
-        factory: ServiceDescriptorFactoryIn[_T] | None = None,
-        *,
-        lifetime: Lifetime = "transient",
-        enter: bool = True,
-    ) -> Self:
-        """Registers given callable to be called to resolve the given type.
-
-        Lifetime is transient by default meaning the factory will be executed on each
-        resolve.
-        """
-        return self.register(
-            type_,
-            ServiceDescriptor.for_factory(
-                factory or type_, lifetime=lifetime, enter=enter
-            ),
-        )
-
-    def register_singleton(
-        self,
-        type_: type[_T],
-        singleton: _T | ServiceDescriptorFactoryIn[_T] | None = None,
-        *,
+        provider: _T | type[_T] | ProviderFactoryIn[_T] | None = None,
+        lifetime: Lifetime | None = None,
         enter: bool | None = None,
     ) -> Self:
-        """_summary_
+        """Register a provider for given type.
 
-        Caveat: If you want to register a callable object as a singleton directly you
-        must wrap it into a lambda. Otherwise, the registration will consider it as a
-        factory and will call your object at resolve type instead of returning it.
+        The type of given provider argument determines how the type will be resolved:
+        - An object produces a singleton binding resolving to this value.
+          `enter` defaults to False because the registry was not responsible of creating it.
+        - A type produces an alias binding. It means that given type will be resolved
+          by actually resolving the provided alias. `enter` and `lifetime` have no effect.
+        - A function produces a factory binding. This factory will be called when resolving given type.
+          Returned value might be cached accross resolve based on its lifetime:
+          - `transient`: The value is not cached at all
+          - `scoped`: The value is cached for a scoped container lifetime
+          - `singleton`: The value is cached for the container lifetime
+          For factories, `enter` defaults to True so if a context manager is returned,
+          it will be entered automatically. The context manager is automatically exited
+          by the container when the value is no longer used.
+        - `None` produces a factory binding using the given type itself as the factory.
+          All other information about factory bindings apply as well
 
-        :param type_: _description_
-        :param singleton: _description_, defaults to None
-        :param enter: _description_, defaults to None
-        :return: _description_
+        :param type_: The type to register
+        :param provider: The provider to which bind the given type, defaults to None
+        :param lifetime: Lifetime of the binding, if it applies, defaults to None
+        :param enter: Whether or not to enter (and exit) context managers automatically
+            if the given provider resolve with a context manager, defaults to None
+        :return: The registry
         """
-        descriptor = (
-            ServiceDescriptor.for_factory(
-                singleton or type_,
-                enter=True if enter is None else enter,
-                lifetime="singleton",
-            )
-            if singleton is None or callable(singleton)
-            else ServiceDescriptor.for_instance(
-                singleton, enter=False if enter is None else enter
-            )
-        )
-        return self.register(type_, descriptor)
+        match provider:
+            case None:
+                self[type_] = Provider.for_factory(
+                    type_, lifetime=lifetime or "transient", enter=default(enter, True)
+                )
+                return self
+            case type():
+                return self._register_alias(
+                    type_, provider, lifetime=lifetime, enter=enter
+                )
+            case FunctionType() | MethodType():
+                self[type_] = Provider.for_factory(
+                    provider,
+                    enter=default(enter, True),
+                    lifetime=lifetime or "transient",
+                )
+                return self
+            case _:
+                return self._register_value(
+                    type_, provider, enter=enter, lifetime=lifetime
+                )
 
-    def register_scoped(
-        self,
-        type_: type[_T],
-        factory: ServiceDescriptorFactoryIn[_T] | None = None,
-        *,
-        enter: bool = True,
+    def _register_value(
+        self, type_: type[Any], value: Any, enter: bool | None = None, **kwargs: Any
     ) -> Self:
-        """Registers given callable to be called once per scope when resolving given service type."""
-        return self.register(
-            type_,
-            ServiceDescriptor.for_factory(
-                factory or type_, enter=enter, lifetime="scoped"
-            ),
+        if kwargs:
+            warnings.warn(
+                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when an object"
+                " is given.",
+                stacklevel=3,
+            )
+        self[type_] = Provider.for_value(
+            value,  # type: ignore[arg-type]
+            enter=default(enter, False),
         )
+        return self
 
-    def register_implementation(self, type_: type[Any], alias: type[Any]) -> Self:
-        """Registers given registered type to be used when resolving given service type."""
-        return self.register(type_, ServiceDescriptor.for_implementation(alias))
+    def _register_alias(
+        self, type_: type[Any], alias: type[Any], **kwargs: Any
+    ) -> Self:
+        if kwargs:
+            warnings.warn(
+                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when a type"
+                " is given.",
+                stacklevel=3,
+            )
+
+        self[type_] = Provider.for_alias(alias)
+        return self
 
     ############################
     # Declarative registration #
@@ -128,49 +136,35 @@ class Registry:
     # Factory decorator
 
     @overload
-    def factory(
-        self, *, lifetime: Lifetime = ...
+    def provider(
+        self, *, lifetime: Lifetime = ..., enter: bool = ...
     ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
 
     @overload
-    def factory(self, factory: Callable[_P, _T]) -> Callable[_P, _T]: ...
+    def provider(self, factory: Callable[_P, _T]) -> Callable[_P, _T]: ...
 
-    def factory(
+    def provider(
         self,
         factory: Callable[_P, _T] | None = None,
         *,
         lifetime: Lifetime = "transient",
+        enter: bool = True,
     ) -> Any:
+        """Register decorated function as factory provider for its return type annotation
+
+        :param factory: The decorated factory function, defaults to None
+        :param lifetime: The factory lifetime, defaults to "transient"
+        :return: The pristine function
+        """
+
         def wrapper(factory: Callable[_P, _T]) -> Callable[_P, _T]:
             rettype = get_return_type(factory)
             if not rettype:
-                raise RegistrationError(f"{factory} has no return type annotation")
-            self.register_factory(rettype, factory, lifetime=lifetime)
+                raise TypeError(f"{factory} has no return type annotation")
+            self.register(rettype, factory, lifetime=lifetime, enter=enter)
             # NOTE: return decorated func untouched to ease reuse
             return factory
 
         if factory is not None:
             return wrapper(factory)
         return wrapper
-
-    # Singleton decorator
-
-    @overload
-    def singleton(self) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
-
-    @overload
-    def singleton(self, factory: Callable[_P, _T]) -> Callable[_P, _T]: ...
-
-    def singleton(self, factory: Callable[_P, _T] | None = None) -> Any:
-        return self.factory(factory, lifetime="singleton")  # type: ignore[call-overload]
-
-    # Scoped decorator
-
-    @overload
-    def scoped(self) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
-
-    @overload
-    def scoped(self, factory: Callable[_P, _T]) -> Callable[_P, _T]: ...
-
-    def scoped(self, factory: Callable[_P, _T] | None = None) -> Any:
-        return self.factory(factory, lifetime="scoped")  # type: ignore[call-overload]

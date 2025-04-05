@@ -4,7 +4,7 @@ import pytest
 from typing_extensions import get_args
 
 from handless import Container
-from handless._descriptor import Lifetime
+from handless._provider import Lifetime
 
 
 class IFakeService(Protocol): ...
@@ -51,9 +51,9 @@ class CallableFakeServiceWithParams(IFakeService):
         return FakeServiceWithParams(foo, bar)
 
 
-class UntypedCallableFakeService(IFakeService):
-    def __call__(self) -> None:
-        pass
+class UntypedCallableFakeServiceWithParams(IFakeService):
+    def __call__(self, foo, bar):  # type: ignore
+        return FakeServiceWithParams(foo, bar)
 
 
 fake_service_lambda_factory = lambda: FakeService()  # noqa: E731
@@ -81,17 +81,18 @@ def fake_service_factory_with_untyped_params(foo, bar) -> FakeServiceWithParams:
     return FakeServiceWithParams(foo, bar)
 
 
-use_invalid_factory_callable = pytest.mark.parametrize(
+use_invalid_provider_factory = pytest.mark.parametrize(
     "factory",
     [
         fake_service_lambda_factory_with_many_params,
         FakeServiceWithUntypedParams,
+        UntypedCallableFakeServiceWithParams(),
         fake_service_factory_with_untyped_params,
     ],
 )
-"""All kind of callables that can not be registered as factory service descriptors."""
+"""All kind of invalid provider factory."""
 
-use_factory_callable = pytest.mark.parametrize(
+use_valid_provider_factory = pytest.mark.parametrize(
     "factory",
     [
         FakeService,
@@ -107,7 +108,7 @@ use_factory_callable = pytest.mark.parametrize(
         CallableFakeServiceWithParams(),
     ],
 )
-"""All kind of callables that can be registered as factory service descriptor."""
+"""All kind of valid provider factory."""
 
 use_factory_function = pytest.mark.parametrize(
     "function",
@@ -121,7 +122,7 @@ use_factory_function = pytest.mark.parametrize(
         fake_service_factory_with_params,
     ],
 )
-"""All kind of functions that can be registered as a factory service descriptor."""
+"""All kind of functions that can be registered as a factory provider."""
 
 use_invalid_factory_function = pytest.mark.parametrize(
     "function",
@@ -130,7 +131,7 @@ use_invalid_factory_function = pytest.mark.parametrize(
         fake_service_factory_with_untyped_params,
     ],
 )
-"""All kind of functions that can not be registered as a factory service descriptor."""
+"""All kind of functions that CANNOT be registered as a factory service provider."""
 
 use_lifetimes = pytest.mark.parametrize("lifetime", get_args(Lifetime))
 use_enter = pytest.mark.parametrize(
