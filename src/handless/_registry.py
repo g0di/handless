@@ -37,18 +37,11 @@ class Registry:
         self._services[key] = descriptor
         self._logger.info("Registered %s: %s", key, descriptor)
 
-    @overload
-    def get(self, type_: type[_T]) -> ServiceDescriptor[_T] | None: ...
-
-    @overload
-    def get(self, type_: type[Any]) -> ServiceDescriptor[Any] | None: ...
-
     def get(self, type_: type[_T]) -> ServiceDescriptor[_T] | None:
         """Get descriptor registered for given service type, if any or None."""
-        descriptor = self._services.get(type_)
-        if descriptor is None and not self.strict:
-            return ServiceDescriptor(type_)
-        return descriptor
+        if type_ not in self and not self.strict:
+            self[type_] = ServiceDescriptor(type_)
+        return self._services.get(type_)
 
     def create_container(self) -> Container:
         """Create and return a new container using this registry."""
