@@ -4,14 +4,13 @@ from typing import Callable, Iterator
 
 import pytest
 
-from handless import Lifetime, Provider, Registry
+from handless import Container, Lifetime, Provider, Registry
 from tests.helpers import (
     CallableFakeService,
     FakeService,
     FakeServiceNewType,
     IFakeService,
     use_enter,
-    use_factory_function,
     use_invalid_factory_function,
     use_lifetimes,
 )
@@ -116,28 +115,43 @@ class TestRegisterObject:
 
 
 class TestRegisterFunction:
-    @use_factory_function
-    def test_register_function_binds_given_type_to_given_function(
-        self, sut: Registry, function: Callable[..., FakeService]
+    def test_register_function_without_arguments_binds_given_type_to_given_function(
+        self, sut: Registry
     ) -> None:
-        registry = sut.register(FakeService, function)
+        my_factory = lambda: FakeService()  # noqa: E731
+        registry = sut.register(FakeService, my_factory)
 
-        assert sut[FakeService] == Provider(function)
+        assert sut[FakeService] == Provider(my_factory)
         assert registry is sut
 
-    @use_factory_function
+    def test_register_function_with_a_single_argument_binds_given_type_to_given_function_with_container_as_first_param(
+        self, sut: Registry
+    ) -> None:
+        registry = sut.register(
+            IFakeService, factory := (lambda c: c.resolve(FakeService))
+        )
+
+        assert sut[IFakeService] == Provider(
+            factory,
+            params=(
+                Parameter("c", Parameter.POSITIONAL_OR_KEYWORD, annotation=Container),
+            ),
+        )
+        assert registry is sut
+
     @use_enter
     @use_lifetimes
     def test_register_function_with_options_binds_given_type_to_given_function_and_options(
-        self,
-        sut: Registry,
-        function: Callable[..., FakeService],
-        enter: bool,
-        lifetime: Lifetime,
+        self, sut: Registry, enter: bool, lifetime: Lifetime
     ) -> None:
-        registry = sut.register(FakeService, function, enter=enter, lifetime=lifetime)
+        registry = sut.register(
+            FakeService,
+            factory := lambda: FakeService(),
+            enter=enter,
+            lifetime=lifetime,
+        )
 
-        assert sut[FakeService] == Provider(function, enter=enter, lifetime=lifetime)
+        assert sut[FakeService] == Provider(factory, enter=enter, lifetime=lifetime)
         assert registry is sut
 
     @use_invalid_factory_function

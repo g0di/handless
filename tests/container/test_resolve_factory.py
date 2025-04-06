@@ -28,7 +28,10 @@ def test_resolve_type_calls_binding_factory_and_returns_its_result(
 @pytest.mark.parametrize(
     "factory",
     [
-        fake_service_factory_with_params,
+        pytest.param(
+            fake_service_factory_with_params,
+            marks=pytest.mark.xfail(reason="Not possible anymore."),
+        ),
         fake_service_factory_with_container_param,
         pytest.param(
             fake_service_lambda_factory_with_param,

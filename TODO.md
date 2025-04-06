@@ -18,12 +18,12 @@
 
 ## Resolving
 
+- use "get" as name for resolving from container
 - Handle positional only argument
-- Simply inject getters parameters default value if we could not resolve its type
+- When resolving type/factory parameters, inject default values if not able to resolve
 
 ## Misc
 
-- Fix the type-abstract mypy issues
 - add resolve stack for debugging
 - When logging service type resolved, also display the full requiremnt chain
 - handle resolving singleton from different threads (add a lock)
@@ -32,22 +32,25 @@
 - add docstrings
 - Update readme file
 - create a real documentation page
-- Move private API on private modules and prefix private stuff with leading underscore
 - Add a function for printing the whole dependency tree with lifetimes
 
 ## Registration
 
+- do not raise error if registering a function missing type annotations for argument having default value.
+- Maybe add a public register_factory function for registering classes and typed functions directly
+- remove most doc from provider since this is not part of public API
 - Use actual classes for services lifetimes
   - This will allow to add parameters to lifetimes to enhance their behavior
   - This will allow to rely on polymorphism rather than if/else for adapting container resolve method
-- add function for registering many services in one call in the registry
-  - We may also add a function for updating one registry with another
+  - Add a function for updating one registry with another
 - add ability to copy a registry
 - add ability to register local values on scoped container to inject, for example, HTTP request scoped objects
 - registering a type with itself must ensure the given type is not abstract or protocol
 
 ## Testing
 
+- Update unit tests for our handling of lambda functions
+- Maybe merge resolving/registering tests
 - add ability to copy registry/containers for testing purposes
 - add ability to temporarily override container/registry for testing purposes
 - use nox for local testing on many python

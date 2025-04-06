@@ -1,11 +1,24 @@
+import inspect
 from contextlib import AbstractContextManager, _GeneratorContextManager, contextmanager
 from dataclasses import dataclass, field
 from inspect import Parameter, isgeneratorfunction
-from typing import Any, Callable, Generic, Iterator, Literal, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    Iterator,
+    Literal,
+    TypeVar,
+    cast,
+)
 
 from typing_extensions import Self
 
 from handless._utils import get_non_variadic_params, get_untyped_parameters
+
+if TYPE_CHECKING:
+    from handless._container import Container
 
 _T = TypeVar("_T")
 
@@ -15,12 +28,16 @@ ProviderFactory = (
     | Callable[..., _GeneratorContextManager[_T]]
     | Callable[..., AbstractContextManager[_T]]
 )
+"""Provider factory type"""
 ProviderFactoryIn = (
     Callable[..., _T]
     | Callable[..., _GeneratorContextManager[Any]]
     | Callable[..., AbstractContextManager[_T]]
     | Callable[..., Iterator[_T]]
 )
+"""Allowed callables as provider input factory"""
+ProviderLambdaFactory = Callable[["Container"], _T] | Callable[[], _T]
+"""Allowed callables when creating a provider from a lambda function"""
 
 Lifetime = Literal["transient", "singleton", "scoped"]
 
@@ -78,6 +95,26 @@ class Provider(Generic[_T]):
             lifetime=lifetime,
             enter=enter,
             params=actual_params,
+        )
+
+    @classmethod
+    def for_lambda_factory(
+        cls,
+        lambda_factory: ProviderLambdaFactory[_T],
+        enter: bool = True,
+        lifetime: Lifetime = "transient",
+    ) -> Self:
+        """Same as `for_factory` but for lambda function eventually taking a container as first parameter."""
+        try:
+            param = next(iter(inspect.signature(lambda_factory).parameters))
+            from handless._container import Container
+
+            params = {param: Container}
+        except StopIteration:
+            params = None
+
+        return cls.for_factory(
+            lambda_factory, enter=enter, lifetime=lifetime, params=params
         )
 
     @classmethod
