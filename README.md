@@ -57,6 +57,8 @@ with registry.create_container() as c:
 
 This part present the various components involved in this library.
 
+> :bulb: If you're already familiar with dependency injection you might skip this section.
+
 > :warning: Dependency injection and its concepts are subject to interpretation. The following definitions apply to this library but may differ to other dependencu injection frameworks which could opt for different naming conventions.
 
 ### Registry
