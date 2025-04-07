@@ -2,6 +2,8 @@
 
 - Mention the mypu type-abstract issue and how to disable it
 - Mention the caveat for singletons and callables objects
+- Find out how to verify code examples in the documentation (readme)
+- Find out how to format code examples in the doc (readme)
 
 ## Context management
 
