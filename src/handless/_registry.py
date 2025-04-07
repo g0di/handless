@@ -1,12 +1,17 @@
 import logging
 import warnings
-from types import FunctionType, MethodType
-from typing import Callable, Iterator, TypeVar, overload
+from types import FunctionType, LambdaType, MethodType
+from typing import Callable, Iterator, Protocol, TypeVar, overload
 
 from typing_extensions import Any, ParamSpec, Self
 
 from handless._container import Container
-from handless._provider import Lifetime, Provider, ProviderFactoryIn
+from handless._provider import (
+    Lifetime,
+    Provider,
+    ProviderFactoryIn,
+    ProviderLambdaFactory,
+)
 from handless._utils import default, get_return_type
 from handless.exceptions import ProviderNotFoundError
 
@@ -50,7 +55,7 @@ class Registry:
     def register(
         self,
         type_: type[_T],
-        provider: _T | type[_T] | ProviderFactoryIn[_T] | Provider[_T] | None = None,
+        provider: _T | type[_T] | ProviderLambdaFactory[_T] | None = None,
         lifetime: Lifetime | None = None,
         enter: bool | None = None,
     ) -> Self:
@@ -80,22 +85,18 @@ class Registry:
         :return: The registry
         """
         match provider:
-            case None:
-                self[type_] = Provider.for_factory(
-                    type_, lifetime=lifetime or "transient", enter=default(enter, True)
-                )
-                return self
             case type():
                 return self._register_alias(
                     type_, provider, lifetime=lifetime, enter=enter
                 )
-            case FunctionType() | MethodType():
-                self[type_] = Provider.for_factory(
-                    provider,
-                    enter=default(enter, True),
-                    lifetime=lifetime or "transient",
+            case None:
+                return self._register_factory(
+                    type_, provider, enter=enter, lifetime=lifetime
                 )
-                return self
+            case FunctionType() | MethodType() | LambdaType():
+                return self._register_lambda_factory(
+                    type_, provider, enter=enter, lifetime=lifetime
+                )
             case _:
                 return self._register_value(
                     type_, provider, enter=enter, lifetime=lifetime
@@ -106,12 +107,43 @@ class Registry:
     ) -> Self:
         if kwargs:
             warnings.warn(
-                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when an object"
-                " is given.",
+                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when "
+                "an object is given.",
                 stacklevel=3,
             )
-        self[type_] = Provider.for_value(value, enter=default(enter, False))
-        return self
+        return self._register(
+            type_, Provider.for_value(value, enter=default(enter, False))
+        )
+
+    def _register_factory(
+        self,
+        type_: type[_T],
+        factory: ProviderFactoryIn[_T] | None = None,
+        enter: bool | None = None,
+        lifetime: Lifetime | None = None,
+    ) -> Self:
+        return self._register(
+            type_,
+            Provider.for_factory(
+                factory or type_,
+                enter=default(enter, True),
+                lifetime=lifetime or "transient",
+            ),
+        )
+
+    def _register_lambda_factory(
+        self,
+        type_: type[_T],
+        factory: ProviderLambdaFactory[_T],
+        enter: bool | None = None,
+        lifetime: Lifetime | None = None,
+    ) -> Self:
+        return self._register(
+            type_,
+            Provider.for_lambda_factory(
+                factory, enter=default(enter, True), lifetime=lifetime or "transient"
+            ),
+        )
 
     def _register_alias(
         self, type_: type[Any], alias: type[Any], **kwargs: Any
@@ -122,8 +154,10 @@ class Registry:
                 " is given.",
                 stacklevel=3,
             )
+        return self._register(type_, Provider.for_alias(alias))
 
-        self[type_] = Provider.for_alias(alias)
+    def _register(self, type_: type[_T], provider: Provider[_T]) -> Self:
+        self[type_] = provider
         return self
 
     ############################
@@ -165,3 +199,27 @@ class Registry:
         if factory is not None:
             return wrapper(factory)
         return wrapper
+
+
+def _main() -> None:
+    class IFoo(Protocol): ...
+
+    class Foo(IFoo): ...
+
+    registry = (
+        Registry()
+        .register(str, "Hello World!")
+        .register(int, lambda: 42)
+        .register(int, lambda c: c.re)
+        .register(IFoo, Foo)  # type: ignore[type-abstract]
+    )
+
+    # Issues: Using lambdas with the container as single param is not supported
+    # at runtime nor typechecking.
+    # Solution -> consider lambdas with container for .register function
+    # allow all other functions for the decorator way
+    # Maybe add a register_factory function to still register non lambda functions?
+
+    # There is no way to register a factory using a type witout creating an alias
+
+    print(registry)
