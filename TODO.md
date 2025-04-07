@@ -1,65 +1,65 @@
-## doc
+# TODOs
 
-- Mention the mypu type-abstract issue and how to disable it
-- Mention the caveat for singletons and callables objects
-- Find out how to verify code examples in the documentation (readme)
-- Find out how to format code examples in the doc (readme)
+This document contains all the ideas I've got for new features or changes to be made.
 
-## Context management
+> :bulb: The order does not reflect the priority.
 
-- add handling of context managers
-  - add a function for manually releasing a value from the container -> Not sure if useful
-  - If possible, find a way to clear transient factories before having to call close
-- prevent ability to pass enter=False when providing a factory returning a context manager which **enter** method does not return an instance of expected object
+## Documentation
+
+- :books: Mention the mypy `type-abstract` issue when registering abstract classes or protocols and how to disable it
+- :books: Mention the the fact that callable objects can not be registered as factory implicitly
+- :books: Find out how to verify code examples in the documentation
+- :books: Find out how to format code examples in the doc (readme)
+- :books: Build a static documentation website using `sphinx` or `mkdocs` published on github pages
+- :books: Add badges on README file (coverage, tests, ...)
+- :books: add/enhance docstrings
+
+## Context managers
+
+- :new: add a function for manually releasing a value from the container (only affect transient) to prevent transient context managers to stay until container is closed (this one might be superseded by the change to make container a scoped container by default)
+- :new: prevent ability to pass enter=False when providing a factory returning a context manager which **enter** method does not return an instance of expected object
   - This must be managed through typings because we can not ensure at runtime that a function returns a particular value without calling it
+- :new: Allow to pass an object which is not an instance of registered type but which is a context manager of given type (with enter=True being mandatory)
 
 ## Async
 
-- add handling of async factories
-- add handling of async context managers
+- :new: add handling of async factories
+- :new: add handling of async context managers
 
 ## Resolving
 
-- use "get" as name for resolving from container
-- Handle positional only argument
-- When resolving type/factory parameters, inject default values if not able to resolve
+- :new: Handle factories/types positional only arguments
+- :new: Handle factories/types arguments with default values. If the container can not resolve one, leave the default value instead.
+  - :new: Do not raise error if registering a function missing type annotations for argument having default value.
 
 ## Misc
 
-- add resolve stack for debugging
-- When logging service type resolved, also display the full requiremnt chain
-- handle resolving singleton from different threads (add a lock)
-- add function for resolving all services in container for testing purposes
-- add function for verifying scopes validities on registry
-- add docstrings
-- Update readme file
-- create a real documentation page
-- Add a function for printing the whole dependency tree with lifetimes
-- Add badges on README file (coverage, tests, ...)
+- :bug: On resolve error print the full resolving stack for debugging
+- :bug: When logging service type resolved, also display the full requiremnt chain (maybe under debug level)
+- :bug: Make resolving singletons threadsafe (add a lock)
+- :new: add function for resolving all services in the container for testing purposes
+- :new: add function for verifying lifetimes mistmatches on registry (e.g: singleton depending on transint)
+- :bug: Add a function for printing the whole dependency tree with lifetimes
 
 ## Registration
 
-- do not raise error if registering a function missing type annotations for argument having default value.
-- Maybe add a public register_factory function for registering classes and typed functions directly
-- remove most doc from provider since this is not part of public API
-- Use actual classes for services lifetimes
+- :new: Maybe add a public `register_typed_factory` function for registering classes and typed functions directly
+- :new: Use classes for services lifetimes (internally only)
   - This will allow to add parameters to lifetimes to enhance their behavior
   - This will allow to rely on polymorphism rather than if/else for adapting container resolve method
-  - Add a function for updating one registry with another
-- add ability to copy a registry
-- add ability to register local values on scoped container to inject, for example, HTTP request scoped objects
-- registering a type with itself must ensure the given type is not abstract or protocol
+- :new: Add a function for updating one registry with another
+- :new: add ability to copy a registry
+- :new: Add ability to register local values on (scoped) container to inject, for example, HTTP request scoped objects or anything from other frameworks
+- :bug: Registering a type with itself must ensure the given type is not abstract or protocol
+- :bulb: Suggest on additional kind of registry providing a different public API for registering (could be based on Castle Windsor or InversifyJS)
 
 ## Testing
 
-- Update unit tests for our handling of lambda functions
-- Maybe merge resolving/registering tests
-- add ability to copy registry/containers for testing purposes
-- add ability to temporarily override container/registry for testing purposes
-- use nox for local testing on many python
+- :wrench: Maybe merge resolving/registering tests to avoid having to rely on `Provider` internal class.
+- :wrench: Add ability to temporarily override container/registry for testing purposes
+- :wrench: Use nox for local testing on many python versions
 
-# github
+## github
 
-- Add readme badges (tests, coverage, ...)
 - Publish code coverage (codecov?)
-- enable build on PRs + other nice stuff
+- enable build on PRs
