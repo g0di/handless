@@ -37,8 +37,11 @@ class Registry:
         return self._bindings[key]
 
     def __setitem__(self, key: type[_T], provider: Provider[_T]) -> None:
+        is_overwrite = key in self
         self._bindings[key] = provider
-        self._logger.info("Registered %s: %s", key, provider)
+        self._logger.info(
+            "Registered %s%s: %s", key, " (overwrite)" if is_overwrite else "", provider
+        )
 
     def register(
         self,
