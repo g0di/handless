@@ -36,9 +36,6 @@ class Registry:
             self.register(key)
         return self._bindings[key]
 
-    def __delitem__(self, key: type[Any]) -> None:
-        del self._bindings[key]
-
     def __iter__(self) -> Iterator[type[Any]]:
         return iter(self._bindings)
 
