@@ -33,6 +33,7 @@
 - Update readme file
 - create a real documentation page
 - Add a function for printing the whole dependency tree with lifetimes
+- Add badges on README file (coverage, tests, ...)
 
 ## Registration
 
