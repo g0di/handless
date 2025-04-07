@@ -2,7 +2,7 @@ import logging
 import warnings
 from inspect import isgeneratorfunction
 from types import FunctionType, LambdaType, MethodType
-from typing import Callable, Iterator, TypeVar, get_args, overload
+from typing import Callable, TypeVar, get_args, overload
 
 from typing_extensions import Any, Self
 
@@ -35,12 +35,6 @@ class Registry:
                 raise ProviderNotFoundError(key)
             self.register(key)
         return self._bindings[key]
-
-    def __iter__(self) -> Iterator[type[Any]]:
-        return iter(self._bindings)
-
-    def __len__(self) -> int:
-        return len(self._bindings)
 
     def __setitem__(self, key: type[_T], provider: Provider[_T]) -> None:
         self._bindings[key] = provider
