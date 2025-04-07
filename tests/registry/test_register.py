@@ -16,11 +16,6 @@ from tests.helpers import (
 )
 
 
-@pytest.fixture
-def sut() -> Registry:
-    return Registry()
-
-
 class TestRegisterSelf:
     def test_register_none_registers_a_transient_factory_using_given_type(
         self, sut: Registry
@@ -128,10 +123,11 @@ class TestRegisterFunction:
         self, sut: Registry
     ) -> None:
         registry = sut.register(
-            IFakeService, factory := (lambda c: c.resolve(FakeService))
+            IFakeService,  # type: ignore[type-abstract]
+            factory := (lambda c: c.resolve(FakeService)),
         )
 
-        assert sut[IFakeService] == Provider(
+        assert sut[IFakeService] == Provider(  # type: ignore[type-abstract]
             factory,
             params=(
                 Parameter("c", Parameter.POSITIONAL_OR_KEYWORD, annotation=Container),
@@ -169,7 +165,17 @@ class TestRegisterFunction:
 
         registry = sut.register(FakeService, fake_service_generator)
 
-        assert sut[FakeService] == Provider(
-            contextmanager(fake_service_generator)  # type: ignore[arg-type]
-        )
+        assert sut[FakeService] == Provider(contextmanager(fake_service_generator))
+        assert registry is sut
+
+    def test_register_context_manager_function_registers_it_as_is(
+        self, sut: Registry
+    ) -> None:
+        @contextmanager
+        def fake_service_context_manager() -> Iterator[FakeService]:
+            yield FakeService()
+
+        registry = sut.register(FakeService, fake_service_context_manager)
+
+        assert sut[FakeService] == Provider(fake_service_context_manager)
         assert registry is sut

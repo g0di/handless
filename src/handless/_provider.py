@@ -9,6 +9,7 @@ from typing import (
     Generic,
     Iterator,
     Literal,
+    ParamSpec,
     TypeVar,
     cast,
 )
@@ -18,28 +19,25 @@ from typing_extensions import Self
 from handless._utils import get_non_variadic_params, get_untyped_parameters
 
 if TYPE_CHECKING:
-    from handless._container import Container
+    from handless._container import Container  # noqa: F401
 
 _T = TypeVar("_T")
+_P = ParamSpec("_P")
 
-
-ProviderFactory = (
-    Callable[..., _T]
-    | Callable[..., _GeneratorContextManager[_T]]
-    | Callable[..., AbstractContextManager[_T]]
-)
-"""Provider factory type"""
 ProviderFactoryIn = (
-    Callable[..., _T]
-    | Callable[..., _GeneratorContextManager[Any]]
-    | Callable[..., AbstractContextManager[_T]]
-    | Callable[..., Iterator[_T]]
+    Callable[_P, _T]
+    | Callable[_P, AbstractContextManager[_T]]
+    | Callable[_P, _GeneratorContextManager[Any, Any, Any]]
+    | Callable[_P, Iterator[_T]]
 )
-"""Allowed callables as provider input factory"""
-ProviderLambdaFactory = Callable[["Container"], _T] | Callable[[], _T]
-"""Allowed callables when creating a provider from a lambda function"""
-
+ProviderFactory = (
+    Callable[_P, _T]
+    | Callable[_P, AbstractContextManager[_T]]
+    | Callable[_P, _GeneratorContextManager[Any, Any, Any]]
+)
+ProviderLambdaFactory = ProviderFactoryIn[["Container"], _T] | ProviderFactoryIn[[], _T]
 Lifetime = Literal["transient", "singleton", "scoped"]
+"""Provider lifetime. Determines when container should call provider's factory to get a value."""
 
 
 @dataclass(unsafe_hash=True, slots=True)
@@ -50,7 +48,7 @@ class Provider(Generic[_T]):
     `for_factory`, `for_value` or `for_alias` class methods.
     """
 
-    factory: ProviderFactory[_T]
+    factory: ProviderFactory[..., _T]
     """Factory that returns an instance of the descibed type."""
     lifetime: Lifetime = "transient"
     """Provider factory returned values lifetime."""
@@ -62,7 +60,7 @@ class Provider(Generic[_T]):
     @classmethod
     def for_factory(
         cls,
-        factory: ProviderFactoryIn[_T],
+        factory: ProviderFactoryIn[..., _T],
         lifetime: Lifetime = "transient",
         enter: bool = True,
         params: dict[str, type[Any]] | None = None,
@@ -91,7 +89,7 @@ class Provider(Generic[_T]):
             for p, ptype in (params or {}).items()
         )
         return cls(
-            cast(ProviderFactory[_T], factory),
+            cast(ProviderFactory[..., _T], factory),
             lifetime=lifetime,
             enter=enter,
             params=actual_params,

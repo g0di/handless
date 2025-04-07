@@ -1,9 +1,10 @@
 import logging
 import warnings
+from inspect import isgeneratorfunction
 from types import FunctionType, LambdaType, MethodType
-from typing import Callable, Iterator, Protocol, TypeVar, overload
+from typing import Callable, Iterator, TypeVar, get_args, overload
 
-from typing_extensions import Any, ParamSpec, Self
+from typing_extensions import Any, Self
 
 from handless._container import Container
 from handless._provider import (
@@ -15,8 +16,8 @@ from handless._provider import (
 from handless._utils import default, get_return_type
 from handless.exceptions import ProviderNotFoundError
 
-_P = ParamSpec("_P")
 _T = TypeVar("_T")
+_U = TypeVar("_U", bound=ProviderFactoryIn[..., Any])
 
 
 class Registry:
@@ -47,10 +48,6 @@ class Registry:
     def __setitem__(self, key: type[_T], provider: Provider[_T]) -> None:
         self._bindings[key] = provider
         self._logger.info("Registered %s: %s", key, provider)
-
-    def create_container(self) -> Container:
-        """Create and return a new container using this registry."""
-        return Container(self)
 
     def register(
         self,
@@ -118,7 +115,7 @@ class Registry:
     def _register_factory(
         self,
         type_: type[_T],
-        factory: ProviderFactoryIn[_T] | None = None,
+        factory: ProviderFactoryIn[..., _T] | None = None,
         enter: bool | None = None,
         lifetime: Lifetime | None = None,
     ) -> Self:
@@ -160,23 +157,17 @@ class Registry:
         self[type_] = provider
         return self
 
-    ############################
-    # Declarative registration #
-    ############################
-
-    # Factory decorator
-
     @overload
     def provider(
         self, *, lifetime: Lifetime = ..., enter: bool = ...
-    ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
+    ) -> Callable[[_U], _U]: ...
 
     @overload
-    def provider(self, factory: Callable[_P, _T]) -> Callable[_P, _T]: ...
+    def provider(self, factory: _U) -> _U: ...
 
     def provider(
         self,
-        factory: Callable[_P, _T] | None = None,
+        factory: _U | None = None,
         *,
         lifetime: Lifetime = "transient",
         enter: bool = True,
@@ -188,11 +179,13 @@ class Registry:
         :return: The pristine function
         """
 
-        def wrapper(factory: Callable[_P, _T]) -> Callable[_P, _T]:
+        def wrapper(factory: _U) -> _U:
             rettype = get_return_type(factory)
+            if isgeneratorfunction(factory):
+                rettype = get_args(rettype)[0]
             if not rettype:
                 raise TypeError(f"{factory} has no return type annotation")
-            self.register(rettype, factory, lifetime=lifetime, enter=enter)
+            self._register_factory(rettype, factory, lifetime=lifetime, enter=enter)
             # NOTE: return decorated func untouched to ease reuse
             return factory
 
@@ -200,26 +193,6 @@ class Registry:
             return wrapper(factory)
         return wrapper
 
-
-def _main() -> None:
-    class IFoo(Protocol): ...
-
-    class Foo(IFoo): ...
-
-    registry = (
-        Registry()
-        .register(str, "Hello World!")
-        .register(int, lambda: 42)
-        .register(int, lambda c: c.re)
-        .register(IFoo, Foo)  # type: ignore[type-abstract]
-    )
-
-    # Issues: Using lambdas with the container as single param is not supported
-    # at runtime nor typechecking.
-    # Solution -> consider lambdas with container for .register function
-    # allow all other functions for the decorator way
-    # Maybe add a register_factory function to still register non lambda functions?
-
-    # There is no way to register a factory using a type witout creating an alias
-
-    print(registry)
+    def create_container(self) -> Container:
+        """Create and return a new container using this registry."""
+        return Container(self)
