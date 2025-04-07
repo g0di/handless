@@ -1,8 +1,31 @@
-# handless
+# handless <!-- omit in toc -->
 
 > :construction: This repository is currently under construction. Its public API might change at any time without notice nor major version bump.
 
 A Python dependency injection container that automatically resolves and injects dependencies without polluting your code with framework-specific decorators. Inspired by [lagom] and [svcs], it keeps your code clean and flexible while offering multiple service registration options. 🚀
+
+- [Getting started](#getting-started)
+- [Naming](#naming)
+  - [Registry](#registry)
+  - [Provider](#provider)
+  - [Factory](#factory)
+  - [Container](#container)
+  - [Scoped Container](#scoped-container)
+  - [Lifetime](#lifetime)
+- [Usage](#usage)
+  - [Register an object](#register-an-object)
+    - [Context managers](#context-managers)
+  - [Register a factory](#register-a-factory)
+    - [Default factory](#default-factory)
+      - [Autowiring](#autowiring)
+    - [Manual factory](#manual-factory)
+    - [Decorator](#decorator)
+  - [Register an alias](#register-an-alias)
+- [Recipes](#recipes)
+- [Q\&A](#qa)
+  - [Why separate registry and container? Why not use the container to register types?](#why-separate-registry-and-container-why-not-use-the-container-to-register-types)
+  - [Why providing a single `register` function to register various kind of providers instead of having many more explicit ones?](#why-providing-a-single-register-function-to-register-various-kind-of-providers-instead-of-having-many-more-explicit-ones)
+- [Contributing](#contributing)
 
 ## Getting started
 
