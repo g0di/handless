@@ -45,10 +45,10 @@ class Cat:
     def meow(self) -> None:
         print("Meow!")
 
-registry = Registry().register(Foo, Foo())
+registry = Registry().register(Cat, Cat())
 
 with registry.create_container() as c:
-    foo = c.resolve(Foo)
+    foo = c.resolve(Cat)
     foo.meow()
     # Meow!
 ```
