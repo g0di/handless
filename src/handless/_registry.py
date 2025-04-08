@@ -1,27 +1,29 @@
+from __future__ import annotations
+
 import logging
 import warnings
+from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, _GeneratorContextManager
 from inspect import isgeneratorfunction
 from types import FunctionType, LambdaType, MethodType
-from typing import Any, Callable, Iterator, ParamSpec, TypeVar, get_args, overload
+from typing import TYPE_CHECKING, Any, ParamSpec, TypedDict, TypeVar, get_args, overload
+
+from typing_extensions import Unpack
 
 from handless import _lifetime
 from handless._binding import Binding
 from handless._container import Container
-from handless._lifetime import Lifetime
 from handless._provider import (
     AliasProvider,
     FactoryProvider,
     LambdaProvider,
     ValueProvider,
 )
-from handless._utils import (
-    count_func_params,
-    default,
-    get_return_type,
-    iscontextmanager,
-)
+from handless._utils import count_func_params, get_return_type, iscontextmanager
 from handless.exceptions import BindingNotFoundError
+
+if TYPE_CHECKING:
+    from handless._lifetime import Lifetime
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
@@ -35,8 +37,13 @@ _LambdaFactory = _Factory[[Container], _T]
 _U = TypeVar("_U", bound=Callable[..., Any])
 
 
+class _BindingOptions(TypedDict, total=False):
+    lifetime: Lifetime
+    enter: bool
+
+
 class Registry:
-    def __init__(self, autobind: bool = True) -> None:
+    def __init__(self, *, autobind: bool = True) -> None:
         self._autobind = autobind
         self._bindings: dict[type, Binding[Any]] = {}
         self._logger = logging.getLogger(__name__)
@@ -59,9 +66,8 @@ class Registry:
         self,
         type_: type[_T],
         provider: _T | type[_T] | _LambdaFactory[_T] | _Factory[[], _T] | None = None,
-        lifetime: Lifetime | None = None,
-        enter: bool | None = None,
-    ) -> "Registry":
+        **options: Unpack[_BindingOptions],
+    ) -> Registry:
         """Register a provider for given type.
 
         The type of given provider argument determines how the type will be resolved:
@@ -89,42 +95,26 @@ class Registry:
         """
         match provider:
             case type():
-                return self._register_alias(
-                    type_, provider, lifetime=lifetime, enter=enter
-                )
+                return self._register_alias(type_, provider, **options)
             case None:
-                return self._register_factory(
-                    type_, provider, enter=enter, lifetime=lifetime
-                )
+                return self._register_factory(type_, provider, **options)
             case FunctionType() | MethodType() | LambdaType():
                 if count_func_params(provider) == 1:
-                    return self._register_lambda(
-                        type_, provider, enter=enter, lifetime=lifetime
-                    )
-                return self._register_factory(
-                    type_, provider, enter=enter, lifetime=lifetime
-                )
+                    return self._register_lambda(type_, provider, **options)
+                return self._register_factory(type_, provider, **options)
             case _:
-                return self._register_value(
-                    type_, provider, enter=enter, lifetime=lifetime
-                )
+                return self._register_value(type_, provider, **options)
 
     @overload
     def binding(self, factory: _U) -> _U: ...
 
     @overload
-    def binding(
-        self, *, lifetime: Lifetime = ..., enter: bool = ...
-    ) -> Callable[[_U], _U]: ...
+    def binding(self, **options: Unpack[_BindingOptions]) -> Callable[[_U], _U]: ...
 
     def binding(
-        self,
-        factory: _U | None = None,
-        *,
-        lifetime: Lifetime = "transient",
-        enter: bool = True,
+        self, factory: _U | None = None, **options: Unpack[_BindingOptions]
     ) -> Any:
-        """Register decorated function as factory provider for its return type annotation
+        """Register decorated function as factory provider for its return type annotation.
 
         :param factory: The decorated factory function, defaults to None
         :param lifetime: The factory lifetime, defaults to "transient"
@@ -136,8 +126,9 @@ class Registry:
             if isgeneratorfunction(factory) or iscontextmanager(factory):
                 rettype = get_args(rettype)[0]
             if not rettype:
-                raise TypeError(f"{factory} has no return type annotation")
-            self._register_factory(rettype, factory, lifetime=lifetime, enter=enter)
+                msg = f"{factory} has no return type annotation"
+                raise TypeError(msg)
+            self._register_factory(rettype, factory, **options)
             # NOTE: return decorated func untouched to ease reuse
             return factory
 
@@ -146,11 +137,12 @@ class Registry:
         return wrapper
 
     def _register_value(
-        self, type_: type[Any], value: Any, enter: bool | None = None, **kwargs: Any
-    ) -> "Registry":
-        if kwargs:
+        self, type_: type[Any], value: object, **options: Unpack[_BindingOptions]
+    ) -> Registry:
+        enter = options.pop("enter", False)
+        if options:
             warnings.warn(
-                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when "
+                f"Passing {', '.join(options)} keyword argument(s) has no effect when "
                 "an object is given.",
                 stacklevel=3,
             )
@@ -158,8 +150,8 @@ class Registry:
             Binding(
                 type_,
                 ValueProvider(value),
-                enter=default(enter, False),
-                lifetime=_lifetime.SingletonLifetime(),
+                enter=enter,
+                lifetime=_lifetime.parse("singleton"),
             )
         )
 
@@ -167,15 +159,14 @@ class Registry:
         self,
         type_: type[_T],
         factory: _Factory[..., _T] | None = None,
-        enter: bool | None = None,
-        lifetime: Lifetime | None = None,
-    ) -> "Registry":
+        **options: Unpack[_BindingOptions],
+    ) -> Registry:
         return self._register(
             Binding(
                 type_,
                 FactoryProvider(factory or type_),
-                enter=default(enter, True),
-                lifetime=_lifetime.parse(lifetime or "transient"),
+                enter=options.get("enter", True),
+                lifetime=_lifetime.parse(options.get("lifetime", "transient")),
             )
         )
 
@@ -183,30 +174,39 @@ class Registry:
         self,
         type_: type[_T],
         factory: _LambdaFactory[_T],
-        enter: bool | None = None,
-        lifetime: Lifetime | None = None,
-    ) -> "Registry":
+        **options: Unpack[_BindingOptions],
+    ) -> Registry:
         return self._register(
             Binding(
                 type_,
                 LambdaProvider(factory),
-                enter=default(enter, True),
-                lifetime=_lifetime.parse(lifetime or "transient"),
+                enter=options.get("enter", True),
+                lifetime=_lifetime.parse(options.get("lifetime", "transient")),
             )
         )
 
     def _register_alias(
-        self, type_: type[Any], alias_type: type[Any], **kwargs: Any
-    ) -> "Registry":
-        if kwargs:
+        self,
+        type_: type[Any],
+        alias_type: type[Any],
+        **options: Unpack[_BindingOptions],
+    ) -> Registry:
+        if options:
             warnings.warn(
-                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when a type"
+                f"Passing {', '.join(options)} keyword argument(s) has no effect when a type"
                 " is given.",
                 stacklevel=3,
             )
-        return self._register(Binding(type_, AliasProvider(alias_type), enter=False))
+        return self._register(
+            Binding(
+                type_,
+                AliasProvider(alias_type),
+                lifetime=_lifetime.parse("transient"),
+                enter=False,
+            )
+        )
 
-    def _register(self, binding: Binding[Any]) -> "Registry":
+    def _register(self, binding: Binding[Any]) -> Registry:
         is_overwrite = binding.type_ in self
         self._bindings[binding.type_] = binding
         self._logger.info(

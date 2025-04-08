@@ -1,17 +1,21 @@
+from __future__ import annotations
+
 import inspect
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from inspect import Parameter, isgeneratorfunction
-from types import LambdaType
 from typing import (
+    TYPE_CHECKING,
     Any,
-    Callable,
-    Iterator,
     NewType,
     ParamSpec,
     TypeVar,
     cast,
     get_type_hints,
+    overload,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 _T = TypeVar("_T")
 
@@ -28,18 +32,13 @@ def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
     ]
 
 
-def is_lambda_function(value: Any) -> bool:
-    """Returns true if given function is a lambda."""
-    return isinstance(value, LambdaType) and value.__name__ == "<lambda>"
-
-
 def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
     """Get return type of given function if specified or None."""
     return cast(type[_T], get_type_hints(func).get("return"))
 
 
 def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Parameter]:
-    """Returns a dict mapping given callable non variadic parameters name to their type.
+    """Return non variadic parameters of given callable mapped to their name.
 
     Non variadic parameters are all parameters except *args and **kwargs
     """
@@ -52,11 +51,6 @@ def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Paramete
         for name, param in signature.parameters.items()
         if param.kind not in {Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD}
     }
-
-
-def default(value: _T | None, default_value: _T) -> _T:
-    """Return default value if given value is None."""
-    return default_value if value is None else value
 
 
 def compare_functions(a: Callable[..., Any], b: Callable[..., Any]) -> bool:
@@ -73,10 +67,20 @@ def compare_functions(a: Callable[..., Any], b: Callable[..., Any]) -> bool:
 _P = ParamSpec("_P")
 
 
-def autocontextmanager(factory: Callable[_P, _T | Iterator[_T]]) -> Callable[_P, _T]:
+@overload
+def autocontextmanager(
+    factory: Callable[_P, Iterator[_T]],
+) -> Callable[_P, AbstractContextManager[_T]]: ...
+
+
+@overload
+def autocontextmanager(factory: Callable[_P, _T]) -> Callable[_P, _T]: ...
+
+
+def autocontextmanager(factory: Callable[..., Any]) -> Callable[..., Any]:
     if inspect.isgeneratorfunction(factory):
-        return contextmanager(factory)  # type: ignore
-    return cast(Callable[_P, _T], factory)
+        return contextmanager(factory)
+    return factory
 
 
 def get_injectable_params(

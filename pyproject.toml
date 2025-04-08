@@ -60,7 +60,12 @@ strict = true
 [tool.ruff]
 src = ["src", "tests"]
 
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = true
+
 [tool.ruff.lint]
+select = ["ALL"]
 ignore = [
     # Disable rules conflicting with formatter. See: https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "COM812",
@@ -78,11 +83,20 @@ ignore = [
     "Q002",
     "Q003",
     "W191",
+    "D1",     # It's fine to not comment every single class, method and module 
+    "TD",     # Let's keep TODOs simple for now
+    "FIX002", # I use TODO for remembering some stuff to be done later
 ]
 
-[tool.ruff.format]
-docstring-code-format = true
-skip-magic-trailing-comma = true
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101", # Let me use assert in tests please
+    "FBT",  # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "S311", # Standard pseudo-random generators are fine in tests
+]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"

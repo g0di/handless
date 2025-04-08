@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import logging
 import warnings
 from contextlib import AbstractContextManager, ExitStack, suppress
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from handless._binding import Binding
 from handless.exceptions import ResolveError
 
 if TYPE_CHECKING:
+    from handless._binding import Binding
     from handless._registry import Registry
 
 
@@ -14,13 +16,13 @@ _T = TypeVar("_T")
 
 
 class Container:
-    def __init__(self, registry: "Registry") -> None:
+    def __init__(self, registry: Registry) -> None:
         self._registry = registry
         self._cache: dict[type[Any], Any] = {}
         self._exit_stack = ExitStack()
         self._logger = logging.getLogger(__name__)
 
-    def create_scope(self) -> "ScopedContainer":
+    def create_scope(self) -> ScopedContainer:
         return ScopedContainer(self)
 
     def close(self) -> None:
@@ -51,8 +53,9 @@ class Container:
     def _resolve_singleton(self, binding: Binding[_T]) -> _T:
         return self._get_cached_instance(binding)
 
-    def _resolve_scoped(self, binding: Binding[_T]) -> _T:
-        raise ValueError("Can not resolve scoped type outside a scope")
+    def _resolve_scoped(self, binding: Binding[_T]) -> _T:  # noqa: ARG002
+        msg = "Can not resolve scoped type outside a scope"
+        raise ValueError(msg)
 
     def _get_cached_instance(self, binding: Binding[_T]) -> _T:
         if binding.type_ not in self._cache:
@@ -72,18 +75,19 @@ class Container:
                     f"Container resolved {binding.type_} with {instance} which is not an instance of this type. "
                     "This could lead to unexpected errors.",
                     RuntimeWarning,
+                    stacklevel=2,
                 )
         return instance
 
 
 class ScopedContainer(Container):
     def __init__(self, parent: Container) -> None:
-        super().__init__(parent._registry)
+        super().__init__(parent._registry)  # noqa: SLF001
         self._parent = parent
         self._logger = logging.getLogger(f"{__name__}.scope")
 
     def _resolve_singleton(self, binding: Binding[_T]) -> _T:
-        return self._parent._resolve_singleton(binding)
+        return self._parent._resolve_singleton(binding)  # noqa: SLF001
 
     def _resolve_scoped(self, binding: Binding[_T]) -> _T:
         return self._get_cached_instance(binding)

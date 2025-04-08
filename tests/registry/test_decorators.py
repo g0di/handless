@@ -1,5 +1,5 @@
+from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
-from typing import Callable, Generator, Iterator
 
 import pytest
 
@@ -21,11 +21,11 @@ def _create_fake_service_no_params() -> FakeService:
     return FakeService()
 
 
-def _create_fake_service_container_param(container: Container) -> FakeService:
+def _create_fake_service_container_param(container: Container) -> FakeService:  # noqa: ARG001
     return FakeService()
 
 
-def _create_fake_service_params(foo: str, bar: int) -> FakeService:
+def _create_fake_service_params(foo: str, bar: int) -> FakeService:  # noqa: ARG001
     return FakeService()
 
 

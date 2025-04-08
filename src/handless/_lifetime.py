@@ -15,25 +15,25 @@ Lifetime = Literal["transient", "singleton", "scoped"]
 
 
 class BaseLifetime(Protocol):
-    def accept(self, container: "Container", binding: Binding[_T]) -> _T: ...
+    def accept(self, container: Container, binding: Binding[_T]) -> _T: ...
 
 
 @dataclass
 class TransientLifetime(BaseLifetime):
-    def accept(self, container: "Container", binding: Binding[_T]) -> _T:
-        return container._resolve_transient(binding)
+    def accept(self, container: Container, binding: Binding[_T]) -> _T:
+        return container._resolve_transient(binding)  # noqa: SLF001
 
 
 @dataclass
 class ScopedLifetime(BaseLifetime):
-    def accept(self, container: "Container", binding: Binding[_T]) -> _T:
-        return container._resolve_scoped(binding)
+    def accept(self, container: Container, binding: Binding[_T]) -> _T:
+        return container._resolve_scoped(binding)  # noqa: SLF001
 
 
 @dataclass
 class SingletonLifetime(BaseLifetime):
-    def accept(self, container: "Container", binding: Binding[_T]) -> _T:
-        return container._resolve_singleton(binding)
+    def accept(self, container: Container, binding: Binding[_T]) -> _T:
+        return container._resolve_singleton(binding)  # noqa: SLF001
 
 
 # NOTE: no need to create an instance of lifetime each time for the moment
@@ -51,4 +51,5 @@ def parse(lifetime: Lifetime) -> BaseLifetime:
         case "scoped":
             return _scoped
         case _:
-            raise ValueError(f"Invalid lifetime: {lifetime}")
+            msg = f"Invalid lifetime: {lifetime}"
+            raise ValueError(msg)

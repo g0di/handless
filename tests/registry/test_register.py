@@ -1,5 +1,5 @@
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Callable, Iterator
 
 import pytest
 
@@ -185,7 +185,7 @@ class TestRegisterFunction:
     def test_register_generator_function_taking_container_wraps_it_as_a_context_manager(
         self, sut: Registry
     ) -> None:
-        def fake_service_generator(container: Container) -> Iterator[FakeService]:
+        def fake_service_generator(container: Container) -> Iterator[FakeService]:  # noqa: ARG001
             yield FakeService()
 
         registry = sut.register(FakeService, fake_service_generator)

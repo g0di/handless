@@ -28,13 +28,13 @@ FakeServiceNewType = NewType("FakeServiceNewType", FakeService)
 
 
 class FakeServiceWithParams(IFakeService):
-    def __init__(self, foo: str, bar: int):
+    def __init__(self, foo: str, bar: int) -> None:
         self.foo = foo
         self.bar = bar
 
 
 class FakeServiceWithUntypedParams(IFakeService):
-    def __init__(self, foo, bar):  # type: ignore[no-untyped-def]
+    def __init__(self, foo, bar):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN204
         self.foo = foo
         self.bar = bar
 
@@ -50,7 +50,7 @@ class CallableFakeServiceWithParams(IFakeService):
 
 
 class UntypedCallableFakeServiceWithParams(IFakeService):
-    def __call__(self, foo, bar):  # type: ignore
+    def __call__(self, foo, bar):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN204
         return FakeServiceWithParams(foo, bar)
 
 
@@ -58,7 +58,7 @@ fake_service_lambda_factory = lambda: FakeService()  # noqa: E731
 fake_service_lambda_factory_with_param = lambda c: FakeServiceWithParams(  # noqa: E731
     c.resolve(str), c.resolve(int)
 )
-fake_service_lambda_factory_with_many_params = lambda a, b, c: FakeService()  # noqa: E731
+fake_service_lambda_factory_with_many_params = lambda a, b, c: FakeService()  # noqa: ARG005, E731
 
 
 def fake_service_factory() -> FakeService:
@@ -75,7 +75,7 @@ def fake_service_factory_with_container_param(
     return FakeServiceWithParams(container.resolve(str), container.resolve(int))
 
 
-def fake_service_factory_with_untyped_params(foo, bar) -> FakeServiceWithParams:  # type: ignore[no-untyped-def]
+def fake_service_factory_with_untyped_params(foo, bar) -> FakeServiceWithParams:  # type: ignore[no-untyped-def]  # noqa: ANN001
     return FakeServiceWithParams(foo, bar)
 
 

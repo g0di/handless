@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 
@@ -48,7 +48,7 @@ def test_resolve_type_resolves_its_binding_factory_parameters_before_calling_it(
 
     assert isinstance(resolved1, FakeServiceWithParams)
     assert resolved1.foo == "a"
-    assert resolved1.bar == 42
+    assert resolved1.bar == 42  # noqa: PLR2004
 
 
 def test_resolve_type_enters_context_manager() -> None:

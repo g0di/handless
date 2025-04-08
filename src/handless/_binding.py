@@ -1,14 +1,14 @@
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Generic, ParamSpec, TypeVar
+from __future__ import annotations
 
-from handless import _provider
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Generic, TypeVar
+
 from handless._lifetime import BaseLifetime, TransientLifetime
 
 if TYPE_CHECKING:
-    from handless._container import Container  # noqa: F401
+    from handless import _provider
 
 _T = TypeVar("_T")
-_P = ParamSpec("_P")
 
 
 @dataclass(slots=True)

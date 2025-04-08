@@ -1,4 +1,4 @@
-class HandlessException(Exception):
+class HandlessException(Exception):  # noqa: N818
     """Base exception for all handless errors."""
 
 
