@@ -45,7 +45,7 @@ This document contains all the ideas I've got for new features or changes to be 
 
 ## Registration
 
-- :new: Maybe add a public `register_typed_factory` function for registering classes and typed functions directly
+- :new: allow to pass providers directly to the register function (the register function should adapt default values for enter/lifetime accordingly)
 - :new: Use classes for services lifetimes (internally only)
   - This will allow to add parameters to lifetimes to enhance their behavior
   - This will allow to rely on polymorphism rather than if/else for adapting container resolve method
