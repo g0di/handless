@@ -34,7 +34,7 @@ def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
 
 def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
     """Get return type of given function if specified or None."""
-    return cast(type[_T], get_type_hints(func).get("return"))
+    return cast("type[_T]", get_type_hints(func).get("return"))
 
 
 def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Parameter]:

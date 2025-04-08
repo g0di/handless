@@ -31,7 +31,7 @@ class Container:
 
     def resolve(self, type_: type[_T]) -> _T:
         if issubclass(type_, Container):
-            return cast(_T, self)
+            return cast("_T", self)
 
         binding = self._registry.lookup(type_)
 
@@ -60,7 +60,7 @@ class Container:
     def _get_cached_instance(self, binding: Binding[_T]) -> _T:
         if binding.type_ not in self._cache:
             self._cache[binding.type_] = self._get_instance(binding)
-        return cast(_T, self._cache[binding.type_])
+        return cast("_T", self._cache[binding.type_])
 
     def _get_instance(self, binding: Binding[_T]) -> _T:
         instance = binding.provider(self)

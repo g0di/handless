@@ -19,7 +19,8 @@ def typecheck(c: Context) -> None:
 
 @task
 def test(c: Context) -> None:
-    c.run("pytest --cov --cov-report=term-missing")
+    c.run("tox --parallel")
+    c.run("coverage report -m --skip-covered")
 
 
 @task(format, lint, typecheck, test)
