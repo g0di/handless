@@ -6,40 +6,35 @@ from typing import Callable, TypeVar, get_args, overload
 
 from typing_extensions import Any, Self
 
+from handless._binding import Binding, LambdaProvider, Lifetime, ProviderIn
 from handless._container import Container
-from handless._provider import (
-    Lifetime,
-    Provider,
-    ProviderFactoryIn,
-    ProviderLambdaFactory,
-)
 from handless._utils import default, get_return_type
-from handless.exceptions import ProviderNotFoundError
+from handless.exceptions import BindingNotFoundError
 
 _T = TypeVar("_T")
-_U = TypeVar("_U", bound=ProviderFactoryIn[..., Any])
+_U = TypeVar("_U", bound=ProviderIn[..., Any])
 
 
 class Registry:
     def __init__(self, autobind: bool = True) -> None:
         self._autobind = autobind
-        self._bindings: dict[type, Provider[Any]] = {}
+        self._bindings: dict[type, Binding[Any]] = {}
         self._logger = logging.getLogger(__name__)
 
     def __contains__(self, key: object) -> bool:
         return key in self._bindings
 
-    def lookup(self, key: type[_T]) -> Provider[_T]:
+    def lookup(self, key: type[_T]) -> Binding[_T]:
         if key not in self:
             if not self._autobind:
-                raise ProviderNotFoundError(key)
+                raise BindingNotFoundError(key)
             self.register(key)
         return self._bindings[key]
 
     def register(
         self,
         type_: type[_T],
-        provider: _T | type[_T] | ProviderLambdaFactory[_T] | None = None,
+        provider: _T | type[_T] | LambdaProvider[_T] | None = None,
         lifetime: Lifetime | None = None,
         enter: bool | None = None,
     ) -> Self:
@@ -96,19 +91,19 @@ class Registry:
                 stacklevel=3,
             )
         return self._register(
-            type_, Provider.for_value(value, enter=default(enter, False))
+            type_, Binding.for_value(value, enter=default(enter, False))
         )
 
     def _register_factory(
         self,
         type_: type[_T],
-        factory: ProviderFactoryIn[..., _T] | None = None,
+        factory: ProviderIn[..., _T] | None = None,
         enter: bool | None = None,
         lifetime: Lifetime | None = None,
     ) -> Self:
         return self._register(
             type_,
-            Provider.for_factory(
+            Binding.for_factory(
                 factory or type_,
                 enter=default(enter, True),
                 lifetime=lifetime or "transient",
@@ -118,13 +113,13 @@ class Registry:
     def _register_lambda_factory(
         self,
         type_: type[_T],
-        factory: ProviderLambdaFactory[_T],
+        factory: LambdaProvider[_T],
         enter: bool | None = None,
         lifetime: Lifetime | None = None,
     ) -> Self:
         return self._register(
             type_,
-            Provider.for_lambda_factory(
+            Binding.for_lambda_factory(
                 factory, enter=default(enter, True), lifetime=lifetime or "transient"
             ),
         )
@@ -138,9 +133,9 @@ class Registry:
                 " is given.",
                 stacklevel=3,
             )
-        return self._register(type_, Provider.for_alias(alias))
+        return self._register(type_, Binding.for_alias(alias))
 
-    def _register(self, type_: type[_T], provider: Provider[_T]) -> Self:
+    def _register(self, type_: type[_T], provider: Binding[_T]) -> Self:
         is_overwrite = type_ in self
         self._bindings[type_] = provider
         self._logger.info(
@@ -152,14 +147,14 @@ class Registry:
         return self
 
     @overload
-    def provider(
+    def binding(
         self, *, lifetime: Lifetime = ..., enter: bool = ...
     ) -> Callable[[_U], _U]: ...
 
     @overload
-    def provider(self, factory: _U) -> _U: ...
+    def binding(self, factory: _U) -> _U: ...
 
-    def provider(
+    def binding(
         self,
         factory: _U | None = None,
         *,

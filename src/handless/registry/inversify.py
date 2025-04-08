@@ -2,7 +2,7 @@ from typing import Any, Callable, Generic, NewType, TypeVar
 
 from typing_extensions import Self
 
-from handless import Provider
+from handless import Binding
 
 _T = TypeVar("_T")
 
@@ -27,7 +27,7 @@ class Binder(Generic[_T]):
 
 class Registry:
     def __init__(self) -> None:
-        self._services: dict[type[Any, Provider[Any]]] = {}
+        self._services: dict[type[Any, Binding[Any]]] = {}
 
     def bind(self, service_type: type[_T]) -> Binder[_T]:
         return Binder(self, service_type)

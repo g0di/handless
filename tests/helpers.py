@@ -4,7 +4,7 @@ import pytest
 from typing_extensions import get_args
 
 from handless import Container
-from handless._provider import Lifetime
+from handless._binding import Lifetime
 
 
 class IFakeService(Protocol): ...
@@ -81,7 +81,7 @@ def fake_service_factory_with_untyped_params(foo, bar) -> FakeServiceWithParams:
     return FakeServiceWithParams(foo, bar)
 
 
-use_invalid_provider_factory = pytest.mark.parametrize(
+use_invalid_provider = pytest.mark.parametrize(
     "factory",
     [
         fake_service_lambda_factory_with_many_params,
@@ -90,9 +90,9 @@ use_invalid_provider_factory = pytest.mark.parametrize(
         fake_service_factory_with_untyped_params,
     ],
 )
-"""All kind of invalid provider factory."""
+"""All kind of invalid provider."""
 
-use_valid_provider_factory = pytest.mark.parametrize(
+use_valid_provider = pytest.mark.parametrize(
     "factory",
     [
         FakeService,
@@ -108,9 +108,9 @@ use_valid_provider_factory = pytest.mark.parametrize(
         CallableFakeServiceWithParams(),
     ],
 )
-"""All kind of valid provider factory."""
+"""All kind of valid provider."""
 
-use_factory_function = pytest.mark.parametrize(
+use_valid_factory_provider = pytest.mark.parametrize(
     "function",
     [
         fake_service_lambda_factory,
@@ -122,16 +122,16 @@ use_factory_function = pytest.mark.parametrize(
         fake_service_factory_with_params,
     ],
 )
-"""All kind of functions that can be registered as a factory provider."""
+"""All kind of functions that can be registered as a provider."""
 
-use_invalid_factory_function = pytest.mark.parametrize(
+use_invalid_factory_provider = pytest.mark.parametrize(
     "function",
     [
         fake_service_lambda_factory_with_many_params,
         fake_service_factory_with_untyped_params,
     ],
 )
-"""All kind of functions that CANNOT be registered as a factory service provider."""
+"""All kind of functions that CANNOT be registered as a provider."""
 
 use_lifetimes = pytest.mark.parametrize("lifetime", get_args(Lifetime))
 use_enter = pytest.mark.parametrize(

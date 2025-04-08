@@ -7,8 +7,8 @@ A Python dependency injection container that automatically resolves and injects 
 - [Getting started](#getting-started)
 - [Naming](#naming)
   - [Registry](#registry)
+  - [Binding](#binding)
   - [Provider](#provider)
-  - [Factory](#factory)
   - [Container](#container)
   - [Scoped Container](#scoped-container)
   - [Lifetime](#lifetime)
@@ -63,15 +63,15 @@ This part present the various components involved in this library.
 
 ### Registry
 
-A registry is an object mapping types to providers. It basically tells containers how to get an instance for a given type. There should up to one registry per entrypoint in an application (if you have a HTTP API and a CLI you may have one registry for each). However, you can share the same registry for all your entrypoints if possible.
+A registry is an object holding bindings for containers to be able to resolve types. There should up to one registry per entrypoint in an application (if you have a HTTP API and a CLI you may have one registry for each). However, you can share the same registry for all your entrypoints if it makes sense.
+
+### Binding
+
+A binding is a mapping between a type and a provider with additional metadata like lifetime, context manager handling and so on.
 
 ### Provider
 
-A provider is an object defining how to get an instance of a given type. It holds the function allowing to get instance of a type as well as other options like its lifetime (i.e: when the container should get a new instance or prefer a cached one) and whether or not enter context managers when returned by its function.
-
-### Factory
-
-A factory is a function or a type which produces object of a particular type. It is bound to a provider.
+A provider is an object responsible for producing instances of a given type.
 
 ### Container
 
@@ -83,13 +83,13 @@ It is a container which lifetime is bound to a specific scope. There can be many
 
 ### Lifetime
 
-Lifetime are tied to providers. It indicates to a container when it should call a provider's factory in order to get an instance of the registered type. There is three lifetimes at the moment:
+Lifetime are tied to bindings. It indicates to a container when it should call the binding provider in order to produce an instance of the registered type. There is three lifetimes at the moment:
 
 - _transient_ (default): Provide's factory is called on each resolve.
 - _scoped_: Provide's factory is called once per scoped container.
 - _singleton_: Provide's factory is called once per container.
 
-> :warning: Lifetimes only dictate to containers WHEN to call a provider's factory or use cached object. It means that if you specify a _transient_ lifetime with a factory which actually always returns the same object, you'll end up with a _singleton_. The container do not check in any way for returned objects are always uniques.
+> :warning: Lifetimes only dictate to containers WHEN to call a binding's provider or use cached object. It means that if you specify a _transient_ lifetime with a provider which actually always returns the same object, you'll end up with a _singleton_. The container do not check in any way for returned objects are always uniques.
 
 ## Usage
 
@@ -246,7 +246,7 @@ class Foo:
 registry = Registry()
 
 
-@registry.provider
+@registry.binding
 def get_foo(bar: Bar) -> Foo:
     return Foo(bar)
 ```
@@ -293,7 +293,7 @@ This better separate concerns. A registry is supposed to register how to resolve
 
 ### Why providing a single `register` function to register various kind of providers instead of having many more explicit ones?
 
-This one is mostly due to Python typing system. I wanted this library to be fully typed in order to prevent from registering wrong providers to types upfront.
+This one is mostly due to Python typing system. I wanted this library to be fully typed in order to prevent from registering wrong providers upfront.
 To better understand why I did not split registration into several functions, look at the following example
 
 ```python

@@ -1,7 +1,7 @@
 import pytest
 
 from handless import Container, Registry, ScopedContainer
-from handless.exceptions import ProviderNotFoundError
+from handless.exceptions import BindingNotFoundError
 from tests.helpers import FakeService
 
 
@@ -43,5 +43,5 @@ def test_resolve_unregistered_service_type_autobind_a_transient_factory_by_defau
 def test_resolve_unregistered_service_type_raise_an_error_when_autobind_is_disabled(
     sut: Container,
 ) -> None:
-    with pytest.raises(ProviderNotFoundError):
+    with pytest.raises(BindingNotFoundError):
         sut.resolve(FakeService)

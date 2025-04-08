@@ -5,7 +5,7 @@ from typing import TypeVar, cast
 
 from typing_extensions import TYPE_CHECKING, Any
 
-from handless._provider import Provider
+from handless._binding import Binding
 from handless.exceptions import ResolveError
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ _T = TypeVar("_T")
 class Container:
     def __init__(self, registry: "Registry") -> None:
         self._registry = registry
-        self._cache: dict[Provider[Any], Any] = {}
+        self._cache: dict[Binding[Any], Any] = {}
         self._exit_stack = ExitStack()
         self._logger = logging.getLogger(__name__)
 
@@ -33,15 +33,15 @@ class Container:
         if issubclass(type_, Container):
             return cast(_T, self)
 
-        provider = self._registry.lookup(type_)
+        binding = self._registry.lookup(type_)
 
         try:
-            if provider.lifetime == "scoped":
-                instance = self._resolve_scoped(provider)
-            elif provider.lifetime == "singleton":
-                instance = self._resolve_singleton(provider)
+            if binding.lifetime == "scoped":
+                instance = self._resolve_scoped(binding)
+            elif binding.lifetime == "singleton":
+                instance = self._resolve_singleton(binding)
             else:
-                instance = self._resolve_transient(provider)
+                instance = self._resolve_transient(binding)
             with suppress(TypeError):
                 if not isinstance(instance, type_):
                     warnings.warn(
@@ -57,27 +57,27 @@ class Container:
                 "Resolved %s%s: %s",
                 type_,
                 " (unregistered)" if type_ in self._registry else "",
-                provider,
+                binding,
             )
 
-    def _resolve_transient(self, provider: Provider[_T]) -> _T:
-        return self._get_instance(provider)
+    def _resolve_transient(self, binding: Binding[_T]) -> _T:
+        return self._get_instance(binding)
 
-    def _resolve_singleton(self, provider: Provider[_T]) -> _T:
-        return self._get_cached_instance(provider)
+    def _resolve_singleton(self, binding: Binding[_T]) -> _T:
+        return self._get_cached_instance(binding)
 
-    def _resolve_scoped(self, provider: Provider[_T]) -> _T:
+    def _resolve_scoped(self, binding: Binding[_T]) -> _T:
         raise ValueError("Can not resolve scoped type outside a scope")
 
-    def _get_cached_instance(self, provider: Provider[_T]) -> _T:
-        if provider not in self._cache:
-            self._cache[provider] = self._get_instance(provider)
-        return cast(_T, self._cache[provider])
+    def _get_cached_instance(self, binding: Binding[_T]) -> _T:
+        if binding not in self._cache:
+            self._cache[binding] = self._get_instance(binding)
+        return cast(_T, self._cache[binding])
 
-    def _get_instance(self, provider: Provider[_T]) -> _T:
-        args = {param.name: self.resolve(param.annotation) for param in provider.params}
-        instance = provider.factory(**args)
-        if isinstance(instance, AbstractContextManager) and provider.enter:
+    def _get_instance(self, binding: Binding[_T]) -> _T:
+        args = {param.name: self.resolve(param.annotation) for param in binding.params}
+        instance = binding.provider(**args)
+        if isinstance(instance, AbstractContextManager) and binding.enter:
             instance = self._exit_stack.enter_context(instance)
         return cast(_T, instance)
 
@@ -88,8 +88,8 @@ class ScopedContainer(Container):
         self._parent = parent
         self._logger = logging.getLogger(f"{__name__}.scope")
 
-    def _resolve_singleton(self, provider: Provider[_T]) -> _T:
-        return self._parent._resolve_singleton(provider)
+    def _resolve_singleton(self, binding: Binding[_T]) -> _T:
+        return self._parent._resolve_singleton(binding)
 
-    def _resolve_scoped(self, provider: Provider[_T]) -> _T:
-        return self._get_cached_instance(provider)
+    def _resolve_scoped(self, binding: Binding[_T]) -> _T:
+        return self._get_cached_instance(binding)

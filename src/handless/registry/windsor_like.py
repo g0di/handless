@@ -1,15 +1,15 @@
 from typing import Any, Callable, Generic, Self, TypeVar, get_args
 
-from handless import Provider
+from handless import Binding
 
 _T = TypeVar("_T")
 
 
 class Registry:
     def __init__(self) -> None:
-        self._services: dict[type[Any], Provider[Any]] = {}
+        self._services: dict[type[Any], Binding[Any]] = {}
 
-    def register(self, *providers: Provider[Any]) -> Self:
+    def register(self, *providers: Binding[Any]) -> Self:
         for provider in providers:
             self._services[get_args(provider)[0]] = provider
         return self
@@ -18,9 +18,9 @@ class Registry:
 if __name__ == "__main__":
     registry = Registry()
     registry.register(
-        a := Provider[int].for_alias(str),
-        Provider.for_value(42),
-        Provider.for_factory(lambda: True),
+        a := Binding[int].for_alias(str),
+        Binding.for_value(42),
+        Binding.for_factory(lambda: True),
     )
     print(registry._services)
 

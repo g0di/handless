@@ -24,34 +24,34 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
-ProviderFactoryIn = (
+ProviderIn = (
     Callable[_P, _T]
     | Callable[_P, AbstractContextManager[_T]]
     | Callable[_P, _GeneratorContextManager[Any, Any, Any]]
     | Callable[_P, Iterator[_T]]
 )
-ProviderFactory = (
+Provider = (
     Callable[_P, _T]
     | Callable[_P, AbstractContextManager[_T]]
     | Callable[_P, _GeneratorContextManager[Any, Any, Any]]
 )
-ProviderLambdaFactory = ProviderFactoryIn[["Container"], _T] | ProviderFactoryIn[[], _T]
+LambdaProvider = ProviderIn[["Container"], _T] | ProviderIn[[], _T]
 Lifetime = Literal["transient", "singleton", "scoped"]
-"""Provider lifetime. Determines when container should call provider's factory to get a value."""
+"""Binding lifetime. Determines when container should call provider to produce a value."""
 
 
 @dataclass(unsafe_hash=True, slots=True)
-class Provider(Generic[_T]):
+class Binding(Generic[_T]):
     """Describe how to resolve a type.
 
     You might not want to use this class constructor directly. Instead prefer using one of
     `for_factory`, `for_value` or `for_alias` class methods.
     """
 
-    factory: ProviderFactory[..., _T]
-    """Factory that returns an instance of the descibed type."""
+    provider: Provider[..., _T]
+    """Provider that produces instance of the described type."""
     lifetime: Lifetime = "transient"
-    """Provider factory returned values lifetime."""
+    """Provider returned values lifetime."""
     enter: bool = True
     """Whether or not to enter `factory` returned objects context manager, if any."""
     params: tuple[Parameter, ...] = field(default_factory=tuple)
@@ -60,14 +60,14 @@ class Provider(Generic[_T]):
     @classmethod
     def for_factory(
         cls,
-        factory: ProviderFactoryIn[..., _T],
+        factory: ProviderIn[..., _T],
         lifetime: Lifetime = "transient",
         enter: bool = True,
         params: dict[str, type[Any]] | None = None,
     ) -> Self:
-        """Create a provider which resolves with value returned by given factory.
+        """Create a binding for a factory provider.
 
-        Provided function can have parameters. If so, it must have type annotations. If not,
+        Factory can have parameters. If so, it must have type annotations. If not,
         annotations can be passed using the `params` argument. The container will first
         resolve the parameters before calling the function with them.
 
@@ -89,7 +89,7 @@ class Provider(Generic[_T]):
             for p, ptype in (params or {}).items()
         )
         return cls(
-            cast(ProviderFactory[..., _T], factory),
+            cast(Provider[..., _T], factory),
             lifetime=lifetime,
             enter=enter,
             params=actual_params,
@@ -98,7 +98,7 @@ class Provider(Generic[_T]):
     @classmethod
     def for_lambda_factory(
         cls,
-        lambda_factory: ProviderLambdaFactory[_T],
+        lambda_factory: LambdaProvider[_T],
         enter: bool = True,
         lifetime: Lifetime = "transient",
     ) -> Self:
@@ -141,7 +141,7 @@ class Provider(Generic[_T]):
     def __post_init__(self) -> None:
         # Merge given callable inspected params with provided ones.
         # NOTE: we omit variadic params because we don't know how to autowire them yet
-        params = get_non_variadic_params(self.factory)
+        params = get_non_variadic_params(self.provider)
         for override in self.params:
             params[override.name] = params[override.name].replace(
                 annotation=override.annotation
@@ -149,21 +149,21 @@ class Provider(Generic[_T]):
 
         if empty_params := get_untyped_parameters(params):
             # NOTE: if some parameters are missing type annotation we cannot autowire
-            msg = f"Factory {self.factory} is missing types for following parameters: {', '.join(empty_params)}"
+            msg = f"Factory {self.provider} is missing types for following parameters: {', '.join(empty_params)}"
             raise TypeError(msg)
 
         self.params = tuple(params.values())
 
     def __eq__(self, value: object) -> bool:
         return (
-            isinstance(value, Provider)
-            and self._get_comparable_factory() == value._get_comparable_factory()
+            isinstance(value, Binding)
+            and self._get_comparable_provider() == value._get_comparable_provider()
             and self.lifetime == value.lifetime
             and self.enter == value.enter
             and self.params == value.params
         )
 
-    def _get_comparable_factory(self) -> object:
-        if hasattr(self.factory, "__code__"):
-            return self.factory.__code__.co_code
-        return self.factory
+    def _get_comparable_provider(self) -> object:
+        if hasattr(self.provider, "__code__"):
+            return self.provider.__code__.co_code
+        return self.provider
