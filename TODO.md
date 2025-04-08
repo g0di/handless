@@ -31,6 +31,7 @@ This document contains all the ideas I've got for new features or changes to be 
 - :new: Handle factories/types positional only arguments
 - :new: Handle factories/types arguments with default values. If the container can not resolve one, leave the default value instead.
   - :new: Do not raise error if registering a function missing type annotations for argument having default value.
+- :new: add a decorator to container for resolving and injecting function parameters when executed.
 
 ## Misc
 
@@ -53,6 +54,7 @@ This document contains all the ideas I've got for new features or changes to be 
 - :new: Add ability to register local values on (scoped) container to inject, for example, HTTP request scoped objects or anything from other frameworks
 - :bug: Registering a type with itself must ensure the given type is not abstract or protocol
 - :bulb: Suggest on additional kind of registry providing a different public API for registering (could be based on Castle Windsor or InversifyJS)
+- :new: add new lifetimes (threaded, pooled)
 
 ## Testing
 

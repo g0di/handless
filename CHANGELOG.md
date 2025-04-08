@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed to `lookup` the function to get a binding for a type.
+
 ## [0.1.0-alpha.2] - 2025-04-07
 
 ### Added
@@ -33,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `Registry` - for registering services by type including values, factories, scoped factories, singletons, aliases
-- Imperative services registration - through `register`, `register_*` and dict like `reg[Service] = ...` functions
+- Imperative services registration - through `register`, `register_*` and dict like `reg.lookup(Service) = ...` functions
 - Declarative services registration - through decorators `@factory`, `@singleton`, `@scoped`
 - Manual wiring - lambda can be used as factories with optionally a single argument to receive the container
 - Autowiring - The container uses factories and classes constructors arguments type hints to resolve and inject nested dependencies

@@ -1,10 +1,9 @@
 from contextlib import contextmanager
-from inspect import Parameter
 from typing import Callable, Iterator
 
 import pytest
 
-from handless import Container, Lifetime, Provider, Registry
+from handless import Lifetime, Provider, Registry
 from tests.helpers import (
     CallableFakeService,
     FakeService,
@@ -22,7 +21,7 @@ class TestRegisterSelf:
     ) -> None:
         registry = sut.register(FakeService)
 
-        assert sut[FakeService] == Provider(FakeService)
+        assert sut.lookup(FakeService) == Provider(FakeService)
         assert registry is sut
 
     @use_enter
@@ -32,7 +31,7 @@ class TestRegisterSelf:
     ) -> None:
         registry = sut.register(FakeService, enter=enter, lifetime=lifetime)
 
-        assert sut[FakeService] == Provider(FakeService, enter=enter, lifetime=lifetime)
+        assert sut.lookup(FakeService) == Provider(FakeService, enter=enter, lifetime=lifetime)
         assert registry is sut
 
 
@@ -40,7 +39,7 @@ class TestRegisterType:
     def test_register_type_registers_an_alias(self, sut: Registry) -> None:
         registry = sut.register(IFakeService, FakeService)  # type: ignore[type-abstract]
 
-        assert sut[IFakeService] == Provider(  # type: ignore[type-abstract]
+        assert sut.lookup(IFakeService] == Provider(  # type: ignore[type-abstract)
             lambda x: x,
             enter=False,
             params=(
@@ -62,7 +61,7 @@ class TestRegisterType:
                 lifetime=lifetime,
             )
 
-        assert sut[IFakeService] == Provider(  # type: ignore[type-abstract]
+        assert sut.lookup(IFakeService] == Provider(  # type: ignore[type-abstract)
             lambda x: x,
             enter=False,
             params=(
@@ -80,7 +79,7 @@ class TestRegisterObject:
     ) -> None:
         registry = sut.register(type_, value)
 
-        assert sut[type_] == Provider(lambda: value, lifetime="singleton", enter=False)
+        assert sut.lookup(type_) == Provider(lambda: value, lifetime="singleton", enter=False)
         assert registry is sut
 
     @use_enter
@@ -89,7 +88,7 @@ class TestRegisterObject:
     ) -> None:
         registry = sut.register(FakeService, value := FakeService(), enter=enter)
 
-        assert sut[FakeService] == Provider(
+        assert sut.lookup(FakeService) == Provider(
             lambda: value, lifetime="singleton", enter=enter
         )
         assert registry is sut
@@ -103,7 +102,7 @@ class TestRegisterObject:
                 FakeService, value := FakeService(), lifetime=lifetime
             )
 
-        assert sut[FakeService] == Provider(
+        assert sut.lookup(FakeService) == Provider(
             lambda: value, lifetime="singleton", enter=False
         )
         assert registry is sut
@@ -116,7 +115,7 @@ class TestRegisterFunction:
         my_factory = lambda: FakeService()  # noqa: E731
         registry = sut.register(FakeService, my_factory)
 
-        assert sut[FakeService] == Provider(my_factory)
+        assert sut.lookup(FakeService) == Provider(my_factory)
         assert registry is sut
 
     def test_register_function_with_a_single_argument_binds_given_type_to_given_function_with_container_as_first_param(
@@ -127,7 +126,7 @@ class TestRegisterFunction:
             factory := (lambda c: c.resolve(FakeService)),
         )
 
-        assert sut[IFakeService] == Provider(  # type: ignore[type-abstract]
+        assert sut.lookup(IFakeService] == Provider(  # type: ignore[type-abstract)
             factory,
             params=(
                 Parameter("c", Parameter.POSITIONAL_OR_KEYWORD, annotation=Container),
@@ -147,7 +146,7 @@ class TestRegisterFunction:
             lifetime=lifetime,
         )
 
-        assert sut[FakeService] == Provider(factory, enter=enter, lifetime=lifetime)
+        assert sut.lookup(FakeService) == Provider(factory, enter=enter, lifetime=lifetime)
         assert registry is sut
 
     @use_invalid_factory_function
@@ -165,7 +164,7 @@ class TestRegisterFunction:
 
         registry = sut.register(FakeService, fake_service_generator)
 
-        assert sut[FakeService] == Provider(contextmanager(fake_service_generator))
+        assert sut.lookup(FakeService) == Provider(contextmanager(fake_service_generator))
         assert registry is sut
 
     def test_register_context_manager_function_registers_it_as_is(
@@ -177,5 +176,5 @@ class TestRegisterFunction:
 
         registry = sut.register(FakeService, fake_service_context_manager)
 
-        assert sut[FakeService] == Provider(fake_service_context_manager)
+        assert sut.lookup(FakeService) == Provider(fake_service_context_manager)
         assert registry is sut

@@ -29,14 +29,11 @@ class Container:
         self._exit_stack.close()
         self._cache.clear()
 
-    def __getitem__(self, type_: type[_T]) -> _T:
-        return self.resolve(type_)
-
     def resolve(self, type_: type[_T]) -> _T:
         if issubclass(type_, Container):
             return cast(_T, self)
 
-        provider = self._registry[type_]
+        provider = self._registry.lookup(type_)
 
         try:
             if provider.lifetime == "scoped":
@@ -82,9 +79,6 @@ class Container:
         instance = provider.factory(**args)
         if isinstance(instance, AbstractContextManager) and provider.enter:
             instance = self._exit_stack.enter_context(instance)
-        # NOTE: we blindly trust and return the instance. There is no point in raising an
-        # error here.
-        # TODO: maybe send a dev warning if instance if not an instance of requested type
         return cast(_T, instance)
 
 

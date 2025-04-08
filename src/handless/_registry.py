@@ -29,19 +29,12 @@ class Registry:
     def __contains__(self, key: object) -> bool:
         return key in self._bindings
 
-    def __getitem__(self, key: type[_T]) -> Provider[_T]:
+    def lookup(self, key: type[_T]) -> Provider[_T]:
         if key not in self:
             if not self._autobind:
                 raise ProviderNotFoundError(key)
             self.register(key)
         return self._bindings[key]
-
-    def __setitem__(self, key: type[_T], provider: Provider[_T]) -> None:
-        is_overwrite = key in self
-        self._bindings[key] = provider
-        self._logger.info(
-            "Registered %s%s: %s", key, " (overwrite)" if is_overwrite else "", provider
-        )
 
     def register(
         self,
@@ -148,7 +141,14 @@ class Registry:
         return self._register(type_, Provider.for_alias(alias))
 
     def _register(self, type_: type[_T], provider: Provider[_T]) -> Self:
-        self[type_] = provider
+        is_overwrite = type_ in self
+        self._bindings[type_] = provider
+        self._logger.info(
+            "Registered %s%s: %s",
+            type_,
+            " (overwrite)" if is_overwrite else "",
+            provider,
+        )
         return self
 
     @overload

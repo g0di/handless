@@ -40,7 +40,7 @@ def test_provider_decorator_registers_a_factory_provider(
 ) -> None:
     sut.provider(function)
 
-    assert sut[FakeService] == Provider(function)
+    assert sut.lookup(FakeService) == Provider(function)
 
 
 @pytest.mark.xfail(reason="Not implemented yet")
@@ -52,7 +52,7 @@ def test_provider_decorator_registers_a_context_manager_decorated_function(
     def create_fake_service() -> Iterator[FakeService]:
         yield FakeService()
 
-    assert sut[FakeService] == Provider(create_fake_service, enter=True)
+    assert sut.lookup(FakeService) == Provider(create_fake_service, enter=True)
 
 
 @pytest.mark.parametrize(
@@ -63,7 +63,7 @@ def test_provider_decorator_registers_generator_wrapped_as_context_manager(
 ) -> None:
     sut.provider(function)
 
-    assert sut[FakeService] == Provider(contextmanager(function))
+    assert sut.lookup(FakeService) == Provider(contextmanager(function))
 
 
 @use_enter
@@ -73,6 +73,6 @@ def test_provider_decorator_registers_a_factory_provider_with_options(
 ) -> None:
     sut.provider(lifetime=lifetime, enter=enter)(_create_fake_service_no_params)
 
-    assert sut[FakeService] == Provider(
+    assert sut.lookup(FakeService) == Provider(
         _create_fake_service_no_params, lifetime=lifetime, enter=enter
     )
