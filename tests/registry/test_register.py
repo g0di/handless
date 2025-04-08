@@ -1,10 +1,17 @@
 from contextlib import contextmanager
-from inspect import Parameter
 from typing import Callable, Iterator
 
 import pytest
 
 from handless import Binding, Container, Lifetime, Registry
+from handless._lifetime import TransientLifetime
+from handless._lifetime import parse as parse_lifetime
+from handless._provider import (
+    AliasProvider,
+    FactoryProvider,
+    LambdaProvider,
+    ValueProvider,
+)
 from tests.helpers import (
     CallableFakeService,
     FakeService,
@@ -22,7 +29,9 @@ class TestRegisterSelf:
     ) -> None:
         registry = sut.register(FakeService)
 
-        assert sut.lookup(FakeService) == Binding(FakeService)
+        assert sut.lookup(FakeService) == Binding(
+            FakeService, FactoryProvider(FakeService), lifetime=TransientLifetime()
+        )
         assert registry is sut
 
     @use_enter
@@ -33,7 +42,10 @@ class TestRegisterSelf:
         registry = sut.register(FakeService, enter=enter, lifetime=lifetime)
 
         assert sut.lookup(FakeService) == Binding(
-            FakeService, enter=enter, lifetime=lifetime
+            FakeService,
+            FactoryProvider(FakeService),
+            enter=enter,
+            lifetime=parse_lifetime(lifetime),
         )
         assert registry is sut
 
@@ -43,11 +55,9 @@ class TestRegisterType:
         registry = sut.register(IFakeService, FakeService)  # type: ignore[type-abstract]
 
         assert sut.lookup(IFakeService) == Binding(  # type: ignore[type-abstract]
-            lambda x: x,
+            IFakeService,  # type: ignore[type-abstract]
+            AliasProvider(FakeService),
             enter=False,
-            params=(
-                Parameter("x", Parameter.POSITIONAL_OR_KEYWORD, annotation=FakeService),
-            ),
         )
         assert registry is sut
 
@@ -65,11 +75,9 @@ class TestRegisterType:
             )
 
         assert sut.lookup(IFakeService) == Binding(  # type: ignore[type-abstract]
-            lambda x: x,
+            IFakeService,  # type: ignore[type-abstract]
+            AliasProvider(FakeService),
             enter=False,
-            params=(
-                Parameter("x", Parameter.POSITIONAL_OR_KEYWORD, annotation=FakeService),
-            ),
         )
         assert registry is sut
 
@@ -83,7 +91,10 @@ class TestRegisterObject:
         registry = sut.register(type_, value)
 
         assert sut.lookup(type_) == Binding(
-            lambda: value, lifetime="singleton", enter=False
+            type_,
+            ValueProvider(value),
+            lifetime=parse_lifetime("singleton"),
+            enter=False,
         )
         assert registry is sut
 
@@ -94,7 +105,10 @@ class TestRegisterObject:
         registry = sut.register(FakeService, value := FakeService(), enter=enter)
 
         assert sut.lookup(FakeService) == Binding(
-            lambda: value, lifetime="singleton", enter=enter
+            FakeService,
+            ValueProvider(value),
+            lifetime=parse_lifetime("singleton"),
+            enter=enter,
         )
         assert registry is sut
 
@@ -108,7 +122,10 @@ class TestRegisterObject:
             )
 
         assert sut.lookup(FakeService) == Binding(
-            lambda: value, lifetime="singleton", enter=False
+            FakeService,
+            ValueProvider(value),
+            lifetime=parse_lifetime("singleton"),
+            enter=False,
         )
         assert registry is sut
 
@@ -120,7 +137,9 @@ class TestRegisterFunction:
         my_factory = lambda: FakeService()  # noqa: E731
         registry = sut.register(FakeService, my_factory)
 
-        assert sut.lookup(FakeService) == Binding(my_factory)
+        assert sut.lookup(FakeService) == Binding(
+            FakeService, FactoryProvider(my_factory)
+        )
         assert registry is sut
 
     def test_register_function_with_a_single_argument_binds_given_type_to_given_function_with_container_as_first_param(
@@ -132,10 +151,7 @@ class TestRegisterFunction:
         )
 
         assert sut.lookup(IFakeService) == Binding(  # type: ignore[type-abstract]
-            factory,
-            params=(
-                Parameter("c", Parameter.POSITIONAL_OR_KEYWORD, annotation=Container),
-            ),
+            IFakeService, LambdaProvider(factory)
         )
         assert registry is sut
 
@@ -152,7 +168,10 @@ class TestRegisterFunction:
         )
 
         assert sut.lookup(FakeService) == Binding(
-            factory, enter=enter, lifetime=lifetime
+            FakeService,
+            FactoryProvider(factory),
+            enter=enter,
+            lifetime=parse_lifetime(lifetime),
         )
         assert registry is sut
 
@@ -163,6 +182,19 @@ class TestRegisterFunction:
         with pytest.raises(TypeError):
             sut.register(FakeService, function)
 
+    def test_register_generator_function_taking_container_wraps_it_as_a_context_manager(
+        self, sut: Registry
+    ) -> None:
+        def fake_service_generator(container: Container) -> Iterator[FakeService]:
+            yield FakeService()
+
+        registry = sut.register(FakeService, fake_service_generator)
+
+        assert sut.lookup(FakeService) == Binding(
+            FakeService, LambdaProvider(contextmanager(fake_service_generator))
+        )
+        assert registry is sut
+
     def test_register_generator_function_wraps_it_as_a_context_manager(
         self, sut: Registry
     ) -> None:
@@ -172,7 +204,7 @@ class TestRegisterFunction:
         registry = sut.register(FakeService, fake_service_generator)
 
         assert sut.lookup(FakeService) == Binding(
-            contextmanager(fake_service_generator)
+            FakeService, FactoryProvider(contextmanager(fake_service_generator))
         )
         assert registry is sut
 
@@ -185,5 +217,7 @@ class TestRegisterFunction:
 
         registry = sut.register(FakeService, fake_service_context_manager)
 
-        assert sut.lookup(FakeService) == Binding(fake_service_context_manager)
+        assert sut.lookup(FakeService) == Binding(
+            FakeService, FactoryProvider(fake_service_context_manager)
+        )
         assert registry is sut

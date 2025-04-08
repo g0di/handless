@@ -1,10 +1,8 @@
-from typing import NewType, Protocol
+from typing import NewType, Protocol, get_args
 
 import pytest
-from typing_extensions import get_args
 
-from handless import Container
-from handless._binding import Lifetime
+from handless import Container, Lifetime
 
 
 class IFakeService(Protocol): ...

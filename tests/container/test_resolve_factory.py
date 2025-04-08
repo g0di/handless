@@ -28,15 +28,9 @@ def test_resolve_type_calls_binding_factory_and_returns_its_result(
 @pytest.mark.parametrize(
     "factory",
     [
-        pytest.param(
-            fake_service_factory_with_params,
-            marks=pytest.mark.xfail(reason="Not possible anymore."),
-        ),
+        pytest.param(fake_service_factory_with_params),
         fake_service_factory_with_container_param,
-        pytest.param(
-            fake_service_lambda_factory_with_param,
-            marks=pytest.mark.xfail(reason="Not implemented"),
-        ),
+        pytest.param(fake_service_lambda_factory_with_param),
     ],
 )
 def test_resolve_type_resolves_its_binding_factory_parameters_before_calling_it(

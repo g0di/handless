@@ -7,9 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `binding` registry decorator now properly register generators decorated with the `contextmanager` decorator.
+
 ### Changed
 
 - Renamed to `lookup` the function to get a binding for a type.
+
+### Removed
+
+- Remove `typing-extensions` requirement
+
+### Internals
+
+- Bindings `factory` have been renamed to `provider` which corresponds to a brand new `Provider` class tailored at producing objects for container. This better separate concerns, clarify the code and facilitates ability to add new providers in the future.
+- Bindings now has a reference to the type to which it is binded
+- Created dedicated classes for each lifetimes. This simplify container having the right behavior depending on the lifetime and remove need for the if/else statements. This clarify the code and will simplify adding new lifetimes in the future as well as being able to add parameters to them.
 
 ## [0.1.0-alpha.2] - 2025-04-07
 

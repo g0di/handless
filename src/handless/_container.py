@@ -1,9 +1,7 @@
 import logging
 import warnings
 from contextlib import AbstractContextManager, ExitStack, suppress
-from typing import TypeVar, cast
-
-from typing_extensions import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from handless._binding import Binding
 from handless.exceptions import ResolveError
@@ -18,7 +16,7 @@ _T = TypeVar("_T")
 class Container:
     def __init__(self, registry: "Registry") -> None:
         self._registry = registry
-        self._cache: dict[Binding[Any], Any] = {}
+        self._cache: dict[type[Any], Any] = {}
         self._exit_stack = ExitStack()
         self._logger = logging.getLogger(__name__)
 
@@ -36,20 +34,7 @@ class Container:
         binding = self._registry.lookup(type_)
 
         try:
-            if binding.lifetime == "scoped":
-                instance = self._resolve_scoped(binding)
-            elif binding.lifetime == "singleton":
-                instance = self._resolve_singleton(binding)
-            else:
-                instance = self._resolve_transient(binding)
-            with suppress(TypeError):
-                if not isinstance(instance, type_):
-                    warnings.warn(
-                        f"Container resolved {type_} with {instance} which is not an instance of this type. "
-                        "This could lead to unexpected errors.",
-                        RuntimeWarning,
-                    )
-            return instance
+            return binding.lifetime.accept(self, binding)
         except Exception as error:
             raise ResolveError(type_) from error
         finally:
@@ -70,16 +55,25 @@ class Container:
         raise ValueError("Can not resolve scoped type outside a scope")
 
     def _get_cached_instance(self, binding: Binding[_T]) -> _T:
-        if binding not in self._cache:
-            self._cache[binding] = self._get_instance(binding)
-        return cast(_T, self._cache[binding])
+        if binding.type_ not in self._cache:
+            self._cache[binding.type_] = self._get_instance(binding)
+        return cast(_T, self._cache[binding.type_])
 
     def _get_instance(self, binding: Binding[_T]) -> _T:
-        args = {param.name: self.resolve(param.annotation) for param in binding.params}
-        instance = binding.provider(**args)
+        instance = binding.provider(self)
         if isinstance(instance, AbstractContextManager) and binding.enter:
             instance = self._exit_stack.enter_context(instance)
-        return cast(_T, instance)
+        # TODO: if enter is False but instance is a context manager and NOT an instance
+        # of binding type, we must enter anyway. Maybe we should handle this at typing
+        # level instead
+        with suppress(TypeError):
+            if not isinstance(instance, binding.type_):
+                warnings.warn(
+                    f"Container resolved {binding.type_} with {instance} which is not an instance of this type. "
+                    "This could lead to unexpected errors.",
+                    RuntimeWarning,
+                )
+        return instance
 
 
 class ScopedContainer(Container):

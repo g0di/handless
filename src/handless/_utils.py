@@ -1,7 +1,17 @@
 import inspect
-from inspect import Parameter
+from contextlib import contextmanager
+from inspect import Parameter, isgeneratorfunction
 from types import LambdaType
-from typing import Any, Callable, NewType, TypeVar, cast, get_type_hints
+from typing import (
+    Any,
+    Callable,
+    Iterator,
+    NewType,
+    ParamSpec,
+    TypeVar,
+    cast,
+    get_type_hints,
+)
 
 _T = TypeVar("_T")
 
@@ -47,3 +57,46 @@ def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Paramete
 def default(value: _T | None, default_value: _T) -> _T:
     """Return default value if given value is None."""
     return default_value if value is None else value
+
+
+def compare_functions(a: Callable[..., Any], b: Callable[..., Any]) -> bool:
+    """Check if the two given functions are identicals.
+
+    Return true even if both functions are not refering the same object in memory.
+    The funnction will try to compare the function compiled code itself if possible.
+    """
+    a_code = a.__code__.co_code if hasattr(a, "__code__") else a
+    b_code = b.__code__.co_code if hasattr(b, "__code__") else b
+    return a_code == b_code
+
+
+_P = ParamSpec("_P")
+
+
+def autocontextmanager(factory: Callable[_P, _T | Iterator[_T]]) -> Callable[_P, _T]:
+    if inspect.isgeneratorfunction(factory):
+        return contextmanager(factory)  # type: ignore
+    return cast(Callable[_P, _T], factory)
+
+
+def get_injectable_params(
+    function: Callable[..., Any], overrides: dict[str, type[Any]] | None = None
+) -> tuple[inspect.Parameter, ...]:
+    # Merge given callable inspected params with provided ones.
+    # NOTE: we omit variadic params because we don't know how to autowire them yet
+    params = get_non_variadic_params(function)
+    for pname, override_type in (overrides or {}).items():
+        params[pname] = params[pname].replace(annotation=override_type)
+
+    if empty_params := get_untyped_parameters(params):
+        # NOTE: if some parameters are missing type annotation we cannot autowire
+        msg = f"Factory {function} is missing types for following parameters: {', '.join(empty_params)}"
+        raise TypeError(msg)
+
+    return tuple(params.values())
+
+
+def iscontextmanager(function: Callable[..., Any]) -> bool:
+    return hasattr(function, "__wrapped__") and isgeneratorfunction(
+        function.__wrapped__
+    )

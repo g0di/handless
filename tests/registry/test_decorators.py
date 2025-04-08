@@ -4,6 +4,8 @@ from typing import Callable, Generator, Iterator
 import pytest
 
 from handless import Binding, Container, Lifetime, Registry
+from handless._lifetime import parse as parse_lifetime
+from handless._provider import FactoryProvider
 from tests.helpers import FakeService, use_enter, use_lifetimes
 
 
@@ -40,10 +42,9 @@ def test_binding_decorator_registers_a_factory_binding(
 ) -> None:
     sut.binding(function)
 
-    assert sut.lookup(FakeService) == Binding(function)
+    assert sut.lookup(FakeService) == Binding(FakeService, FactoryProvider(function))
 
 
-@pytest.mark.xfail(reason="Not implemented yet")
 def test_binding_decorator_registers_a_context_manager_decorated_function(
     sut: Registry,
 ) -> None:
@@ -52,7 +53,9 @@ def test_binding_decorator_registers_a_context_manager_decorated_function(
     def create_fake_service() -> Iterator[FakeService]:
         yield FakeService()
 
-    assert sut.lookup(FakeService) == Binding(create_fake_service, enter=True)
+    assert sut.lookup(FakeService) == Binding(
+        FakeService, FactoryProvider(create_fake_service), enter=True
+    )
 
 
 @pytest.mark.parametrize(
@@ -63,7 +66,9 @@ def test_binding_decorator_registers_generator_wrapped_as_context_manager(
 ) -> None:
     sut.binding(function)
 
-    assert sut.lookup(FakeService) == Binding(contextmanager(function))
+    assert sut.lookup(FakeService) == Binding(
+        FakeService, FactoryProvider(contextmanager(function))
+    )
 
 
 @use_enter
@@ -74,5 +79,8 @@ def test_binding_decorator_registers_a_factory_binding_with_options(
     sut.binding(lifetime=lifetime, enter=enter)(_create_fake_service_no_params)
 
     assert sut.lookup(FakeService) == Binding(
-        _create_fake_service_no_params, lifetime=lifetime, enter=enter
+        FakeService,
+        FactoryProvider(_create_fake_service_no_params),
+        lifetime=parse_lifetime(lifetime),
+        enter=enter,
     )

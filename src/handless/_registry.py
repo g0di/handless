@@ -1,18 +1,38 @@
 import logging
 import warnings
+from contextlib import AbstractContextManager, _GeneratorContextManager
 from inspect import isgeneratorfunction
 from types import FunctionType, LambdaType, MethodType
-from typing import Callable, TypeVar, get_args, overload
+from typing import Any, Callable, Iterator, ParamSpec, TypeVar, get_args, overload
 
-from typing_extensions import Any, Self
-
-from handless._binding import Binding, LambdaProvider, Lifetime, ProviderIn
+from handless import _lifetime
+from handless._binding import Binding
 from handless._container import Container
-from handless._utils import default, get_return_type
+from handless._lifetime import Lifetime
+from handless._provider import (
+    AliasProvider,
+    FactoryProvider,
+    LambdaProvider,
+    ValueProvider,
+)
+from handless._utils import (
+    count_func_params,
+    default,
+    get_return_type,
+    iscontextmanager,
+)
 from handless.exceptions import BindingNotFoundError
 
 _T = TypeVar("_T")
-_U = TypeVar("_U", bound=ProviderIn[..., Any])
+_P = ParamSpec("_P")
+_Factory = (
+    Callable[_P, _T]
+    | Callable[_P, Iterator[_T]]
+    | Callable[_P, AbstractContextManager[_T]]
+    | Callable[_P, _GeneratorContextManager[_T, Any, Any]]
+)
+_LambdaFactory = _Factory[[Container], _T]
+_U = TypeVar("_U", bound=Callable[..., Any])
 
 
 class Registry:
@@ -24,6 +44,10 @@ class Registry:
     def __contains__(self, key: object) -> bool:
         return key in self._bindings
 
+    def create_container(self) -> Container:
+        """Create and return a new container using this registry."""
+        return Container(self)
+
     def lookup(self, key: type[_T]) -> Binding[_T]:
         if key not in self:
             if not self._autobind:
@@ -34,10 +58,10 @@ class Registry:
     def register(
         self,
         type_: type[_T],
-        provider: _T | type[_T] | LambdaProvider[_T] | None = None,
+        provider: _T | type[_T] | _LambdaFactory[_T] | _Factory[[], _T] | None = None,
         lifetime: Lifetime | None = None,
         enter: bool | None = None,
-    ) -> Self:
+    ) -> "Registry":
         """Register a provider for given type.
 
         The type of given provider argument determines how the type will be resolved:
@@ -73,7 +97,11 @@ class Registry:
                     type_, provider, enter=enter, lifetime=lifetime
                 )
             case FunctionType() | MethodType() | LambdaType():
-                return self._register_lambda_factory(
+                if count_func_params(provider) == 1:
+                    return self._register_lambda(
+                        type_, provider, enter=enter, lifetime=lifetime
+                    )
+                return self._register_factory(
                     type_, provider, enter=enter, lifetime=lifetime
                 )
             case _:
@@ -81,78 +109,13 @@ class Registry:
                     type_, provider, enter=enter, lifetime=lifetime
                 )
 
-    def _register_value(
-        self, type_: type[Any], value: Any, enter: bool | None = None, **kwargs: Any
-    ) -> Self:
-        if kwargs:
-            warnings.warn(
-                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when "
-                "an object is given.",
-                stacklevel=3,
-            )
-        return self._register(
-            type_, Binding.for_value(value, enter=default(enter, False))
-        )
-
-    def _register_factory(
-        self,
-        type_: type[_T],
-        factory: ProviderIn[..., _T] | None = None,
-        enter: bool | None = None,
-        lifetime: Lifetime | None = None,
-    ) -> Self:
-        return self._register(
-            type_,
-            Binding.for_factory(
-                factory or type_,
-                enter=default(enter, True),
-                lifetime=lifetime or "transient",
-            ),
-        )
-
-    def _register_lambda_factory(
-        self,
-        type_: type[_T],
-        factory: LambdaProvider[_T],
-        enter: bool | None = None,
-        lifetime: Lifetime | None = None,
-    ) -> Self:
-        return self._register(
-            type_,
-            Binding.for_lambda_factory(
-                factory, enter=default(enter, True), lifetime=lifetime or "transient"
-            ),
-        )
-
-    def _register_alias(
-        self, type_: type[Any], alias: type[Any], **kwargs: Any
-    ) -> Self:
-        if kwargs:
-            warnings.warn(
-                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when a type"
-                " is given.",
-                stacklevel=3,
-            )
-        return self._register(type_, Binding.for_alias(alias))
-
-    def _register(self, type_: type[_T], provider: Binding[_T]) -> Self:
-        is_overwrite = type_ in self
-        self._bindings[type_] = provider
-        self._logger.info(
-            "Registered %s%s: %s",
-            type_,
-            " (overwrite)" if is_overwrite else "",
-            provider,
-        )
-        return self
+    @overload
+    def binding(self, factory: _U) -> _U: ...
 
     @overload
     def binding(
         self, *, lifetime: Lifetime = ..., enter: bool = ...
     ) -> Callable[[_U], _U]: ...
-
-    @overload
-    def binding(self, factory: _U) -> _U: ...
 
     def binding(
         self,
@@ -170,7 +133,7 @@ class Registry:
 
         def wrapper(factory: _U) -> _U:
             rettype = get_return_type(factory)
-            if isgeneratorfunction(factory):
+            if isgeneratorfunction(factory) or iscontextmanager(factory):
                 rettype = get_args(rettype)[0]
             if not rettype:
                 raise TypeError(f"{factory} has no return type annotation")
@@ -182,6 +145,74 @@ class Registry:
             return wrapper(factory)
         return wrapper
 
-    def create_container(self) -> Container:
-        """Create and return a new container using this registry."""
-        return Container(self)
+    def _register_value(
+        self, type_: type[Any], value: Any, enter: bool | None = None, **kwargs: Any
+    ) -> "Registry":
+        if kwargs:
+            warnings.warn(
+                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when "
+                "an object is given.",
+                stacklevel=3,
+            )
+        return self._register(
+            Binding(
+                type_,
+                ValueProvider(value),
+                enter=default(enter, False),
+                lifetime=_lifetime.SingletonLifetime(),
+            )
+        )
+
+    def _register_factory(
+        self,
+        type_: type[_T],
+        factory: _Factory[..., _T] | None = None,
+        enter: bool | None = None,
+        lifetime: Lifetime | None = None,
+    ) -> "Registry":
+        return self._register(
+            Binding(
+                type_,
+                FactoryProvider(factory or type_),
+                enter=default(enter, True),
+                lifetime=_lifetime.parse(lifetime or "transient"),
+            )
+        )
+
+    def _register_lambda(
+        self,
+        type_: type[_T],
+        factory: _LambdaFactory[_T],
+        enter: bool | None = None,
+        lifetime: Lifetime | None = None,
+    ) -> "Registry":
+        return self._register(
+            Binding(
+                type_,
+                LambdaProvider(factory),
+                enter=default(enter, True),
+                lifetime=_lifetime.parse(lifetime or "transient"),
+            )
+        )
+
+    def _register_alias(
+        self, type_: type[Any], alias_type: type[Any], **kwargs: Any
+    ) -> "Registry":
+        if kwargs:
+            warnings.warn(
+                f"Passing {', '.join(kwargs)} keyword argument(s) has no effect when a type"
+                " is given.",
+                stacklevel=3,
+            )
+        return self._register(Binding(type_, AliasProvider(alias_type), enter=False))
+
+    def _register(self, binding: Binding[Any]) -> "Registry":
+        is_overwrite = binding.type_ in self
+        self._bindings[binding.type_] = binding
+        self._logger.info(
+            "Registered %s%s: %s",
+            binding.type_,
+            " (overwrite)" if is_overwrite else "",
+            binding,
+        )
+        return self
