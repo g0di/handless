@@ -12,6 +12,7 @@ from handless._provider import (
     LambdaProvider,
     ValueProvider,
 )
+from handless.exceptions import BindingAlreadyExistingError
 from tests.helpers import (
     CallableFakeService,
     FakeService,
@@ -221,3 +222,22 @@ class TestRegisterFunction:
             FakeService, FactoryProvider(fake_service_context_manager)
         )
         assert registry is sut
+
+
+def test_register_same_type_twice_raises_an_error_by_default(sut: Registry) -> None:
+    sut.register(object, object())
+
+    with pytest.raises(BindingAlreadyExistingError):
+        sut.register(object, object())
+
+
+@pytest.mark.registry_options(allow_direct_overrides=True)
+def test_register_same_type_twice_do_not_raises_an_error_when_registry_allow_direct_overrides(
+    sut: Registry,
+) -> None:
+    sut.register(object, object())
+
+    try:
+        sut.register(object, object())
+    except BindingAlreadyExistingError:
+        pytest.fail(reason="Registry should allow overriding existing bindings")

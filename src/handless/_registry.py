@@ -20,7 +20,7 @@ from handless._provider import (
     ValueProvider,
 )
 from handless._utils import count_func_params, get_return_type, iscontextmanager
-from handless.exceptions import BindingNotFoundError
+from handless.exceptions import BindingAlreadyExistingError, BindingNotFoundError
 
 if TYPE_CHECKING:
     from handless._lifetime import Lifetime
@@ -43,8 +43,18 @@ class _BindingOptions(TypedDict, total=False):
 
 
 class Registry:
-    def __init__(self, *, autobind: bool = True) -> None:
+    def __init__(
+        self, *, autobind: bool = True, allow_direct_overrides: bool = False
+    ) -> None:
+        """Create a new registry.
+
+        :param autobind: If True, registry will register automatically unregistered
+            requested types on the fly, defaults to True.
+        :param allow_direct_overrides: If True registry will allow overriding a previously
+            registered type, defaults to False
+        """
         self._autobind = autobind
+        self._allow_direct_overrides = allow_direct_overrides
         self._bindings: dict[type, Binding[Any]] = {}
         self._logger = logging.getLogger(__name__)
 
@@ -207,6 +217,8 @@ class Registry:
         )
 
     def _register(self, binding: Binding[Any]) -> Registry:
+        if not self._allow_direct_overrides and binding.type_ in self:
+            raise BindingAlreadyExistingError(binding.type_)
         is_overwrite = binding.type_ in self
         self._bindings[binding.type_] = binding
         self._logger.info(

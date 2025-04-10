@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Renamed to `lookup` the function to get a binding for a type.
+- Registry does not allow to override previously registered types by default. An `allow_direct_overrides` option has been added to bypass this default behavior. This has been made in order to prevent accidentaly overriding a previous binding.
 
 ### Removed
 
