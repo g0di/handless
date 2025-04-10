@@ -42,6 +42,8 @@ This document contains all the ideas I've got for new features or changes to be 
 - :new: add function for verifying lifetimes mistmatches on registry (e.g: singleton depending on transint)
 - :bug: Add a function for printing the whole dependency tree with lifetimes
 - :new: Add ping functions and ability to health check services in the container
+- Use only tox (or nox) to manage all our QA commands
+- Use pyInvoke for having command for quickly creating a github release
 
 ## Registration
 
