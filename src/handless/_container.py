@@ -36,7 +36,7 @@ class Container:
         binding = self._registry.lookup(type_)
 
         try:
-            return binding.lifetime.accept(self, binding)
+            return binding.resolve(self)
         except Exception as error:
             raise ResolveError(type_) from error
         finally:
