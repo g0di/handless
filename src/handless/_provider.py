@@ -1,14 +1,7 @@
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Generic,
-    Protocol,
-    TypeVar,
-    overload,
-    runtime_checkable,
-)
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, overload
 
 from handless._utils import autocontextmanager, compare_functions, get_injectable_params
 
@@ -18,19 +11,20 @@ if TYPE_CHECKING:
 
     from handless._container import Container
 
-_T_co = TypeVar("_T_co", covariant=True)
+_T = TypeVar("_T")
 
 
-@runtime_checkable
-class Provider(Protocol, Generic[_T_co]):
-    def __call__(self, container: Container) -> _T_co: ...
+class Provider(ABC, Generic[_T]):
+    @abstractmethod
+    def __call__(self, container: Container) -> _T:
+        raise NotImplementedError
 
 
-class Value(Provider[_T_co]):
-    def __init__(self, value: _T_co) -> None:
+class Value(Provider[_T]):
+    def __init__(self, value: _T) -> None:
         self._value = value
 
-    def __call__(self, container: Container) -> _T_co:  # noqa: ARG002
+    def __call__(self, container: Container) -> _T:  # noqa: ARG002
         return self._value
 
     def __eq__(self, value: object) -> bool:
@@ -40,31 +34,29 @@ class Value(Provider[_T_co]):
         return hash(self._value)
 
 
-class Factory(Provider[_T_co]):
+class Factory(Provider[_T]):
     if TYPE_CHECKING:
         # NOTE: Overload the constructor to reflect the fact that we autowrap
         # generators into context managers.
         @overload  # type: ignore[no-overload-impl]
         def __new__(
             cls,
-            factory: Callable[..., Iterator[_T_co]],
+            factory: Callable[..., Iterator[_T]],
             params: dict[str, type[Any]] | None = ...,
-        ) -> Factory[AbstractContextManager[_T_co]]: ...
+        ) -> Factory[AbstractContextManager[_T]]: ...
 
         @overload
         def __new__(
-            cls,
-            factory: Callable[..., _T_co],
-            params: dict[str, type[Any]] | None = ...,
-        ) -> Factory[_T_co]: ...
+            cls, factory: Callable[..., _T], params: dict[str, type[Any]] | None = ...
+        ) -> Factory[_T]: ...
 
     def __init__(
-        self, factory: Callable[..., _T_co], params: dict[str, type[Any]] | None = None
+        self, factory: Callable[..., _T], params: dict[str, type[Any]] | None = None
     ) -> None:
         self._factory = autocontextmanager(factory)
         self._params = get_injectable_params(factory, params)
 
-    def __call__(self, container: Container) -> _T_co:
+    def __call__(self, container: Container) -> _T:
         args = {p.name: container.resolve(p.annotation) for p in self._params}
         return self._factory(**args)
 
@@ -74,22 +66,22 @@ class Factory(Provider[_T_co]):
         )
 
 
-class Lambda(Provider[_T_co]):
+class Lambda(Provider[_T]):
     if TYPE_CHECKING:
         # NOTE: Overload the constructor to reflect the fact that we autowrap
         # generators into context managers.
         @overload  # type: ignore[no-overload-impl]
         def __new__(
-            cls, factory: Callable[..., Iterator[_T_co]]
-        ) -> Lambda[AbstractContextManager[_T_co]]: ...
+            cls, factory: Callable[..., Iterator[_T]]
+        ) -> Lambda[AbstractContextManager[_T]]: ...
 
         @overload
-        def __new__(cls, factory: Callable[..., _T_co]) -> Lambda[_T_co]: ...
+        def __new__(cls, factory: Callable[..., _T]) -> Lambda[_T]: ...
 
-    def __init__(self, lambda_factory: Callable[[Container], _T_co]) -> None:
+    def __init__(self, lambda_factory: Callable[[Container], _T]) -> None:
         self._lambda_factory = autocontextmanager(lambda_factory)
 
-    def __call__(self, container: Container) -> _T_co:
+    def __call__(self, container: Container) -> _T:
         return self._lambda_factory(container)
 
     def __eq__(self, value: object) -> bool:
@@ -98,11 +90,11 @@ class Lambda(Provider[_T_co]):
         )
 
 
-class Alias(Provider[_T_co]):
-    def __init__(self, alias_type: type[_T_co]) -> None:
+class Alias(Provider[_T]):
+    def __init__(self, alias_type: type[_T]) -> None:
         self._alias_type = alias_type
 
-    def __call__(self, container: Container) -> _T_co:
+    def __call__(self, container: Container) -> _T:
         return container.resolve(self._alias_type)
 
     def __eq__(self, value: object) -> bool:
