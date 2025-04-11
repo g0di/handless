@@ -13,17 +13,12 @@ from typing_extensions import Unpack
 from handless import _lifetime
 from handless._binding import Binding
 from handless._container import Container
-from handless._provider import (
-    AliasProvider,
-    FactoryProvider,
-    LambdaProvider,
-    ValueProvider,
-)
+from handless._provider import Alias, Factory, Lambda, Value
 from handless._utils import count_func_params, get_return_type, iscontextmanager
 from handless.exceptions import BindingAlreadyExistingError, BindingNotFoundError
 
 if TYPE_CHECKING:
-    from handless._lifetime import Lifetime
+    from handless._lifetime import LifetimeLiteral
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
@@ -38,7 +33,7 @@ _U = TypeVar("_U", bound=Callable[..., Any])
 
 
 class _BindingOptions(TypedDict, total=False):
-    lifetime: Lifetime
+    lifetime: LifetimeLiteral
     enter: bool
 
 
@@ -158,10 +153,7 @@ class Registry:
             )
         return self._register(
             Binding(
-                type_,
-                ValueProvider(value),
-                enter=enter,
-                lifetime=_lifetime.parse("singleton"),
+                type_, Value(value), enter=enter, lifetime=_lifetime.parse("singleton")
             )
         )
 
@@ -174,7 +166,7 @@ class Registry:
         return self._register(
             Binding(
                 type_,
-                FactoryProvider(factory or type_),
+                Factory(factory or type_),
                 enter=options.get("enter", True),
                 lifetime=_lifetime.parse(options.get("lifetime", "transient")),
             )
@@ -189,7 +181,7 @@ class Registry:
         return self._register(
             Binding(
                 type_,
-                LambdaProvider(factory),
+                Lambda(factory),
                 enter=options.get("enter", True),
                 lifetime=_lifetime.parse(options.get("lifetime", "transient")),
             )
@@ -210,7 +202,7 @@ class Registry:
         return self._register(
             Binding(
                 type_,
-                AliasProvider(alias_type),
+                Alias(alias_type),
                 lifetime=_lifetime.parse("transient"),
                 enter=False,
             )

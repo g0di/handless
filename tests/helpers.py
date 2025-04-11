@@ -2,7 +2,7 @@ from typing import NewType, Protocol, get_args
 
 import pytest
 
-from handless import Container, Lifetime
+from handless import Container, LifetimeLiteral
 
 
 class IFakeService(Protocol): ...
@@ -131,7 +131,7 @@ use_invalid_factory_provider = pytest.mark.parametrize(
 )
 """All kind of functions that CANNOT be registered as a provider."""
 
-use_lifetimes = pytest.mark.parametrize("lifetime", get_args(Lifetime))
+use_lifetimes = pytest.mark.parametrize("lifetime", get_args(LifetimeLiteral))
 use_enter = pytest.mark.parametrize(
     "enter", [True, False], ids=["Enter CM", "Not enter CM"]
 )

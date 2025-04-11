@@ -3,9 +3,9 @@ from contextlib import contextmanager
 
 import pytest
 
-from handless import Binding, Container, Lifetime, Registry
+from handless import Binding, Container, LifetimeLiteral, Registry
 from handless._lifetime import parse as parse_lifetime
-from handless._provider import FactoryProvider
+from handless._provider import Factory
 from tests.helpers import FakeService, use_enter, use_lifetimes
 
 
@@ -42,7 +42,7 @@ def test_binding_decorator_registers_a_factory_binding(
 ) -> None:
     sut.binding(function)
 
-    assert sut.lookup(FakeService) == Binding(FakeService, FactoryProvider(function))
+    assert sut.lookup(FakeService) == Binding(FakeService, Factory(function))
 
 
 def test_binding_decorator_registers_a_context_manager_decorated_function(
@@ -54,7 +54,7 @@ def test_binding_decorator_registers_a_context_manager_decorated_function(
         yield FakeService()
 
     assert sut.lookup(FakeService) == Binding(
-        FakeService, FactoryProvider(create_fake_service), enter=True
+        FakeService, Factory(create_fake_service), enter=True
     )
 
 
@@ -67,20 +67,20 @@ def test_binding_decorator_registers_generator_wrapped_as_context_manager(
     sut.binding(function)
 
     assert sut.lookup(FakeService) == Binding(
-        FakeService, FactoryProvider(contextmanager(function))
+        FakeService, Factory(contextmanager(function))
     )
 
 
 @use_enter
 @use_lifetimes
 def test_binding_decorator_registers_a_factory_binding_with_options(
-    sut: Registry, enter: bool, lifetime: Lifetime
+    sut: Registry, enter: bool, lifetime: LifetimeLiteral
 ) -> None:
     sut.binding(lifetime=lifetime, enter=enter)(_create_fake_service_no_params)
 
     assert sut.lookup(FakeService) == Binding(
         FakeService,
-        FactoryProvider(_create_fake_service_no_params),
+        Factory(_create_fake_service_no_params),
         lifetime=parse_lifetime(lifetime),
         enter=enter,
     )

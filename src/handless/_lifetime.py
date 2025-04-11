@@ -11,38 +11,38 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
-Lifetime = Literal["transient", "singleton", "scoped"]
+LifetimeLiteral = Literal["transient", "singleton", "scoped"]
 
 
-class BaseLifetime(Protocol):
+class Lifetime(Protocol):
     def accept(self, container: Container, binding: Binding[_T]) -> _T: ...
 
 
 @dataclass
-class TransientLifetime(BaseLifetime):
+class Transient(Lifetime):
     def accept(self, container: Container, binding: Binding[_T]) -> _T:
         return container._resolve_transient(binding)  # noqa: SLF001
 
 
 @dataclass
-class ScopedLifetime(BaseLifetime):
+class Scoped(Lifetime):
     def accept(self, container: Container, binding: Binding[_T]) -> _T:
         return container._resolve_scoped(binding)  # noqa: SLF001
 
 
 @dataclass
-class SingletonLifetime(BaseLifetime):
+class Singleton(Lifetime):
     def accept(self, container: Container, binding: Binding[_T]) -> _T:
         return container._resolve_singleton(binding)  # noqa: SLF001
 
 
 # NOTE: no need to create an instance of lifetime each time for the moment
-_transient = TransientLifetime()
-_scoped = ScopedLifetime()
-_singleton = SingletonLifetime()
+_transient = Transient()
+_scoped = Scoped()
+_singleton = Singleton()
 
 
-def parse(lifetime: Lifetime) -> BaseLifetime:
+def parse(lifetime: LifetimeLiteral) -> Lifetime:
     match lifetime:
         case "transient":
             return _transient

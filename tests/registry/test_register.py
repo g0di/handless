@@ -3,15 +3,10 @@ from contextlib import contextmanager
 
 import pytest
 
-from handless import Binding, Container, Lifetime, Registry
-from handless._lifetime import TransientLifetime
+from handless import Binding, Container, LifetimeLiteral, Registry
+from handless._lifetime import Transient
 from handless._lifetime import parse as parse_lifetime
-from handless._provider import (
-    AliasProvider,
-    FactoryProvider,
-    LambdaProvider,
-    ValueProvider,
-)
+from handless._provider import Alias, Factory, Lambda, Value
 from handless.exceptions import BindingAlreadyExistingError
 from tests.helpers import (
     CallableFakeService,
@@ -31,20 +26,20 @@ class TestRegisterSelf:
         registry = sut.register(FakeService)
 
         assert sut.lookup(FakeService) == Binding(
-            FakeService, FactoryProvider(FakeService), lifetime=TransientLifetime()
+            FakeService, Factory(FakeService), lifetime=Transient()
         )
         assert registry is sut
 
     @use_enter
     @use_lifetimes
     def test_register_none_and_options_registers_a_factory_with_given_options_using_given_type(
-        self, sut: Registry, enter: bool, lifetime: Lifetime
+        self, sut: Registry, enter: bool, lifetime: LifetimeLiteral
     ) -> None:
         registry = sut.register(FakeService, enter=enter, lifetime=lifetime)
 
         assert sut.lookup(FakeService) == Binding(
             FakeService,
-            FactoryProvider(FakeService),
+            Factory(FakeService),
             enter=enter,
             lifetime=parse_lifetime(lifetime),
         )
@@ -57,7 +52,7 @@ class TestRegisterType:
 
         assert sut.lookup(IFakeService) == Binding(  # type: ignore[type-abstract]
             IFakeService,  # type: ignore[type-abstract]
-            AliasProvider(FakeService),
+            Alias(FakeService),
             enter=False,
         )
         assert registry is sut
@@ -65,7 +60,7 @@ class TestRegisterType:
     @use_enter
     @use_lifetimes
     def test_register_type_with_options_registers_an_alias_and_raises_a_warning(
-        self, sut: Registry, enter: bool, lifetime: Lifetime
+        self, sut: Registry, enter: bool, lifetime: LifetimeLiteral
     ) -> None:
         with pytest.warns(UserWarning):
             registry = sut.register(
@@ -77,7 +72,7 @@ class TestRegisterType:
 
         assert sut.lookup(IFakeService) == Binding(  # type: ignore[type-abstract]
             IFakeService,  # type: ignore[type-abstract]
-            AliasProvider(FakeService),
+            Alias(FakeService),
             enter=False,
         )
         assert registry is sut
@@ -92,10 +87,7 @@ class TestRegisterObject:
         registry = sut.register(type_, value)
 
         assert sut.lookup(type_) == Binding(
-            type_,
-            ValueProvider(value),
-            lifetime=parse_lifetime("singleton"),
-            enter=False,
+            type_, Value(value), lifetime=parse_lifetime("singleton"), enter=False
         )
         assert registry is sut
 
@@ -106,16 +98,13 @@ class TestRegisterObject:
         registry = sut.register(FakeService, value := FakeService(), enter=enter)
 
         assert sut.lookup(FakeService) == Binding(
-            FakeService,
-            ValueProvider(value),
-            lifetime=parse_lifetime("singleton"),
-            enter=enter,
+            FakeService, Value(value), lifetime=parse_lifetime("singleton"), enter=enter
         )
         assert registry is sut
 
     @use_lifetimes
     def test_register_object_with_lifetime_binds_given_type_to_a_singleton_factory_of_given_object_and_raises_warning(
-        self, sut: Registry, lifetime: Lifetime
+        self, sut: Registry, lifetime: LifetimeLiteral
     ) -> None:
         with pytest.warns(UserWarning):
             registry = sut.register(
@@ -123,10 +112,7 @@ class TestRegisterObject:
             )
 
         assert sut.lookup(FakeService) == Binding(
-            FakeService,
-            ValueProvider(value),
-            lifetime=parse_lifetime("singleton"),
-            enter=False,
+            FakeService, Value(value), lifetime=parse_lifetime("singleton"), enter=False
         )
         assert registry is sut
 
@@ -138,9 +124,7 @@ class TestRegisterFunction:
         my_factory = lambda: FakeService()  # noqa: E731
         registry = sut.register(FakeService, my_factory)
 
-        assert sut.lookup(FakeService) == Binding(
-            FakeService, FactoryProvider(my_factory)
-        )
+        assert sut.lookup(FakeService) == Binding(FakeService, Factory(my_factory))
         assert registry is sut
 
     def test_register_function_with_a_single_argument_binds_given_type_to_given_function_with_container_as_first_param(
@@ -152,14 +136,14 @@ class TestRegisterFunction:
         )
 
         assert sut.lookup(IFakeService) == Binding(  # type: ignore[type-abstract]
-            IFakeService, LambdaProvider(factory)
+            IFakeService, Lambda(factory)
         )
         assert registry is sut
 
     @use_enter
     @use_lifetimes
     def test_register_function_with_options_binds_given_type_to_given_function_and_options(
-        self, sut: Registry, enter: bool, lifetime: Lifetime
+        self, sut: Registry, enter: bool, lifetime: LifetimeLiteral
     ) -> None:
         registry = sut.register(
             FakeService,
@@ -170,7 +154,7 @@ class TestRegisterFunction:
 
         assert sut.lookup(FakeService) == Binding(
             FakeService,
-            FactoryProvider(factory),
+            Factory(factory),
             enter=enter,
             lifetime=parse_lifetime(lifetime),
         )
@@ -192,7 +176,7 @@ class TestRegisterFunction:
         registry = sut.register(FakeService, fake_service_generator)
 
         assert sut.lookup(FakeService) == Binding(
-            FakeService, LambdaProvider(contextmanager(fake_service_generator))
+            FakeService, Lambda(contextmanager(fake_service_generator))
         )
         assert registry is sut
 
@@ -205,7 +189,7 @@ class TestRegisterFunction:
         registry = sut.register(FakeService, fake_service_generator)
 
         assert sut.lookup(FakeService) == Binding(
-            FakeService, FactoryProvider(contextmanager(fake_service_generator))
+            FakeService, Factory(contextmanager(fake_service_generator))
         )
         assert registry is sut
 
@@ -219,7 +203,7 @@ class TestRegisterFunction:
         registry = sut.register(FakeService, fake_service_context_manager)
 
         assert sut.lookup(FakeService) == Binding(
-            FakeService, FactoryProvider(fake_service_context_manager)
+            FakeService, Factory(fake_service_context_manager)
         )
         assert registry is sut
 

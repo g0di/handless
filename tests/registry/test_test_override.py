@@ -1,8 +1,8 @@
 import pytest
 
 from handless import Binding, Registry
-from handless._lifetime import SingletonLifetime
-from handless._provider import ValueProvider
+from handless._lifetime import Singleton
+from handless._provider import Value
 
 
 @pytest.mark.xfail(reason="Not implemented")
@@ -13,5 +13,5 @@ def test_registry_overrides_registered_bindings(sut: Registry) -> None:
     binding = sut.lookup(object)
 
     assert binding == Binding(
-        object, ValueProvider(expected), enter=False, lifetime=SingletonLifetime()
+        object, Value(expected), enter=False, lifetime=Singleton()
     )

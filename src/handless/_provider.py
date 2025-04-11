@@ -26,7 +26,7 @@ class Provider(Protocol, Generic[_T_co]):
     def __call__(self, container: Container) -> _T_co: ...
 
 
-class ValueProvider(Provider[_T_co]):
+class Value(Provider[_T_co]):
     def __init__(self, value: _T_co) -> None:
         self._value = value
 
@@ -34,13 +34,13 @@ class ValueProvider(Provider[_T_co]):
         return self._value
 
     def __eq__(self, value: object) -> bool:
-        return isinstance(value, ValueProvider) and self._value == value._value
+        return isinstance(value, Value) and self._value == value._value
 
     def __hash__(self) -> int:
         return hash(self._value)
 
 
-class FactoryProvider(Provider[_T_co]):
+class Factory(Provider[_T_co]):
     if TYPE_CHECKING:
         # NOTE: Overload the constructor to reflect the fact that we autowrap
         # generators into context managers.
@@ -49,14 +49,14 @@ class FactoryProvider(Provider[_T_co]):
             cls,
             factory: Callable[..., Iterator[_T_co]],
             params: dict[str, type[Any]] | None = ...,
-        ) -> FactoryProvider[AbstractContextManager[_T_co]]: ...
+        ) -> Factory[AbstractContextManager[_T_co]]: ...
 
         @overload
         def __new__(
             cls,
             factory: Callable[..., _T_co],
             params: dict[str, type[Any]] | None = ...,
-        ) -> FactoryProvider[_T_co]: ...
+        ) -> Factory[_T_co]: ...
 
     def __init__(
         self, factory: Callable[..., _T_co], params: dict[str, type[Any]] | None = None
@@ -69,22 +69,22 @@ class FactoryProvider(Provider[_T_co]):
         return self._factory(**args)
 
     def __eq__(self, value: object) -> bool:
-        return isinstance(value, FactoryProvider) and compare_functions(
+        return isinstance(value, Factory) and compare_functions(
             self._factory, value._factory
         )
 
 
-class LambdaProvider(Provider[_T_co]):
+class Lambda(Provider[_T_co]):
     if TYPE_CHECKING:
         # NOTE: Overload the constructor to reflect the fact that we autowrap
         # generators into context managers.
         @overload  # type: ignore[no-overload-impl]
         def __new__(
             cls, factory: Callable[..., Iterator[_T_co]]
-        ) -> LambdaProvider[AbstractContextManager[_T_co]]: ...
+        ) -> Lambda[AbstractContextManager[_T_co]]: ...
 
         @overload
-        def __new__(cls, factory: Callable[..., _T_co]) -> LambdaProvider[_T_co]: ...
+        def __new__(cls, factory: Callable[..., _T_co]) -> Lambda[_T_co]: ...
 
     def __init__(self, lambda_factory: Callable[[Container], _T_co]) -> None:
         self._lambda_factory = autocontextmanager(lambda_factory)
@@ -93,12 +93,12 @@ class LambdaProvider(Provider[_T_co]):
         return self._lambda_factory(container)
 
     def __eq__(self, value: object) -> bool:
-        return isinstance(value, LambdaProvider) and compare_functions(
+        return isinstance(value, Lambda) and compare_functions(
             self._lambda_factory, value._lambda_factory
         )
 
 
-class AliasProvider(Provider[_T_co]):
+class Alias(Provider[_T_co]):
     def __init__(self, alias_type: type[_T_co]) -> None:
         self._alias_type = alias_type
 
@@ -106,6 +106,4 @@ class AliasProvider(Provider[_T_co]):
         return container.resolve(self._alias_type)
 
     def __eq__(self, value: object) -> bool:
-        return (
-            isinstance(value, AliasProvider) and self._alias_type == value._alias_type
-        )
+        return isinstance(value, Alias) and self._alias_type == value._alias_type
