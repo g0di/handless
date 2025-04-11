@@ -22,8 +22,8 @@ class Container:
         self._exit_stack = ExitStack()
         self._logger = logging.getLogger(__name__)
 
-    def create_scope(self) -> ScopedContainer:
-        return ScopedContainer(self)
+    def create_scope(self) -> Scope:
+        return Scope(self)
 
     def close(self) -> None:
         self._exit_stack.close()
@@ -80,7 +80,7 @@ class Container:
         return instance
 
 
-class ScopedContainer(Container):
+class Scope(Container):
     def __init__(self, parent: Container) -> None:
         super().__init__(parent._registry)  # noqa: SLF001
         self._parent = parent

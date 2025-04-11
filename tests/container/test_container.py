@@ -1,6 +1,6 @@
 import pytest
 
-from handless import Container, Registry, ScopedContainer
+from handless import Container, Registry, Scope
 from handless.exceptions import BindingNotFoundError
 from tests.helpers import FakeService
 
@@ -11,8 +11,8 @@ def test_create_scope_returns_a_new_scoped_container() -> None:
     scope1 = sut.create_scope()
     scope2 = sut.create_scope()
 
-    assert isinstance(scope1, ScopedContainer)
-    assert isinstance(scope2, ScopedContainer)
+    assert isinstance(scope1, Scope)
+    assert isinstance(scope2, Scope)
     assert scope1 is not scope2
 
 
