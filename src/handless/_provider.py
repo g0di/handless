@@ -11,20 +11,20 @@ if TYPE_CHECKING:
 
     from handless._container import Container
 
-_T = TypeVar("_T")
+_T_co = TypeVar("_T_co", covariant=True)
 
 
-class Provider(ABC, Generic[_T]):
+class Provider(ABC, Generic[_T_co]):
     @abstractmethod
-    def __call__(self, container: Container) -> _T:
+    def __call__(self, container: Container) -> _T_co:
         raise NotImplementedError
 
 
-class Value(Provider[_T]):
-    def __init__(self, value: _T) -> None:
+class Value(Provider[_T_co]):
+    def __init__(self, value: _T_co) -> None:
         self._value = value
 
-    def __call__(self, container: Container) -> _T:  # noqa: ARG002
+    def __call__(self, container: Container) -> _T_co:  # noqa: ARG002
         return self._value
 
     def __eq__(self, value: object) -> bool:
@@ -34,29 +34,31 @@ class Value(Provider[_T]):
         return hash(self._value)
 
 
-class Factory(Provider[_T]):
+class Factory(Provider[_T_co]):
     if TYPE_CHECKING:
         # NOTE: Overload the constructor to reflect the fact that we autowrap
         # generators into context managers.
         @overload  # type: ignore[no-overload-impl]
         def __new__(
             cls,
-            factory: Callable[..., Iterator[_T]],
+            factory: Callable[..., Iterator[_T_co]],
             params: dict[str, type[Any]] | None = ...,
-        ) -> Factory[AbstractContextManager[_T]]: ...
+        ) -> Factory[AbstractContextManager[_T_co]]: ...
 
         @overload
         def __new__(
-            cls, factory: Callable[..., _T], params: dict[str, type[Any]] | None = ...
-        ) -> Factory[_T]: ...
+            cls,
+            factory: Callable[..., _T_co],
+            params: dict[str, type[Any]] | None = ...,
+        ) -> Factory[_T_co]: ...
 
     def __init__(
-        self, factory: Callable[..., _T], params: dict[str, type[Any]] | None = None
+        self, factory: Callable[..., _T_co], params: dict[str, type[Any]] | None = None
     ) -> None:
         self._factory = autocontextmanager(factory)
         self._params = get_injectable_params(factory, params)
 
-    def __call__(self, container: Container) -> _T:
+    def __call__(self, container: Container) -> _T_co:
         args = {p.name: container.resolve(p.annotation) for p in self._params}
         return self._factory(**args)
 
@@ -66,22 +68,22 @@ class Factory(Provider[_T]):
         )
 
 
-class Lambda(Provider[_T]):
+class Lambda(Provider[_T_co]):
     if TYPE_CHECKING:
         # NOTE: Overload the constructor to reflect the fact that we autowrap
         # generators into context managers.
         @overload  # type: ignore[no-overload-impl]
         def __new__(
-            cls, factory: Callable[..., Iterator[_T]]
-        ) -> Lambda[AbstractContextManager[_T]]: ...
+            cls, factory: Callable[..., Iterator[_T_co]]
+        ) -> Lambda[AbstractContextManager[_T_co]]: ...
 
         @overload
-        def __new__(cls, factory: Callable[..., _T]) -> Lambda[_T]: ...
+        def __new__(cls, factory: Callable[..., _T_co]) -> Lambda[_T_co]: ...
 
-    def __init__(self, lambda_factory: Callable[[Container], _T]) -> None:
+    def __init__(self, lambda_factory: Callable[[Container], _T_co]) -> None:
         self._lambda_factory = autocontextmanager(lambda_factory)
 
-    def __call__(self, container: Container) -> _T:
+    def __call__(self, container: Container) -> _T_co:
         return self._lambda_factory(container)
 
     def __eq__(self, value: object) -> bool:
@@ -90,11 +92,11 @@ class Lambda(Provider[_T]):
         )
 
 
-class Alias(Provider[_T]):
-    def __init__(self, alias_type: type[_T]) -> None:
+class Alias(Provider[_T_co]):
+    def __init__(self, alias_type: type[_T_co]) -> None:
         self._alias_type = alias_type
 
-    def __call__(self, container: Container) -> _T:
+    def __call__(self, container: Container) -> _T_co:
         return container.resolve(self._alias_type)
 
     def __eq__(self, value: object) -> bool:
