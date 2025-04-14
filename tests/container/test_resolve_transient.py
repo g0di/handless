@@ -4,9 +4,9 @@ from handless import Container, Registry
 from tests.helpers import FakeService
 
 
-@pytest.fixture
-def sut() -> Container:
-    return Registry().register(FakeService, lifetime="transient").create_container()
+@pytest.fixture(autouse=True)
+def setup_registry(registry: Registry) -> None:
+    registry.register(FakeService).self(lifetime="transient")
 
 
 def test_resolve_type_binded_to_transient_factory_calls_factory_each_time(

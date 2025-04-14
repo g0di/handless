@@ -1,17 +1,14 @@
-import pytest
-
-from handless import Binding, Registry
-from handless._lifetime import Singleton
-from handless._provider import Value
+from handless import Registration, Registry
+from handless._lifetimes import Singleton
+from handless.providers import Value
 
 
-@pytest.mark.xfail(reason="Not implemented")
 def test_registry_overrides_registered_bindings(sut: Registry) -> None:
-    sut.register(object, object())
-    sut.overrides.register(object, expected := object())  # type: ignore[attr-defined]
+    sut.register(object).value(object())
+    with sut.override() as registry:
+        registry.register(object).value(expected := object())
+        registration = sut.lookup(object)
 
-    binding = sut.lookup(object)
-
-    assert binding == Binding(
+    assert registration == Registration(
         object, Value(expected), enter=False, lifetime=Singleton()
     )

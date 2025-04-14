@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from contextlib import AbstractContextManager
 
-    from handless._container import Container
+    from handless.containers import Container
 
 _T_co = TypeVar("_T_co", covariant=True)
 
@@ -68,17 +68,17 @@ class Factory(Provider[_T_co]):
         )
 
 
-class Lambda(Provider[_T_co]):
+class Dynamic(Provider[_T_co]):
     if TYPE_CHECKING:
         # NOTE: Overload the constructor to reflect the fact that we autowrap
         # generators into context managers.
         @overload  # type: ignore[no-overload-impl]
         def __new__(
             cls, factory: Callable[..., Iterator[_T_co]]
-        ) -> Lambda[AbstractContextManager[_T_co]]: ...
+        ) -> Dynamic[AbstractContextManager[_T_co]]: ...
 
         @overload
-        def __new__(cls, factory: Callable[..., _T_co]) -> Lambda[_T_co]: ...
+        def __new__(cls, factory: Callable[..., _T_co]) -> Dynamic[_T_co]: ...
 
     def __init__(self, lambda_factory: Callable[[Container], _T_co]) -> None:
         self._lambda_factory = autocontextmanager(lambda_factory)
@@ -87,7 +87,7 @@ class Lambda(Provider[_T_co]):
         return self._lambda_factory(container)
 
     def __eq__(self, value: object) -> bool:
-        return isinstance(value, Lambda) and compare_functions(
+        return isinstance(value, Dynamic) and compare_functions(
             self._lambda_factory, value._lambda_factory
         )
 

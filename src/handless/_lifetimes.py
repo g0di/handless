@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, Protocol, TypeVar
 
 if TYPE_CHECKING:
-    from handless._binding import Binding
-    from handless._container import Container
+    from handless._registrations import Registration
+    from handless.containers import Container
 
 
 _T = TypeVar("_T")
@@ -15,25 +15,25 @@ LifetimeLiteral = Literal["transient", "singleton", "scoped"]
 
 
 class Lifetime(Protocol):
-    def accept(self, container: Container, binding: Binding[_T]) -> _T: ...
+    def accept(self, container: Container, registration: Registration[_T]) -> _T: ...
 
 
 @dataclass
 class Transient(Lifetime):
-    def accept(self, container: Container, binding: Binding[_T]) -> _T:
-        return container._resolve_transient(binding)  # noqa: SLF001
+    def accept(self, container: Container, registration: Registration[_T]) -> _T:
+        return container._resolve_transient(registration)  # noqa: SLF001
 
 
 @dataclass
 class Scoped(Lifetime):
-    def accept(self, container: Container, binding: Binding[_T]) -> _T:
-        return container._resolve_scoped(binding)  # noqa: SLF001
+    def accept(self, container: Container, registration: Registration[_T]) -> _T:
+        return container._resolve_scoped(registration)  # noqa: SLF001
 
 
 @dataclass
 class Singleton(Lifetime):
-    def accept(self, container: Container, binding: Binding[_T]) -> _T:
-        return container._resolve_singleton(binding)  # noqa: SLF001
+    def accept(self, container: Container, registration: Registration[_T]) -> _T:
+        return container._resolve_singleton(registration)  # noqa: SLF001
 
 
 # NOTE: no need to create an instance of lifetime each time for the moment

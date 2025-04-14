@@ -9,9 +9,14 @@ def value() -> FakeService:
     return FakeService()
 
 
-@pytest.fixture
-def sut(value: FakeService) -> Container:
-    return Registry().register(FakeService, value).create_container()
+@pytest.fixture(autouse=True)
+def setup_registry(
+    registry: Registry, value: FakeService, request: pytest.FixtureRequest
+) -> None:
+    enter_mark: pytest.Mark | None = request.node.get_closest_marker("enter")
+    registry.register(FakeService).value(
+        value, enter=bool(enter_mark.args[0]) if enter_mark else False
+    )
 
 
 def test_resolve_a_value_binding_returns_the_value(
@@ -43,19 +48,20 @@ def test_resolve_a_value_binding_do_not_enter_cm_by_default(sut: Container) -> N
     assert resolved.exited is False
 
 
-def test_resolve_a_value_binding_with_enter_true_enters_context_manager() -> None:
-    sut = Registry().register(FakeService, FakeService(), enter=True).create_container()
-
+@pytest.mark.enter(True)
+def test_resolve_a_value_binding_with_enter_true_enters_context_manager(
+    sut: Container,
+) -> None:
     resolved = sut.resolve(FakeService)
 
     assert resolved.entered
     assert not resolved.exited
 
 
-def test_resolve_a_value_binding_with_enter_true_enters_context_manager_only_once() -> (
-    None
-):
-    sut = Registry().register(FakeService, FakeService(), enter=True).create_container()
+@pytest.mark.enter(True)
+def test_resolve_a_value_binding_with_enter_true_enters_context_manager_only_once(
+    sut: Container,
+) -> None:
     scope = sut.create_scope()
 
     resolved = sut.resolve(FakeService)
@@ -64,22 +70,24 @@ def test_resolve_a_value_binding_with_enter_true_enters_context_manager_only_onc
     assert not resolved.reentered
 
 
-def test_close_container_exit_entered_value_binding_context_manager() -> None:
-    sut = Registry().register(FakeService, FakeService(), enter=True).create_container()
+@pytest.mark.enter(True)
+def test_close_container_exit_entered_value_binding_context_manager(
+    sut: Container,
+) -> None:
     resolved = sut.resolve(FakeService)
+
     sut.close()
 
     assert resolved.exited
 
 
-def test_close_scope_not_exit_entered_value_binding_context_manager() -> None:
-    sut = (
-        Registry()
-        .register(FakeService, FakeService(), enter=True)
-        .create_container()
-        .create_scope()
-    )
-    resolved = sut.resolve(FakeService)
-    sut.close()
+@pytest.mark.enter(True)
+def test_close_scope_not_exit_entered_value_binding_context_manager(
+    sut: Container,
+) -> None:
+    scope = sut.create_scope()
+    resolved = scope.resolve(FakeService)
+
+    scope.close()
 
     assert not resolved.exited

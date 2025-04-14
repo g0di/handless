@@ -1,13 +1,11 @@
 import pytest
 
 from handless import Container, Registry, Scope
-from handless.exceptions import BindingNotFoundError
+from handless.exceptions import RegistrationNotFoundError
 from tests.helpers import FakeService
 
 
-def test_create_scope_returns_a_new_scoped_container() -> None:
-    sut = Registry().create_container()
-
+def test_create_scope_returns_a_new_scoped_container(sut: Container) -> None:
     scope1 = sut.create_scope()
     scope2 = sut.create_scope()
 
@@ -43,5 +41,5 @@ def test_resolve_unregistered_service_type_autobind_a_transient_factory_by_defau
 def test_resolve_unregistered_service_type_raise_an_error_when_autobind_is_disabled(
     sut: Container,
 ) -> None:
-    with pytest.raises(BindingNotFoundError):
+    with pytest.raises(RegistrationNotFoundError):
         sut.resolve(FakeService)

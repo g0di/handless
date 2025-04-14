@@ -3,9 +3,9 @@ from contextlib import contextmanager
 
 import pytest
 
-from handless import Binding, Container, LifetimeLiteral, Registry
-from handless._lifetime import parse as parse_lifetime
-from handless._provider import Factory
+from handless import Container, LifetimeLiteral, Registration, Registry
+from handless._lifetimes import parse as parse_lifetime
+from handless.providers import Factory
 from tests.helpers import FakeService, use_enter, use_lifetimes
 
 
@@ -40,20 +40,20 @@ def _create_fake_service_params(foo: str, bar: int) -> FakeService:  # noqa: ARG
 def test_binding_decorator_registers_a_factory_binding(
     sut: Registry, function: Callable[..., FakeService]
 ) -> None:
-    sut.binding(function)
+    sut.factory(function)
 
-    assert sut.lookup(FakeService) == Binding(FakeService, Factory(function))
+    assert sut.lookup(FakeService) == Registration(FakeService, Factory(function))
 
 
 def test_binding_decorator_registers_a_context_manager_decorated_function(
     sut: Registry,
 ) -> None:
-    @sut.binding
+    @sut.factory
     @contextmanager
     def create_fake_service() -> Iterator[FakeService]:
         yield FakeService()
 
-    assert sut.lookup(FakeService) == Binding(
+    assert sut.lookup(FakeService) == Registration(
         FakeService, Factory(create_fake_service), enter=True
     )
 
@@ -64,9 +64,9 @@ def test_binding_decorator_registers_a_context_manager_decorated_function(
 def test_binding_decorator_registers_generator_wrapped_as_context_manager(
     sut: Registry, function: Callable[[], Iterator[FakeService]]
 ) -> None:
-    sut.binding(function)
+    sut.factory(function)
 
-    assert sut.lookup(FakeService) == Binding(
+    assert sut.lookup(FakeService) == Registration(
         FakeService, Factory(contextmanager(function))
     )
 
@@ -76,9 +76,9 @@ def test_binding_decorator_registers_generator_wrapped_as_context_manager(
 def test_binding_decorator_registers_a_factory_binding_with_options(
     sut: Registry, enter: bool, lifetime: LifetimeLiteral
 ) -> None:
-    sut.binding(lifetime=lifetime, enter=enter)(_create_fake_service_no_params)
+    sut.factory(lifetime=lifetime, enter=enter)(_create_fake_service_no_params)
 
-    assert sut.lookup(FakeService) == Binding(
+    assert sut.lookup(FakeService) == Registration(
         FakeService,
         Factory(_create_fake_service_no_params),
         lifetime=parse_lifetime(lifetime),
