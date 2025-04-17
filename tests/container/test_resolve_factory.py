@@ -17,7 +17,7 @@ from tests.helpers import (
 def test_resolve_type_calls_binding_factory_and_returns_its_result(
     sut: Container, registry: Registry, factory: Callable[..., FakeService]
 ) -> None:
-    registry.register(FakeService).factory(factory)
+    registry.bind(FakeService).to_factory(factory)
 
     resolved1 = sut.resolve(FakeService)
 
@@ -34,9 +34,9 @@ def test_resolve_type_calls_binding_factory_and_returns_its_result(
 def test_resolve_type_resolves_its_binding_factory_parameters_before_calling_it(
     sut: Container, registry: Registry, factory: Callable[..., FakeServiceWithParams]
 ) -> None:
-    registry.register(str).value("a")
-    registry.register(int).value(42)
-    registry.register(FakeServiceWithParams).factory(factory)
+    registry.bind(str).to_value("a")
+    registry.bind(int).to_value(42)
+    registry.bind(FakeServiceWithParams).to_factory(factory)
 
     resolved1 = sut.resolve(FakeServiceWithParams)
 
@@ -48,7 +48,7 @@ def test_resolve_type_resolves_its_binding_factory_parameters_before_calling_it(
 def test_resolve_type_enters_context_manager(
     sut: Container, registry: Registry
 ) -> None:
-    registry.register(FakeService).self()
+    registry.bind(FakeService).to_self()
 
     resolved = sut.resolve(FakeService)
 
@@ -59,7 +59,7 @@ def test_resolve_type_enters_context_manager(
 def test_entered_bindings_context_managers_are_exited_on_container_close(
     sut: Container, registry: Registry
 ) -> None:
-    registry.register(FakeService).self()
+    registry.bind(FakeService).to_self()
 
     resolved = sut.resolve(FakeService)
 
@@ -71,7 +71,7 @@ def test_entered_bindings_context_managers_are_exited_on_container_close(
 def test_resolve_type_not_enter_context_manager_if_enter_is_false(
     sut: Container, registry: Registry
 ) -> None:
-    registry.register(FakeService).self(enter=False)
+    registry.bind(FakeService).to_self(enter=False)
 
     resolved = sut.resolve(FakeService)
 
@@ -82,7 +82,7 @@ def test_resolve_type_not_enter_context_manager_if_enter_is_false(
 def test_resolve_type_not_try_to_enter_non_context_manager_objects(
     sut: Container, registry: Registry
 ) -> None:
-    registry.register(object).self(enter=True)
+    registry.bind(object).to_self(enter=True)
 
     try:
         sut.resolve(object)

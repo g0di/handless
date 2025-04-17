@@ -14,7 +14,7 @@ def setup_registry(
     registry: Registry, value: FakeService, request: pytest.FixtureRequest
 ) -> None:
     enter_mark: pytest.Mark | None = request.node.get_closest_marker("enter")
-    registry.register(FakeService).value(
+    registry.bind(FakeService).to_value(
         value, enter=bool(enter_mark.args[0]) if enter_mark else False
     )
 

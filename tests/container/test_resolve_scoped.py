@@ -11,7 +11,7 @@ def test_resolve_type_binded_to_scoped_factory_from_root_container_raise_an_erro
     sut: Container, registry: Registry
 ) -> None:
     mock_factory: Mock = create_autospec(lambda: FakeService())
-    registry.register(FakeService).factory(mock_factory, lifetime="scoped")
+    registry.bind(FakeService).to_factory(mock_factory, lifetime="scoped")
 
     with pytest.raises(ResolveError):
         sut.resolve(FakeService)
@@ -22,7 +22,7 @@ def test_resolve_type_binded_to_scoped_factory_from_root_container_raise_an_erro
 def test_resolve_type_binded_to_scoped_factory_cache_returned_value_per_scope(
     sut: Container, registry: Registry
 ) -> None:
-    registry.register(FakeService).self(lifetime="scoped")
+    registry.bind(FakeService).to_self(lifetime="scoped")
     scope1 = sut.create_scope()
     scope2 = sut.create_scope()
 
@@ -39,7 +39,7 @@ def test_resolve_type_binded_to_scoped_factory_cache_returned_value_per_scope(
 def test_resolve_type_binded_to_scoped_factory_is_cleared_on_scope_close(
     sut: Container, registry: Registry
 ) -> None:
-    registry.register(FakeService).self(lifetime="scoped")
+    registry.bind(FakeService).to_self(lifetime="scoped")
     scope = sut.create_scope()
     v1 = scope.resolve(FakeService)
 
@@ -53,7 +53,7 @@ def test_resolve_type_binded_to_scoped_factory_is_cleared_on_scope_close(
 def test_resolve_type_binded_to_scoped_factory_with_context_manager_is_exited_on_close(
     sut: Container, registry: Registry
 ) -> None:
-    registry.register(FakeService).self(lifetime="scoped")
+    registry.bind(FakeService).to_self(lifetime="scoped")
     scope = sut.create_scope()
 
     resolved = scope.resolve(FakeService)

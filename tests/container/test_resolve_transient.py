@@ -6,7 +6,7 @@ from tests.helpers import FakeService
 
 @pytest.fixture(autouse=True)
 def setup_registry(registry: Registry) -> None:
-    registry.register(FakeService).self(lifetime="transient")
+    registry.bind(FakeService).to_self(lifetime="transient")
 
 
 def test_resolve_type_binded_to_transient_factory_calls_factory_each_time(

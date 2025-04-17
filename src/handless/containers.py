@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from handless.exceptions import ResolveError
 
 if TYPE_CHECKING:
-    from handless._registrations import Registration
+    from handless._bindings import Binding
     from handless.registry import Registry
 
 
@@ -47,22 +47,22 @@ class Container:
                 registration,
             )
 
-    def _resolve_transient(self, registration: Registration[_T]) -> _T:
+    def _resolve_transient(self, registration: Binding[_T]) -> _T:
         return self._get_instance(registration)
 
-    def _resolve_singleton(self, registration: Registration[_T]) -> _T:
+    def _resolve_singleton(self, registration: Binding[_T]) -> _T:
         return self._get_cached_instance(registration)
 
-    def _resolve_scoped(self, registration: Registration[_T]) -> _T:  # noqa: ARG002
+    def _resolve_scoped(self, registration: Binding[_T]) -> _T:  # noqa: ARG002
         msg = "Can not resolve scoped type outside a scope"
         raise ValueError(msg)
 
-    def _get_cached_instance(self, registration: Registration[_T]) -> _T:
+    def _get_cached_instance(self, registration: Binding[_T]) -> _T:
         if registration.type_ not in self._cache:
             self._cache[registration.type_] = self._get_instance(registration)
         return cast("_T", self._cache[registration.type_])
 
-    def _get_instance(self, registration: Registration[_T]) -> _T:
+    def _get_instance(self, registration: Binding[_T]) -> _T:
         instance = registration.provider(self)
         if isinstance(instance, AbstractContextManager) and registration.enter:
             instance = self._exit_stack.enter_context(instance)
@@ -86,8 +86,8 @@ class Scope(Container):
         self._parent = parent
         self._logger = logging.getLogger(f"{__name__}.scope")
 
-    def _resolve_singleton(self, registration: Registration[_T]) -> _T:
+    def _resolve_singleton(self, registration: Binding[_T]) -> _T:
         return self._parent._resolve_singleton(registration)  # noqa: SLF001
 
-    def _resolve_scoped(self, registration: Registration[_T]) -> _T:
+    def _resolve_scoped(self, registration: Binding[_T]) -> _T:
         return self._get_cached_instance(registration)

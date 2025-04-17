@@ -6,7 +6,7 @@ from tests.helpers import FakeService
 
 @pytest.fixture(autouse=True)
 def setup_registry(registry: Registry) -> None:
-    registry.register(FakeService).self(lifetime="singleton")
+    registry.bind(FakeService).to_self(lifetime="singleton")
 
 
 def test_resolve_type_binded_to_singleton_factory_calls_and_cache_factory_returned_value(

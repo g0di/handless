@@ -18,7 +18,7 @@ _T = TypeVar("_T")
 
 
 @dataclass(slots=True, frozen=True)
-class Registration(Generic[_T]):
+class Binding(Generic[_T]):
     type_: type[_T]
     provider: providers.Provider[_T]
     lifetime: Lifetime = field(default_factory=Transient)
@@ -28,86 +28,86 @@ class Registration(Generic[_T]):
         return self.lifetime.accept(container, self)
 
 
-class RegistrationBuilder(Generic[_T]):
+class Binder(Generic[_T]):
     def __init__(self, registry: Registry, type_: type[_T]) -> None:
         self._registry = registry
         self._type = type_
 
-    def self(
+    def to_self(
         self, lifetime: LifetimeLiteral = "transient", *, enter: bool = True
-    ) -> Registration[_T]:
-        return self.factory(self._type, lifetime=lifetime, enter=enter)
+    ) -> Binding[_T]:
+        return self.to_factory(self._type, lifetime=lifetime, enter=enter)
 
-    def alias(self, alias_type: type[_T]) -> Registration[_T]:
+    def to(self, alias_type: type[_T]) -> Binding[_T]:
         provider = providers.Alias(alias_type)
-        return self.provider(provider, "transient", enter=False)
+        return self.to_provider(provider, "transient", enter=False)
 
     @overload
-    def value(self, value: _T, *, enter: bool = ...) -> Registration[_T]: ...
+    def to_value(self, value: _T, *, enter: bool = ...) -> Binding[_T]: ...
 
     # NOTE: following overload ensure enter is True when passing a context manager not being
     # an instance of _T
     @overload
-    def value(
+    def to_value(
         self, value: AbstractContextManager[_T], *, enter: Literal[True]
-    ) -> Registration[_T]: ...
+    ) -> Binding[_T]: ...
 
-    def value(self, value: Any, *, enter: bool = False) -> Registration[_T]:
+    def to_value(self, value: Any, *, enter: bool = False) -> Binding[_T]:
         provider = providers.Value(value)
-        return self.provider(provider, "singleton", enter=enter)
+        return self.to_provider(provider, "singleton", enter=enter)
 
     @overload
-    def factory(
+    def to_factory(
         self,
         factory: Callable[..., _T] = ...,
         lifetime: LifetimeLiteral = ...,
         *,
         enter: bool = ...,
-    ) -> Registration[_T]: ...
+    ) -> Binding[_T]: ...
 
     # NOTE:: Following overload ensure enter is not False when passing a callable returning
     # context manager or an iterator not being an instance of _T
     @overload
-    def factory(
+    def to_factory(
         self,
         factory: Callable[..., Iterator[_T] | AbstractContextManager[_T]],
         lifetime: LifetimeLiteral = ...,
         *,
         enter: Literal[True] = ...,
-    ) -> Registration[_T]: ...
+    ) -> Binding[_T]: ...
 
     # Overloads ensures that passing an iterator or a context manager which is NOT
     # an instance of _T requires enter=True
 
-    def factory(
+    def to_factory(
         self,
         factory: Callable[..., Any] | None = None,
         lifetime: LifetimeLiteral = "transient",
         *,
         enter: bool = True,
-    ) -> Registration[_T]:
+    ) -> Binding[_T]:
         provider = providers.Factory(factory or self._type)
-        return self.provider(provider, lifetime, enter=enter)
+        return self.to_provider(provider, lifetime, enter=enter)
 
-    def dynamic(
+    def to_dynamic(
         self,
         factory: Callable[[Container], _T],
         *,
         enter: bool = True,
         lifetime: LifetimeLiteral = "transient",
-    ) -> Registration[_T]:
+    ) -> Binding[_T]:
         provider = providers.Dynamic(factory)
-        return self.provider(provider, enter=enter, lifetime=lifetime)
+        return self.to_provider(provider, enter=enter, lifetime=lifetime)
 
-    def provider(
+    def to_provider(
         self,
         provider: providers.Provider[_T],
         lifetime: LifetimeLiteral = "transient",
         *,
         enter: bool = True,
-    ) -> Registration[_T]:
-        registration = Registration(
+    ) -> Binding[_T]:
+        registration = Binding(
             self._type, provider, lifetime=parse_lifetime(lifetime), enter=enter
         )
-        self._registry[registration.type_] = registration
+        self._registry.register(registration)
         return registration
