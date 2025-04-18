@@ -5,6 +5,8 @@ import warnings
 from contextlib import AbstractContextManager, ExitStack, suppress
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
+from typing_extensions import Self
+
 from handless.exceptions import ResolveError
 
 if TYPE_CHECKING:
@@ -15,12 +17,18 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
-class Container:
+class Container(AbstractContextManager["Container"]):
     def __init__(self, registry: Registry) -> None:
         self._registry = registry
         self._cache: dict[type[Any], Any] = {}
         self._exit_stack = ExitStack()
         self._logger = logging.getLogger(__name__)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
     def create_scope(self) -> Scope:
         return Scope(self)
@@ -53,9 +61,8 @@ class Container:
     def _resolve_singleton(self, registration: Binding[_T]) -> _T:
         return self._get_cached_instance(registration)
 
-    def _resolve_scoped(self, registration: Binding[_T]) -> _T:  # noqa: ARG002
-        msg = "Can not resolve scoped type outside a scope"
-        raise ValueError(msg)
+    def _resolve_scoped(self, registration: Binding[_T]) -> _T:
+        return self._get_cached_instance(registration)
 
     def _get_cached_instance(self, registration: Binding[_T]) -> _T:
         if registration.type_ not in self._cache:
@@ -88,6 +95,3 @@ class Scope(Container):
 
     def _resolve_singleton(self, registration: Binding[_T]) -> _T:
         return self._parent._resolve_singleton(registration)  # noqa: SLF001
-
-    def _resolve_scoped(self, registration: Binding[_T]) -> _T:
-        return self._get_cached_instance(registration)

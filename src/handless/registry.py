@@ -30,9 +30,7 @@ _U = TypeVar("_U", bound=Callable[..., Any])
 
 
 class Registry:
-    def __init__(
-        self, *, autobind: bool = True, allow_direct_overrides: bool = False
-    ) -> None:
+    def __init__(self, *, autobind: bool = True) -> None:
         """Create a new registry.
 
         :param autobind: If True, registry will register automatically unregistered
@@ -41,7 +39,6 @@ class Registry:
             registered type, defaults to False
         """
         self._autobind = autobind
-        self._allow_direct_overrides = allow_direct_overrides
         self._registrations: dict[type[Any], Binding[Any]] = {}
         self._logger = logging.getLogger(__name__)
         self._overrides: Registry | None = None
@@ -56,13 +53,13 @@ class Registry:
             if not self._autobind:
                 raise RegistrationNotFoundError(key)
             self.bind(key).to_self()
-        return cast(Binding[_T], self._registrations[key])
+        return cast("Binding[_T]", self._registrations[key])
 
     def bind(self, type_: type[_T]) -> Binder[_T]:
         return Binder(self, type_)
 
     def register(self, registration: Binding[Any]) -> Registry:
-        if not self._allow_direct_overrides and registration.type_ in self:
+        if registration.type_ in self:
             raise RegistrationAlreadyExistingError(registration.type_)
         is_overwrite = registration.type_ in self
         self._registrations[registration.type_] = registration
@@ -113,7 +110,7 @@ class Registry:
 
     @contextmanager
     def override(self) -> Iterator[Registry]:
-        self._overrides = Registry(autobind=False, allow_direct_overrides=False)
+        self._overrides = Registry(autobind=False)
         try:
             yield self._overrides
         finally:

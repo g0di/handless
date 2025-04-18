@@ -1,3 +1,4 @@
+from contextlib import AbstractContextManager
 from typing import NewType, Protocol, get_args
 
 import pytest
@@ -31,6 +32,13 @@ class FakeServiceWithParams(IFakeService):
     def __init__(self, foo: str, bar: int) -> None:
         self.foo = foo
         self.bar = bar
+
+    def __eq__(self, value: object) -> bool:
+        return (
+            isinstance(value, FakeServiceWithParams)
+            and self.foo == value.foo
+            and self.bar == value.bar
+        )
 
 
 class FakeServiceWithUntypedParams(IFakeService):
@@ -135,3 +143,31 @@ use_lifetimes = pytest.mark.parametrize("lifetime", get_args(LifetimeLiteral))
 use_enter = pytest.mark.parametrize(
     "enter", [True, False], ids=["Enter CM", "Not enter CM"]
 )
+
+
+class FakeContextManager(AbstractContextManager[FakeService]):
+    def __init__(self, enter_result: FakeService) -> None:
+        self.enter_result = enter_result
+        self.entered = False
+        self.exited = False
+        self.reentered = False
+
+    def __enter__(self) -> FakeService:
+        self.reentered = self.entered
+        self.entered = True
+        return self.enter_result
+
+    def __exit__(self, *args: object) -> None:
+        self.exited = True
+
+
+def untyped_function(foo, bar):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN201
+    pass
+
+
+untyped_lambda = lambda a, b, c: ...  # noqa: ARG005, E731
+
+
+class UntypedService:
+    def __init__(self, foo, bar):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN204
+        pass

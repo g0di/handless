@@ -98,7 +98,7 @@ convention = "pep257"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-rA"]
+addopts = ["--cov", "--cov-report=term-missing"]
 
 [tool.coverage.run]
 branch = true

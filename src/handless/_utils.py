@@ -20,11 +20,6 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
-def count_func_params(value: Callable[..., Any]) -> int:
-    """Return the total number of parameters of given function."""
-    return len(inspect.signature(value).parameters)
-
-
 def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
     """List keys of given dict having `Parameter.empty` value."""
     return [

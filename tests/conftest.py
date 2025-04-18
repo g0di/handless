@@ -1,8 +1,9 @@
+from collections.abc import Iterator
 from typing import cast
 
 import pytest
 
-from handless import Container, Registry
+from handless import Container, Registry, Scope
 
 
 @pytest.fixture
@@ -17,5 +18,12 @@ def registry(request: pytest.FixtureRequest) -> Registry:
 
 
 @pytest.fixture
-def container(registry: Registry) -> Container:
-    return Container(registry)
+def container(registry: Registry) -> Iterator[Container]:
+    with Container(registry) as container:
+        yield container
+
+
+@pytest.fixture
+def scope(container: Container) -> Iterator[Scope]:
+    with container.create_scope() as scope:
+        yield scope

@@ -5,9 +5,9 @@ from handless.exceptions import RegistrationNotFoundError
 from tests.helpers import FakeService
 
 
-def test_create_scope_returns_a_new_scoped_container(sut: Container) -> None:
-    scope1 = sut.create_scope()
-    scope2 = sut.create_scope()
+def test_create_scope_returns_a_new_scoped_container(container: Container) -> None:
+    scope1 = container.create_scope()
+    scope2 = container.create_scope()
 
     assert isinstance(scope1, Scope)
     assert isinstance(scope2, Scope)
@@ -20,10 +20,10 @@ def test_create_scope_returns_a_new_scoped_container(sut: Container) -> None:
     ids=["Root container", "Scoped container"],
 )
 def test_resolve_unregistered_service_type_autobind_a_transient_factory_by_default(
-    sut: Container,
+    container: Container,
 ) -> None:
-    resolved = sut.resolve(FakeService)
-    resolved2 = sut.resolve(FakeService)
+    resolved = container.resolve(FakeService)
+    resolved2 = container.resolve(FakeService)
 
     assert isinstance(resolved, FakeService)
     assert isinstance(resolved2, FakeService)
@@ -39,7 +39,7 @@ def test_resolve_unregistered_service_type_autobind_a_transient_factory_by_defau
     ids=["Strict root container", "Strict scoped container"],
 )
 def test_resolve_unregistered_service_type_raise_an_error_when_autobind_is_disabled(
-    sut: Container,
+    container: Container,
 ) -> None:
     with pytest.raises(RegistrationNotFoundError):
-        sut.resolve(FakeService)
+        container.resolve(FakeService)

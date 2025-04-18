@@ -38,22 +38,22 @@ def _create_fake_service_params(foo: str, bar: int) -> FakeService:  # noqa: ARG
     ],
 )
 def test_binding_decorator_registers_a_factory_binding(
-    sut: Registry, function: Callable[..., FakeService]
+    registry: Registry, function: Callable[..., FakeService]
 ) -> None:
-    sut.factory(function)
+    registry.factory(function)
 
-    assert sut.lookup(FakeService) == Binding(FakeService, Factory(function))
+    assert registry.lookup(FakeService) == Binding(FakeService, Factory(function))
 
 
 def test_binding_decorator_registers_a_context_manager_decorated_function(
-    sut: Registry,
+    registry: Registry,
 ) -> None:
-    @sut.factory
+    @registry.factory
     @contextmanager
     def create_fake_service() -> Iterator[FakeService]:
         yield FakeService()
 
-    assert sut.lookup(FakeService) == Binding(
+    assert registry.lookup(FakeService) == Binding(
         FakeService, Factory(create_fake_service), enter=True
     )
 
@@ -62,11 +62,11 @@ def test_binding_decorator_registers_a_context_manager_decorated_function(
     "function", [_create_fake_service_iterator, _create_fake_service_generator]
 )
 def test_binding_decorator_registers_generator_wrapped_as_context_manager(
-    sut: Registry, function: Callable[[], Iterator[FakeService]]
+    registry: Registry, function: Callable[[], Iterator[FakeService]]
 ) -> None:
-    sut.factory(function)
+    registry.factory(function)
 
-    assert sut.lookup(FakeService) == Binding(
+    assert registry.lookup(FakeService) == Binding(
         FakeService, Factory(contextmanager(function))
     )
 
@@ -74,11 +74,11 @@ def test_binding_decorator_registers_generator_wrapped_as_context_manager(
 @use_enter
 @use_lifetimes
 def test_binding_decorator_registers_a_factory_binding_with_options(
-    sut: Registry, enter: bool, lifetime: LifetimeLiteral
+    registry: Registry, enter: bool, lifetime: LifetimeLiteral
 ) -> None:
-    sut.factory(lifetime=lifetime, enter=enter)(_create_fake_service_no_params)
+    registry.factory(lifetime=lifetime, enter=enter)(_create_fake_service_no_params)
 
-    assert sut.lookup(FakeService) == Binding(
+    assert registry.lookup(FakeService) == Binding(
         FakeService,
         Factory(_create_fake_service_no_params),
         lifetime=parse_lifetime(lifetime),

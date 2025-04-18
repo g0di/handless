@@ -2,6 +2,12 @@
 
 This document contains all the ideas I've got for new features or changes to be made.
 
+## TOP PRIORITY
+
+- finish writing tests for to_self and to_dynamic
+- find good way to run same tests for lifetimes and context manager for to_self, to_dynamic and to_factory registrations
+- add tests for covering uncovered code
+
 > :bulb: The order does not reflect the priority.
 
 ## Documentation

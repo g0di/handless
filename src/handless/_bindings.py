@@ -59,7 +59,7 @@ class Binder(Generic[_T]):
     @overload
     def to_factory(
         self,
-        factory: Callable[..., _T] = ...,
+        factory: Callable[..., _T],
         lifetime: LifetimeLiteral = ...,
         *,
         enter: bool = ...,
@@ -81,12 +81,12 @@ class Binder(Generic[_T]):
 
     def to_factory(
         self,
-        factory: Callable[..., Any] | None = None,
+        factory: Callable[..., Any],
         lifetime: LifetimeLiteral = "transient",
         *,
         enter: bool = True,
     ) -> Binding[_T]:
-        provider = providers.Factory(factory or self._type)
+        provider = providers.Factory(factory)
         return self.to_provider(provider, lifetime, enter=enter)
 
     def to_dynamic(
