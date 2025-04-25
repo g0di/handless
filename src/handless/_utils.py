@@ -27,6 +27,15 @@ def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
     ]
 
 
+def get_first_param_name(func: Callable[..., Any]) -> str:
+    """Get the name of the first parameter of given function, if any, otherwise raise an error."""
+    try:
+        return next(iter(inspect.signature(func).parameters))
+    except StopIteration:
+        msg = "Given function has no parameters"
+        raise ValueError(msg) from None
+
+
 def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
     """Get return type of given function if specified or None."""
     return cast("type[_T]", get_type_hints(func).get("return"))
@@ -79,7 +88,7 @@ def autocontextmanager(factory: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def get_injectable_params(
-    function: Callable[..., Any], overrides: dict[str, type[Any]] | None = None
+    function: Callable[..., Any], *, overrides: dict[str, type[Any]] | None = None
 ) -> tuple[inspect.Parameter, ...]:
     # Merge given callable inspected params with provided ones.
     # NOTE: we omit variadic params because we don't know how to autowire them yet

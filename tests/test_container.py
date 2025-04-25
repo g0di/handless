@@ -22,8 +22,8 @@ def test_create_scope_returns_a_new_scoped_container(container: Container) -> No
 def test_resolve_unregistered_service_type_autobind_a_transient_factory_by_default(
     container: Container,
 ) -> None:
-    resolved = container.resolve(FakeService)
-    resolved2 = container.resolve(FakeService)
+    resolved = container.get(FakeService)
+    resolved2 = container.get(FakeService)
 
     assert isinstance(resolved, FakeService)
     assert isinstance(resolved2, FakeService)
@@ -42,4 +42,4 @@ def test_resolve_unregistered_service_type_raise_an_error_when_autobind_is_disab
     container: Container,
 ) -> None:
     with pytest.raises(RegistrationNotFoundError):
-        container.resolve(FakeService)
+        container.get(FakeService)

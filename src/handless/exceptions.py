@@ -12,7 +12,7 @@ class RegistrationNotFoundError(HandlessException):
         super().__init__(f"There is no provider registered for {type_}")
 
 
-class RegistrationAlreadyExistingError(HandlessException):
+class RegistrationAlreadyExistError(HandlessException):
     """When trying to register an already registered type."""
 
     def __init__(self, type_: type[Any]) -> None:

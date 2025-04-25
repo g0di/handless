@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Iterator
-from contextlib import AbstractContextManager, _GeneratorContextManager, contextmanager
+from contextlib import AbstractContextManager, _GeneratorContextManager
 from inspect import isgeneratorfunction
 from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar, cast, get_args, overload
 
 from handless._bindings import Binder, Binding
 from handless._utils import get_return_type, iscontextmanager
 from handless.containers import Container
-from handless.exceptions import (
-    RegistrationAlreadyExistingError,
-    RegistrationNotFoundError,
-)
+from handless.exceptions import RegistrationAlreadyExistError, RegistrationNotFoundError
 
 if TYPE_CHECKING:
     from handless._lifetimes import LifetimeLiteral
@@ -29,7 +26,7 @@ _LambdaFactory = _Factory[[Container], _T]
 _U = TypeVar("_U", bound=Callable[..., Any])
 
 
-class Registry:
+class Registry(AbstractContextManager["Registry"]):
     def __init__(self, *, autobind: bool = True) -> None:
         """Create a new registry.
 
@@ -41,7 +38,10 @@ class Registry:
         self._autobind = autobind
         self._registrations: dict[type[Any], Binding[Any]] = {}
         self._logger = logging.getLogger(__name__)
-        self._overrides: Registry | None = None
+        self.overrides: Registry = Registry(autobind=False)
+
+    def __exit__(self, *args: object):
+        self.overrides.close()
 
     def __contains__(self, key: object) -> bool:
         return key in self._registrations
@@ -60,15 +60,10 @@ class Registry:
 
     def register(self, registration: Binding[Any]) -> Registry:
         if registration.type_ in self:
-            raise RegistrationAlreadyExistingError(registration.type_)
-        is_overwrite = registration.type_ in self
+            raise RegistrationAlreadyExistError(registration.type_)
+
         self._registrations[registration.type_] = registration
-        self._logger.info(
-            "Registered %s%s: %s",
-            registration.type_,
-            " (overwrite)" if is_overwrite else "",
-            registration,
-        )
+        self._logger.info("Registered %s: %s", registration.type_, registration)
         return self
 
     @overload
@@ -100,21 +95,13 @@ class Registry:
             if not rettype:
                 msg = f"{factory} has no return type annotation"
                 raise TypeError(msg)
-            self.bind(rettype).to_factory(factory, lifetime, enter=enter)
+            self.bind(rettype).to_factory(factory, lifetime=lifetime, enter=enter)
             # NOTE: return decorated func untouched to ease reuse
             return factory
 
         if factory is not None:
             return wrapper(factory)
         return wrapper
-
-    @contextmanager
-    def override(self) -> Iterator[Registry]:
-        self._overrides = Registry(autobind=False)
-        try:
-            yield self._overrides
-        finally:
-            self._overrides = None
 
     def create_container(self) -> Container:
         """Create and return a new container using this registry."""

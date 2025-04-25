@@ -80,7 +80,7 @@ def fake_service_factory_with_params(foo: str, bar: int) -> FakeServiceWithParam
 def fake_service_factory_with_container_param(
     container: Container,
 ) -> FakeServiceWithParams:
-    return FakeServiceWithParams(container.resolve(str), container.resolve(int))
+    return FakeServiceWithParams(container.get(str), container.get(int))
 
 
 def fake_service_factory_with_untyped_params(foo, bar) -> FakeServiceWithParams:  # type: ignore[no-untyped-def]  # noqa: ANN001

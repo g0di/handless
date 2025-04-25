@@ -44,7 +44,7 @@ class TestResolveFactory:
     ) -> None:
         registry.bind(IFakeService).to_factory(factory)  # type: ignore[type-abstract]
 
-        resolved = container.resolve(IFakeService)  # type: ignore[type-abstract]
+        resolved = container.get(IFakeService)  # type: ignore[type-abstract]
 
         assert isinstance(resolved, FakeService)
 
@@ -63,7 +63,7 @@ class TestResolveFactory:
         registry.bind(int).to_value(42)
         registry.bind(FakeServiceWithParams).to_factory(factory)
 
-        received = container.resolve(FakeServiceWithParams)
+        received = container.get(FakeServiceWithParams)
 
         assert received == FakeServiceWithParams("Hello World!", 42)
 
@@ -75,7 +75,7 @@ class TestResolveFactoryContextManager:
         cm = FakeContextManager(FakeService())
         registry.bind(FakeService).to_factory(lambda: cm)
 
-        received = container.resolve(FakeService)
+        received = container.get(FakeService)
 
         assert received is cm.enter_result
         assert cm.entered
@@ -91,7 +91,7 @@ class TestResolveFactoryContextManager:
 
         registry.bind(FakeService).to_factory(fake_service_generator)
 
-        received = container.resolve(FakeService)
+        received = container.get(FakeService)
 
         assert received is expected
 
@@ -100,7 +100,7 @@ class TestResolveFactoryContextManager:
     ) -> None:
         registry.bind(FakeService).to_factory(lambda: FakeService(), enter=False)
 
-        received = container.resolve(FakeService)
+        received = container.get(FakeService)
 
         assert not received.entered
         assert not received.exited
@@ -124,12 +124,12 @@ class TestResolveTransientFactory:
             lambda: FakeService(), lifetime="transient"
         )
 
-        return container.resolve(FakeService)
+        return container.get(FakeService)
 
     def test_resolve_always_calls_and_returns_factory_result(
         self, container: Container, resolved: FakeService
     ) -> None:
-        another = container.resolve(FakeService)
+        another = container.get(FakeService)
 
         assert another is not resolved
         assert another.entered
@@ -138,8 +138,8 @@ class TestResolveTransientFactory:
     def test_scope_resolve_always_calls_and_returns_factory_result(
         self, scope: Scope, resolved: FakeService
     ) -> None:
-        another1 = scope.resolve(FakeService)
-        another2 = scope.resolve(FakeService)
+        another1 = scope.get(FakeService)
+        another2 = scope.get(FakeService)
 
         assert another1 is not resolved
         assert another2 is not resolved
@@ -151,7 +151,7 @@ class TestResolveTransientFactory:
     def test_container_close_exits_transient_context_managers(
         self, container: Container, resolved: FakeService
     ) -> None:
-        another = container.resolve(FakeService)
+        another = container.get(FakeService)
 
         container.close()
 
@@ -159,8 +159,8 @@ class TestResolveTransientFactory:
         assert resolved.exited
 
     def test_scope_close_exits_transient_context_managers(self, scope: Scope) -> None:
-        another1 = scope.resolve(FakeService)
-        another2 = scope.resolve(FakeService)
+        another1 = scope.get(FakeService)
+        another2 = scope.get(FakeService)
 
         scope.close()
 
@@ -184,33 +184,33 @@ class TestResolveSingletonFactory:
             lambda: FakeService(), lifetime="singleton"
         )
 
-        return container.resolve(FakeService)
+        return container.get(FakeService)
 
     def test_next_resolve_returns_cached_factory_result(
         self, container: Container, resolved: FakeService
     ) -> None:
-        another = container.resolve(FakeService)
+        another = container.get(FakeService)
 
         assert another is resolved
 
     def test_next_resolve_not_reenter_cached_context_manager(
         self, container: Container, resolved: FakeService
     ) -> None:
-        container.resolve(FakeService)
+        container.get(FakeService)
 
         assert not resolved.reentered
 
     def test_next_resolve_not_exit_cached_context_manager(
         self, container: Container, resolved: FakeService
     ) -> None:
-        container.resolve(FakeService)
+        container.get(FakeService)
 
         assert not resolved.exited
 
     def test_scope_resolve_returns_container_cached_factory_result(
         self, scope: Scope, resolved: FakeService
     ) -> None:
-        another = scope.resolve(FakeService)
+        another = scope.get(FakeService)
 
         assert another is resolved
 
@@ -226,7 +226,7 @@ class TestResolveSingletonFactory:
     ) -> None:
         container.close()
 
-        assert container.resolve(FakeService) is not resolved
+        assert container.get(FakeService) is not resolved
 
     def test_close_scope_not_exit_cached_factory_result_context_manager(
         self, scope: Scope, resolved: FakeService
@@ -240,7 +240,7 @@ class TestResolveSingletonFactory:
     ) -> None:
         scope.close()
 
-        assert scope.resolve(FakeService) is resolved
+        assert scope.get(FakeService) is resolved
 
 
 class TestResolveScopedFactory:
@@ -250,34 +250,34 @@ class TestResolveScopedFactory:
     ) -> FakeService:
         registry.bind(FakeService).to_factory(lambda: FakeService(), lifetime="scoped")
 
-        return container.resolve(FakeService)
+        return container.get(FakeService)
 
     def test_next_resolve_returns_own_cached_factory_result(
         self, container: Container, resolved: FakeService
     ) -> None:
-        another = container.resolve(FakeService)
+        another = container.get(FakeService)
 
         assert another is resolved
 
     def test_next_resolve_not_reenter_own_cached_factory_result_context_manager(
         self, container: Container, resolved: FakeService
     ) -> None:
-        container.resolve(FakeService)
+        container.get(FakeService)
 
         assert not resolved.reentered
 
     def test_next_resolve_not_exit_own_cached_factory_result_context_manager(
         self, container: Container, resolved: FakeService
     ) -> None:
-        container.resolve(FakeService)
+        container.get(FakeService)
 
         assert not resolved.exited
 
     def test_scope_resolve_calls_cache_and_returns_own_factory_result(
         self, scope: Scope, resolved: FakeService
     ) -> None:
-        another1 = scope.resolve(FakeService)
-        another2 = scope.resolve(FakeService)
+        another1 = scope.get(FakeService)
+        another2 = scope.get(FakeService)
 
         assert another1 is not resolved
         assert another1 is another2
@@ -297,12 +297,12 @@ class TestResolveScopedFactory:
     ) -> None:
         container.close()
 
-        assert container.resolve(FakeService) is not resolved
+        assert container.get(FakeService) is not resolved
 
     def test_close_scope_exits_own_cached_factory_result_context_manager(
         self, scope: Scope
     ) -> None:
-        scoped = scope.resolve(FakeService)
+        scoped = scope.get(FakeService)
 
         scope.close()
 
@@ -311,11 +311,11 @@ class TestResolveScopedFactory:
     def test_close_scope_clear_own_cached_factory_result(
         self, scope: Container
     ) -> None:
-        scoped = scope.resolve(FakeService)
+        scoped = scope.get(FakeService)
 
         scope.close()
 
-        assert scope.resolve(FakeService) is not scoped
+        assert scope.get(FakeService) is not scoped
 
     def test_close_scope_not_exit_others_scoped_context_manager(
         self, scope: Scope, resolved: FakeService

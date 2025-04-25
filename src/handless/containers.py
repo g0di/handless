@@ -37,14 +37,14 @@ class Container(AbstractContextManager["Container"]):
         self._exit_stack.close()
         self._cache.clear()
 
-    def resolve(self, type_: type[_T]) -> _T:
+    def get(self, type_: type[_T]) -> _T:
         if issubclass(type_, Container):
             return cast("_T", self)
 
-        registration = self._registry.lookup(type_)
+        binding = self._registry.lookup(type_)
 
         try:
-            return registration.resolve(self)
+            return binding.resolve(self)
         except Exception as error:
             raise ResolveError(type_) from error
         finally:
@@ -52,7 +52,7 @@ class Container(AbstractContextManager["Container"]):
                 "Resolved %s%s: %s",
                 type_,
                 " (unregistered)" if type_ in self._registry else "",
-                registration,
+                binding,
             )
 
     def _resolve_transient(self, registration: Binding[_T]) -> _T:

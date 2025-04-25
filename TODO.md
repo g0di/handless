@@ -12,9 +12,9 @@ This document contains all the ideas I've got for new features or changes to be 
 
 ## Documentation
 
-- :books: Mention the mypy `type-abstract` issue when registering abstract classes or protocols and how to disable it
+- :books: Mention the mypy `type-abstract` issue when registering abstract **classes** or protocols and how to disable it
 - :books: Mention the the fact that callable objects can not be registered as factory implicitly
-- :books: Find out how to verify code examples in the documentation
+- :books: Find out how to verify code examples in the **documentation**
 - :books: Find out how to format code examples in the doc (readme)
 - :books: Build a static documentation website using `sphinx` or `mkdocs` published on github pages
 - :books: Add badges on README file (coverage, tests, ...)

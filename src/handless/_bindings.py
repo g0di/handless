@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
-from handless import providers
-from handless._lifetimes import Lifetime, LifetimeLiteral, Transient
+from handless._lifetimes import Lifetime, LifetimeLiteral
 from handless._lifetimes import parse as parse_lifetime
+from handless._utils import get_first_param_name
+from handless.containers import Container
+from handless.providers import Provider
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from contextlib import AbstractContextManager
 
-    from handless.containers import Container
     from handless.registry import Registry
 
 _T = TypeVar("_T")
@@ -20,12 +22,16 @@ _T = TypeVar("_T")
 @dataclass(slots=True, frozen=True)
 class Binding(Generic[_T]):
     type_: type[_T]
-    provider: providers.Provider[_T]
-    lifetime: Lifetime = field(default_factory=Transient)
-    enter: bool = True
+    provider: Provider[_T]
+    enter: bool
+    lifetime: LifetimeLiteral
+
+    @cached_property
+    def _lifetime(self) -> Lifetime:
+        return parse_lifetime(self.lifetime)
 
     def resolve(self, container: Container) -> _T:
-        return self.lifetime.accept(container, self)
+        return self._lifetime.accept(container, self)
 
 
 class Binder(Generic[_T]):
@@ -39,8 +45,9 @@ class Binder(Generic[_T]):
         return self.to_factory(self._type, lifetime=lifetime, enter=enter)
 
     def to(self, alias_type: type[_T]) -> Binding[_T]:
-        provider = providers.Alias(alias_type)
-        return self.to_provider(provider, "transient", enter=False)
+        return self.to_lambda(
+            lambda c: c.get(alias_type), lifetime="transient", enter=False
+        )
 
     @overload
     def to_value(self, value: _T, *, enter: bool = ...) -> Binding[_T]: ...
@@ -53,16 +60,30 @@ class Binder(Generic[_T]):
     ) -> Binding[_T]: ...
 
     def to_value(self, value: Any, *, enter: bool = False) -> Binding[_T]:
-        provider = providers.Value(value)
-        return self.to_provider(provider, "singleton", enter=enter)
+        return self.to_factory(lambda: value, lifetime="singleton", enter=enter)
+
+    def to_lambda(
+        self,
+        factory: Callable[[Container], _T],
+        *,
+        enter: bool = True,
+        lifetime: LifetimeLiteral = "transient",
+    ) -> Binding[_T]:
+        return self.to_factory(
+            factory,
+            enter=enter,
+            lifetime=lifetime,
+            params={get_first_param_name(factory): Container},
+        )
 
     @overload
     def to_factory(
         self,
         factory: Callable[..., _T],
-        lifetime: LifetimeLiteral = ...,
         *,
+        lifetime: LifetimeLiteral = ...,
         enter: bool = ...,
+        params: dict[str, type[Any]] | None = ...,
     ) -> Binding[_T]: ...
 
     # NOTE:: Following overload ensure enter is not False when passing a callable returning
@@ -71,9 +92,10 @@ class Binder(Generic[_T]):
     def to_factory(
         self,
         factory: Callable[..., Iterator[_T] | AbstractContextManager[_T]],
-        lifetime: LifetimeLiteral = ...,
         *,
+        lifetime: LifetimeLiteral = ...,
         enter: Literal[True] = ...,
+        params: dict[str, type[Any]] | None = ...,
     ) -> Binding[_T]: ...
 
     # Overloads ensures that passing an iterator or a context manager which is NOT
@@ -82,32 +104,13 @@ class Binder(Generic[_T]):
     def to_factory(
         self,
         factory: Callable[..., Any],
-        lifetime: LifetimeLiteral = "transient",
         *,
-        enter: bool = True,
-    ) -> Binding[_T]:
-        provider = providers.Factory(factory)
-        return self.to_provider(provider, lifetime, enter=enter)
-
-    def to_dynamic(
-        self,
-        factory: Callable[[Container], _T],
-        *,
-        enter: bool = True,
         lifetime: LifetimeLiteral = "transient",
-    ) -> Binding[_T]:
-        provider = providers.Dynamic(factory)
-        return self.to_provider(provider, enter=enter, lifetime=lifetime)
-
-    def to_provider(
-        self,
-        provider: providers.Provider[_T],
-        lifetime: LifetimeLiteral = "transient",
-        *,
         enter: bool = True,
+        params: dict[str, type[Any]] | None = None,
     ) -> Binding[_T]:
-        registration = Binding(
-            self._type, provider, lifetime=parse_lifetime(lifetime), enter=enter
+        binding = Binding(
+            self._type, Provider(factory, params), lifetime=lifetime, enter=enter
         )
-        self._registry.register(registration)
-        return registration
+        self._registry.register(binding)
+        return binding

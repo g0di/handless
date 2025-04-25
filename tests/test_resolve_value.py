@@ -30,7 +30,7 @@ class TestResolveValue:
     ) -> FakeService:
         registry.bind(FakeService).to_value(expected, **request.param)
 
-        return container.resolve(FakeService)
+        return container.get(FakeService)
 
     def test_returns_registered_value(
         self, resolved: FakeService, expected: FakeService
@@ -40,16 +40,17 @@ class TestResolveValue:
     def test_always_returns_registered_value(
         self, container: Container, expected: FakeService
     ) -> None:
-        another = container.resolve(FakeService)
+        another = container.get(FakeService)
 
         assert another is expected
 
-    def test_scopes_returns_registered_value(
-        self, scope: Scope, expected: FakeService
+    def test_all_containers_returns_registered_value(
+        self, registry: Registry, expected: FakeService
     ) -> None:
-        scoped = scope.resolve(FakeService)
+        container2 = Container(registry)
+        another = container2.get(FakeService)
 
-        assert scoped is expected
+        assert another is expected
 
     def test_value_context_manager_is_not_entered(self, resolved: FakeService) -> None:
         assert not resolved.entered
@@ -70,7 +71,7 @@ class TestResolveValueWithContextManager:
     ) -> FakeService:
         registry.bind(FakeService).to_value(cm, enter=True)
 
-        return container.resolve(FakeService)
+        return container.get(FakeService)
 
     def test_returns_value_returned_by_context_manager(
         self, resolved: FakeService, expected: FakeService
@@ -80,7 +81,7 @@ class TestResolveValueWithContextManager:
     def test_not_reenter_context_manager(
         self, container: Container, cm: FakeContextManager, expected: FakeService
     ) -> None:
-        another = container.resolve(FakeService)
+        another = container.get(FakeService)
 
         assert another is expected
         assert not cm.reentered
@@ -109,7 +110,7 @@ def test_register_value_without_context_manager_and_enter_true_do_not_try_to_ent
     expected = object()
     registry.bind(object).to_value(expected, enter=True)
 
-    resolved = container.resolve(object)
+    resolved = container.get(object)
 
     assert resolved is expected
 
