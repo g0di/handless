@@ -5,13 +5,15 @@ from typing import TypedDict
 import pytest
 
 from handless import Binding, Container, LifetimeLiteral, Registry
+from handless._bindings import Dependency
+from handless._lifetimes import Lifetime, Transient
 from handless.exceptions import RegistrationAlreadyExistError
-from handless.providers import Provider
 from tests.helpers import (
     FakeService,
     FakeServiceNewType,
     FakeServiceWithParams,
     IFakeService,
+    Singleton,
     use_enter,
     use_lifetimes,
 )
@@ -25,9 +27,7 @@ class TestBindToFactory:
     @pytest.mark.parametrize(
         "service_type", [IFakeService, FakeService, FakeServiceNewType]
     )
-    @pytest.mark.parametrize(
-        "factory", [FakeService, lambda: FakeService, FakeServiceWithParams]
-    )
+    @pytest.mark.parametrize("factory", [FakeService, lambda: FakeService])
     def test_bind_type_to_factory(
         self,
         registry: Registry,
@@ -39,22 +39,44 @@ class TestBindToFactory:
         received = registry.lookup(service_type)
 
         assert received == Binding(
-            service_type, Provider(factory), enter=True, lifetime="transient"
+            service_type, factory, enter=True, lifetime=Transient()
+        )
+
+    def test_bind_type_to_factory_with_params(self, registry: Registry) -> None:
+        def my_factory(foo: str, /, bar: int = 42) -> FakeService: ...  # type: ignore[empty-body]
+
+        registry.bind(FakeService).to_factory(my_factory)
+
+        received = registry.lookup(FakeService)
+
+        assert received == Binding(
+            FakeService,
+            my_factory,
+            enter=True,
+            lifetime=Transient(),
+            dependencies={
+                "foo": Dependency(str, positional=True),
+                "bar": Dependency(int, default=42),
+            },
         )
 
     @use_enter
     @use_lifetimes
     def test_bind_type_to_factory_with_options(
-        self, registry: Registry, enter: bool, lifetime: LifetimeLiteral
+        self,
+        registry: Registry,
+        enter: bool,
+        lifetime_literal: LifetimeLiteral,
+        lifetime: Lifetime,
     ) -> None:
         registry.bind(FakeService).to_factory(
-            FakeService, enter=enter, lifetime=lifetime
+            FakeService, enter=enter, lifetime=lifetime_literal
         )
 
         received = registry.lookup(FakeService)
 
         assert received == Binding(
-            FakeService, Provider(FakeService), enter=enter, lifetime=lifetime
+            FakeService, FakeService, enter=enter, lifetime=lifetime
         )
 
     def test_bind_type_to_generator_function_wraps_it_as_a_context_manager(
@@ -65,8 +87,11 @@ class TestBindToFactory:
 
         registry.bind(FakeService).to_factory(fake_service_generator)
 
-        assert registry.lookup(FakeService).provider == Provider(
-            contextmanager(fake_service_generator)
+        assert registry.lookup(FakeService) == Binding(
+            FakeService,
+            contextmanager(fake_service_generator),
+            enter=True,
+            lifetime=Transient(),
         )
 
     def test_bind_type_to_contextmanager_decorated_function_registers_it_as_is(
@@ -78,9 +103,7 @@ class TestBindToFactory:
 
         registry.bind(FakeService).to_factory(fake_service_context_manager)
 
-        assert registry.lookup(FakeService).provider == Provider(
-            fake_service_context_manager
-        )
+        assert registry.lookup(FakeService).provider == fake_service_context_manager
 
 
 class TestBindToLambda:
@@ -88,19 +111,24 @@ class TestBindToLambda:
         registry.bind(FakeService).to_lambda(expected := (lambda _: FakeService()))
 
         assert registry.lookup(FakeService) == Binding(
-            FakeService,
-            Provider(expected, params={"_": Container}),
+            type_=FakeService,
+            provider=expected,
             enter=True,
-            lifetime="transient",
+            lifetime=Transient(),
+            dependencies={"_": Dependency(Container)},
         )
 
     @use_enter
     @use_lifetimes
     def test_bind_type_to_lambda_with_options(
-        self, registry: Registry, enter: bool, lifetime: LifetimeLiteral
+        self,
+        registry: Registry,
+        enter: bool,
+        lifetime_literal: LifetimeLiteral,
+        lifetime: Lifetime,
     ) -> None:
         registry.bind(FakeService).to_lambda(
-            lambda _: FakeService(), enter=enter, lifetime=lifetime
+            lambda _: FakeService(), enter=enter, lifetime=lifetime_literal
         )
 
         binding = registry.lookup(FakeService)
@@ -114,7 +142,7 @@ class TestBindToValue:
         registry.bind(FakeService).to_value(expected := FakeService())
 
         assert registry.lookup(FakeService) == Binding(
-            FakeService, Provider(lambda: expected), enter=False, lifetime="singleton"
+            FakeService, lambda: expected, enter=False, lifetime=Singleton()
         )
 
     @use_enter
@@ -131,15 +159,30 @@ class TestBindToSelf:
         registry.bind(FakeService).to_self()
 
         assert registry.lookup(FakeService) == Binding(
-            FakeService, Provider(FakeService), enter=True, lifetime="transient"
+            FakeService, FakeService, enter=True, lifetime=Transient()
+        )
+
+    def test_bind_type_to_self_with_params(self, registry: Registry) -> None:
+        registry.bind(FakeServiceWithParams).to_self()
+
+        assert registry.lookup(FakeServiceWithParams) == Binding(
+            FakeServiceWithParams,
+            FakeServiceWithParams,
+            enter=True,
+            lifetime=Transient(),
+            dependencies={"foo": Dependency(str), "bar": Dependency(int)},
         )
 
     @use_enter
     @use_lifetimes
     def test_bind_type_to_self_with_options(
-        self, registry: Registry, enter: bool, lifetime: LifetimeLiteral
+        self,
+        registry: Registry,
+        enter: bool,
+        lifetime_literal: LifetimeLiteral,
+        lifetime: Lifetime,
     ) -> None:
-        registry.bind(FakeService).to_self(enter=enter, lifetime=lifetime)
+        registry.bind(FakeService).to_self(enter=enter, lifetime=lifetime_literal)
 
         binding = registry.lookup(FakeService)
 
@@ -153,9 +196,10 @@ class TestBindToType:
 
         assert registry.lookup(IFakeService) == Binding(
             IFakeService,
-            Provider(lambda c: c.get(alias), params={"c": Container}),
-            lifetime="transient",
+            lambda c: c.get(alias),
+            lifetime=Transient(),
             enter=False,
+            dependencies={"c": Dependency(Container)},
         )
 
 
@@ -166,7 +210,20 @@ class TestBindToFactoryDecorator:
             return FakeService()
 
         assert registry.lookup(FakeService) == Binding(
-            FakeService, Provider(get_fake_service), enter=True, lifetime="transient"
+            FakeService, get_fake_service, enter=True, lifetime=Transient()
+        )
+
+    def test_factory_decorator_with_params(self, registry: Registry) -> None:
+        @registry.factory
+        def get_fake_service(foo: str, bar: int) -> FakeService:  # noqa: ARG001
+            return FakeService()
+
+        assert registry.lookup(FakeService) == Binding(
+            FakeService,
+            get_fake_service,
+            enter=True,
+            lifetime=Transient(),
+            dependencies={"foo": Dependency(str), "bar": Dependency(int)},
         )
 
     def test_factory_decorator_with_generator_function(
@@ -178,9 +235,9 @@ class TestBindToFactoryDecorator:
 
         assert registry.lookup(FakeService) == Binding(
             FakeService,
-            Provider(contextmanager(get_fake_service)),
+            contextmanager(get_fake_service),
             enter=True,
-            lifetime="transient",
+            lifetime=Transient(),
         )
 
     def test_factory_decorator_with_context_manager_function(
@@ -192,28 +249,30 @@ class TestBindToFactoryDecorator:
             yield FakeService()
 
         assert registry.lookup(FakeService) == Binding(
-            FakeService, Provider(get_fake_service), enter=True, lifetime="transient"
+            FakeService, get_fake_service, enter=True, lifetime=Transient()
         )
 
     @use_enter
     @use_lifetimes
     def test_factory_decorator_with_options(
-        self, registry: Registry, enter: bool, lifetime: LifetimeLiteral
+        self,
+        registry: Registry,
+        enter: bool,
+        lifetime_literal: LifetimeLiteral,
+        lifetime: Lifetime,
     ) -> None:
-        @registry.factory(lifetime=lifetime, enter=enter)
+        @registry.factory(lifetime=lifetime_literal, enter=enter)
         def get_fake_service() -> FakeService:
             return FakeService()
 
         binding = registry.lookup(FakeService)
 
         assert binding.enter is enter
-        assert binding.lifetime is lifetime
+        assert binding.lifetime == lifetime
 
 
 def test_register_binding(registry: Registry) -> None:
-    binding = Binding(
-        FakeService, Provider(FakeService), enter=True, lifetime="singleton"
-    )
+    binding = Binding(FakeService, FakeService, enter=True, lifetime=Singleton())
 
     registry.register(binding)
 
@@ -224,4 +283,4 @@ def test_bind_same_type_twice_raises_an_error(registry: Registry) -> None:
     registry.bind(FakeService).to_value(FakeService())
 
     with pytest.raises(RegistrationAlreadyExistError):
-        registry.bind(FakeService).to_value(FakeService())
+        registry.bind(FakeService).to_self()

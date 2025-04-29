@@ -26,7 +26,7 @@ _LambdaFactory = _Factory[[Container], _T]
 _U = TypeVar("_U", bound=Callable[..., Any])
 
 
-class Registry(AbstractContextManager["Registry"]):
+class Registry:
     def __init__(self, *, autobind: bool = True) -> None:
         """Create a new registry.
 
@@ -38,17 +38,11 @@ class Registry(AbstractContextManager["Registry"]):
         self._autobind = autobind
         self._registrations: dict[type[Any], Binding[Any]] = {}
         self._logger = logging.getLogger(__name__)
-        self.overrides: Registry = Registry(autobind=False)
-
-    def __exit__(self, *args: object):
-        self.overrides.close()
 
     def __contains__(self, key: object) -> bool:
         return key in self._registrations
 
     def lookup(self, key: type[_T]) -> Binding[_T]:
-        if self._overrides and key in self._overrides:
-            return self._overrides.lookup(key)
         if key not in self:
             if not self._autobind:
                 raise RegistrationNotFoundError(key)

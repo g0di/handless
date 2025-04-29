@@ -1,9 +1,10 @@
 from contextlib import AbstractContextManager
-from typing import NewType, Protocol, get_args
+from typing import NewType, Protocol
 
 import pytest
 
-from handless import Container, LifetimeLiteral
+from handless import Container
+from handless._lifetimes import Scoped, Singleton, Transient
 
 
 class IFakeService(Protocol): ...
@@ -139,7 +140,10 @@ use_invalid_factory_provider = pytest.mark.parametrize(
 )
 """All kind of functions that CANNOT be registered as a provider."""
 
-use_lifetimes = pytest.mark.parametrize("lifetime", get_args(LifetimeLiteral))
+use_lifetimes = pytest.mark.parametrize(
+    ("lifetime_literal", "lifetime"),
+    [("transient", Transient()), ("scoped", Scoped()), ("singleton", Singleton())],
+)
 use_enter = pytest.mark.parametrize(
     "enter", [True, False], ids=["Enter CM", "Not enter CM"]
 )

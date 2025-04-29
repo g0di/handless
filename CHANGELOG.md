@@ -14,12 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Renamed to `lookup` the function to get a binding for a type.
-- Rename to `factory` the registry function for decorating function and register them as factories. It better aligns with the new registration API.
+- Renamed to `lookup` the function to get a binding for a type
+- Rename to `factory` the registry function for decorating function and register them as factories. It better aligns with the new registration API
 - Rename container `resolve` method to `get`
-- Registry does not allow to override previously registered types by default. An `allow_direct_overrides` option has been added to bypass this default behavior. This has been made in order to prevent accidentaly overriding a previous binding.
-- Changed the registration API which now use method chaining for registering either value, factory, alias, lambda or provider. This API provide better type checking and cover all use cases at the cost of the fluent API (you can no longer chain call the register method). It is also more explicit on what it does rather than relying on the previous magic registration method. Finally it simplify extending it in the future if required.
-- providers modules is now public. You can directly use them along the `provider` registration method as well as create your own custom providers through subclassing.
+- Registry does not allow to override previously registered types
+- Changed the registration API which now use method chaining for registering either value, factory, alias or lambda. This API provide better type checking and cover all use cases at the cost of the fluent API (you can no longer chain call the register method). It is also more explicit on what it does rather than relying on the previous magic registration method. Finally it simplify extending it in the future if required
 
 ### Internals
 
@@ -27,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bindings has now has a reference to the type to which it is binded
 - Created dedicated classes for each lifetimes. This simplify container having the right behavior depending on the lifetime and remove need for the if/else statements. This clarify the code and will simplify adding new lifetimes in the future as well as being able to add parameters to them.
 - Renamed `ScopedContainer` to `Scope`
+- Removed `_providers` module
 
 ## [0.1.0-alpha.2] - 2025-04-07
 

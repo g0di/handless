@@ -25,12 +25,12 @@ class TestResolveValue:
         self,
         request: pytest.FixtureRequest,
         registry: Registry,
-        container: Container,
+        sut: Container,
         expected: FakeService,
     ) -> FakeService:
         registry.bind(FakeService).to_value(expected, **request.param)
 
-        return container.get(FakeService)
+        return sut.get(FakeService)
 
     def test_returns_registered_value(
         self, resolved: FakeService, expected: FakeService
@@ -38,9 +38,9 @@ class TestResolveValue:
         assert resolved is expected
 
     def test_always_returns_registered_value(
-        self, container: Container, expected: FakeService
+        self, sut: Container, expected: FakeService
     ) -> None:
-        another = container.get(FakeService)
+        another = sut.get(FakeService)
 
         assert another is expected
 
@@ -67,11 +67,11 @@ class TestResolveValueWithContextManager:
 
     @pytest.fixture(autouse=True, name="resolved")
     def resolve_value(
-        self, registry: Registry, container: Container, cm: FakeContextManager
+        self, registry: Registry, sut: Container, cm: FakeContextManager
     ) -> FakeService:
         registry.bind(FakeService).to_value(cm, enter=True)
 
-        return container.get(FakeService)
+        return sut.get(FakeService)
 
     def test_returns_value_returned_by_context_manager(
         self, resolved: FakeService, expected: FakeService
@@ -79,9 +79,9 @@ class TestResolveValueWithContextManager:
         assert resolved is expected
 
     def test_not_reenter_context_manager(
-        self, container: Container, cm: FakeContextManager, expected: FakeService
+        self, sut: Container, cm: FakeContextManager, expected: FakeService
     ) -> None:
-        another = container.get(FakeService)
+        another = sut.get(FakeService)
 
         assert another is expected
         assert not cm.reentered
@@ -90,9 +90,9 @@ class TestResolveValueWithContextManager:
         assert not cm.exited
 
     def test_context_manager_is_exited_on_container_close(
-        self, container: Container, cm: FakeContextManager
+        self, sut: Container, cm: FakeContextManager
     ) -> None:
-        container.close()
+        sut.close()
 
         assert cm.exited
 
@@ -105,12 +105,12 @@ class TestResolveValueWithContextManager:
 
 
 def test_register_value_without_context_manager_and_enter_true_do_not_try_to_enter_context(
-    registry: Registry, container: Container
+    registry: Registry, sut: Container
 ) -> None:
     expected = object()
     registry.bind(object).to_value(expected, enter=True)
 
-    resolved = container.get(object)
+    resolved = sut.get(object)
 
     assert resolved is expected
 

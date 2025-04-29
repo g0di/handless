@@ -4,8 +4,12 @@ This document contains all the ideas I've got for new features or changes to be 
 
 ## TOP PRIORITY
 
-- finish writing tests for to_self and to_dynamic
-- find good way to run same tests for lifetimes and context manager for to_self, to_dynamic and to_factory registrations
+- simplify container resolve tests to simply use a Binding object directly rather than testing all possible registrations
+- Make Binding object public
+- Consider using method chaining for setting bindings deps, enter and lifetime
+- find better names for to_lambda and to_factory
+- maybe rollback to registry.register(...).factory() API and container.resolve() rather than get.
+- find better way to manage scopes/lifetimes
 - add tests for covering uncovered code
 
 > :bulb: The order does not reflect the priority.

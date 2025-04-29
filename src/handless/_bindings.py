@@ -1,14 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import cached_property
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from inspect import Parameter, isgeneratorfunction
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
 from handless._lifetimes import Lifetime, LifetimeLiteral
 from handless._lifetimes import parse as parse_lifetime
-from handless._utils import get_first_param_name
+from handless._utils import (
+    compare_functions,
+    get_first_param_name,
+    get_non_variadic_params,
+    get_untyped_parameters,
+)
 from handless.containers import Container
-from handless.providers import Provider
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -19,19 +24,41 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class Binding(Generic[_T]):
     type_: type[_T]
-    provider: Provider[_T]
+    provider: Callable[..., _T | AbstractContextManager[_T]]
     enter: bool
-    lifetime: LifetimeLiteral
-
-    @cached_property
-    def _lifetime(self) -> Lifetime:
-        return parse_lifetime(self.lifetime)
+    lifetime: Lifetime
+    dependencies: dict[str, Dependency] = field(default_factory=dict)
 
     def resolve(self, container: Container) -> _T:
-        return self._lifetime.accept(container, self)
+        return self.lifetime.accept(container, self)
+
+    def __eq__(self, value: object) -> bool:
+        return (
+            isinstance(value, Binding)
+            and self.type_ == value.type_
+            and compare_functions(self.provider, value.provider)
+            and self.enter == value.enter
+            and self.lifetime == value.lifetime
+            and self.dependencies == value.dependencies
+        )
+
+
+@dataclass(slots=True)
+class Dependency:
+    annotation: type[Any]
+    default: Any = ...
+    positional: bool = False
+
+    @classmethod
+    def from_parameter(cls, param: Parameter) -> Dependency:
+        return Dependency(
+            annotation=param.annotation,
+            default=param.default if param.default != Parameter.empty else ...,
+            positional=param.kind == Parameter.POSITIONAL_ONLY,
+        )
 
 
 class Binder(Generic[_T]):
@@ -109,8 +136,31 @@ class Binder(Generic[_T]):
         enter: bool = True,
         params: dict[str, type[Any]] | None = None,
     ) -> Binding[_T]:
+        if isgeneratorfunction(factory):
+            factory = contextmanager(factory)
         binding = Binding(
-            self._type, Provider(factory, params), lifetime=lifetime, enter=enter
+            self._type,
+            factory,
+            lifetime=parse_lifetime(lifetime),
+            enter=enter,
+            dependencies=get_dependencies(factory, overrides=params),
         )
         self._registry.register(binding)
         return binding
+
+
+def get_dependencies(
+    function: Callable[..., Any], overrides: dict[str, type[Any]] | None = None
+) -> dict[str, Dependency]:
+    # Merge given callable inspected params with provided ones.
+    # NOTE: we omit variadic params because we don't know how to autowire them yet
+    params = get_non_variadic_params(function)
+    for pname, override_type in (overrides or {}).items():
+        params[pname] = params[pname].replace(annotation=override_type)
+
+    if empty_params := get_untyped_parameters(params):
+        # NOTE: if some parameters are missing type annotation we cannot autowire
+        msg = f"Factory {function} is missing types for following parameters: {', '.join(empty_params)}"
+        raise TypeError(msg)
+
+    return {pname: Dependency.from_parameter(param) for pname, param in params.items()}

@@ -55,31 +55,35 @@ class Container(AbstractContextManager["Container"]):
                 binding,
             )
 
-    def _resolve_transient(self, registration: Binding[_T]) -> _T:
-        return self._get_instance(registration)
+    def _resolve_transient(self, binding: Binding[_T]) -> _T:
+        return self._get_instance(binding)
 
-    def _resolve_singleton(self, registration: Binding[_T]) -> _T:
-        return self._get_cached_instance(registration)
+    def _resolve_singleton(self, binding: Binding[_T]) -> _T:
+        return self._get_cached_instance(binding)
 
-    def _resolve_scoped(self, registration: Binding[_T]) -> _T:
-        return self._get_cached_instance(registration)
+    def _resolve_scoped(self, binding: Binding[_T]) -> _T:
+        return self._get_cached_instance(binding)
 
-    def _get_cached_instance(self, registration: Binding[_T]) -> _T:
-        if registration.type_ not in self._cache:
-            self._cache[registration.type_] = self._get_instance(registration)
-        return cast("_T", self._cache[registration.type_])
+    def _get_cached_instance(self, binding: Binding[_T]) -> _T:
+        if binding.type_ not in self._cache:
+            self._cache[binding.type_] = self._get_instance(binding)
+        return cast("_T", self._cache[binding.type_])
 
-    def _get_instance(self, registration: Binding[_T]) -> _T:
-        instance = registration.provider(self)
-        if isinstance(instance, AbstractContextManager) and registration.enter:
+    def _get_instance(self, binding: Binding[_T]) -> _T:
+        dependencies = {
+            name: self.get(dependency.annotation)
+            for name, dependency in binding.dependencies.items()
+        }
+        instance = binding.provider(**dependencies)
+        if isinstance(instance, AbstractContextManager) and binding.enter:
             instance = self._exit_stack.enter_context(instance)
         # TODO: if enter is False but instance is a context manager and NOT an instance
         # of registration type, we must enter anyway. Maybe we should handle this at typing
         # level instead
         with suppress(TypeError):
-            if not isinstance(instance, registration.type_):
+            if not isinstance(instance, binding.type_):
                 warnings.warn(
-                    f"Container resolved {registration.type_} with {instance} which is not an instance of this type. "
+                    f"Container resolved {binding.type_} with {instance} which is not an instance of this type. "
                     "This could lead to unexpected errors.",
                     RuntimeWarning,
                     stacklevel=2,
@@ -93,5 +97,5 @@ class Scope(Container):
         self._parent = parent
         self._logger = logging.getLogger(f"{__name__}.scope")
 
-    def _resolve_singleton(self, registration: Binding[_T]) -> _T:
-        return self._parent._resolve_singleton(registration)  # noqa: SLF001
+    def _resolve_singleton(self, binding: Binding[_T]) -> _T:
+        return self._parent._resolve_singleton(binding)  # noqa: SLF001
