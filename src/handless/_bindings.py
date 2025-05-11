@@ -69,11 +69,14 @@ class Binder(Generic[_T]):
     def to_self(
         self, lifetime: LifetimeLiteral = "transient", *, enter: bool = True
     ) -> Binding[_T]:
-        return self.to_factory(self._type, lifetime=lifetime, enter=enter)
+        return self.to_provider(self._type, lifetime=lifetime, enter=enter)
 
     def to(self, alias_type: type[_T]) -> Binding[_T]:
-        return self.to_lambda(
-            lambda c: c.get(alias_type), lifetime="transient", enter=False
+        return self.to_provider(
+            lambda alias: alias,
+            lifetime="transient",
+            enter=False,
+            params={"alias": alias_type},
         )
 
     @overload
@@ -87,16 +90,36 @@ class Binder(Generic[_T]):
     ) -> Binding[_T]: ...
 
     def to_value(self, value: Any, *, enter: bool = False) -> Binding[_T]:
-        return self.to_factory(lambda: value, lifetime="singleton", enter=enter)
+        return self.to_provider(lambda: value, lifetime="singleton", enter=enter)
 
-    def to_lambda(
+    @overload
+    def to_factory(
         self,
         factory: Callable[[Container], _T],
         *,
-        enter: bool = True,
+        lifetime: LifetimeLiteral = ...,
+        enter: bool = ...,
+    ) -> Binding[_T]: ...
+
+    # NOTE:: Following overload ensure enter is not False when passing a callable returning
+    # context manager or an iterator not being an instance of _T
+    @overload
+    def to_factory(
+        self,
+        factory: Callable[[Container], AbstractContextManager[_T]],
+        *,
+        lifetime: LifetimeLiteral = ...,
+        enter: Literal[True] = ...,
+    ) -> Binding[_T]: ...
+
+    def to_factory(
+        self,
+        factory: Callable[..., Any],
+        *,
         lifetime: LifetimeLiteral = "transient",
+        enter: bool = True,
     ) -> Binding[_T]:
-        return self.to_factory(
+        return self.to_provider(
             factory,
             enter=enter,
             lifetime=lifetime,
@@ -104,9 +127,9 @@ class Binder(Generic[_T]):
         )
 
     @overload
-    def to_factory(
+    def to_provider(
         self,
-        factory: Callable[..., _T],
+        provider: Callable[..., _T],
         *,
         lifetime: LifetimeLiteral = ...,
         enter: bool = ...,
@@ -116,9 +139,9 @@ class Binder(Generic[_T]):
     # NOTE:: Following overload ensure enter is not False when passing a callable returning
     # context manager or an iterator not being an instance of _T
     @overload
-    def to_factory(
+    def to_provider(
         self,
-        factory: Callable[..., Iterator[_T] | AbstractContextManager[_T]],
+        provider: Callable[..., Iterator[_T] | AbstractContextManager[_T]],
         *,
         lifetime: LifetimeLiteral = ...,
         enter: Literal[True] = ...,
@@ -128,22 +151,22 @@ class Binder(Generic[_T]):
     # Overloads ensures that passing an iterator or a context manager which is NOT
     # an instance of _T requires enter=True
 
-    def to_factory(
+    def to_provider(
         self,
-        factory: Callable[..., Any],
+        provider: Callable[..., Any],
         *,
         lifetime: LifetimeLiteral = "transient",
         enter: bool = True,
         params: dict[str, type[Any]] | None = None,
     ) -> Binding[_T]:
-        if isgeneratorfunction(factory):
-            factory = contextmanager(factory)
+        if isgeneratorfunction(provider):
+            provider = contextmanager(provider)
         binding = Binding(
             self._type,
-            factory,
+            provider,
             lifetime=parse_lifetime(lifetime),
             enter=enter,
-            dependencies=get_dependencies(factory, overrides=params),
+            dependencies=get_dependencies(provider, overrides=params),
         )
         self._registry.register(binding)
         return binding

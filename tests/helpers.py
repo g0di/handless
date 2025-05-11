@@ -175,3 +175,8 @@ untyped_lambda = lambda a, b, c: ...  # noqa: ARG005, E731
 class UntypedService:
     def __init__(self, foo, bar):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN204
         pass
+
+
+def assert_uniques(*objects: object) -> None:
+    ids = [id(obj) for obj in objects]
+    assert len(ids) == len(set(ids)), "Not all objects are unique instances"

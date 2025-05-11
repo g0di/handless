@@ -5,9 +5,9 @@ from handless.exceptions import RegistrationNotFoundError
 from tests.helpers import FakeService
 
 
-def test_create_scope_returns_a_new_scoped_container(sut: Container) -> None:
-    scope1 = sut.create_scope()
-    scope2 = sut.create_scope()
+def test_create_scope_returns_a_new_scoped_container(container: Container) -> None:
+    scope1 = container.create_scope()
+    scope2 = container.create_scope()
 
     assert isinstance(scope1, Scope)
     assert isinstance(scope2, Scope)

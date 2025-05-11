@@ -49,8 +49,8 @@ test = ["pytest>=8.3.4", "pytest-cov>=6.0.0", "pytest-mock>=3.14.0"]
 
 [tool.mypy]
 files = ["src", "tests"]
-exclude = "src/handless/registry"
 strict = true
+
 
 [tool.ruff]
 src = ["src", "tests"]

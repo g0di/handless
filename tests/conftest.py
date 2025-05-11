@@ -18,12 +18,12 @@ def registry(request: pytest.FixtureRequest) -> Registry:
 
 
 @pytest.fixture
-def sut(registry: Registry) -> Iterator[Container]:
+def container(registry: Registry) -> Iterator[Container]:
     with Container(registry) as container:
         yield container
 
 
 @pytest.fixture
-def scope(sut: Container) -> Iterator[Scope]:
-    with sut.create_scope() as scope:
+def scope(container: Container) -> Iterator[Scope]:
+    with container.create_scope() as scope:
         yield scope

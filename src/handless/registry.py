@@ -42,6 +42,11 @@ class Registry:
     def __contains__(self, key: object) -> bool:
         return key in self._registrations
 
+    def __eq__(self, value: object) -> bool:
+        return (
+            isinstance(value, Registry) and self._registrations == value._registrations
+        )
+
     def lookup(self, key: type[_T]) -> Binding[_T]:
         if key not in self:
             if not self._autobind:
@@ -61,21 +66,21 @@ class Registry:
         return self
 
     @overload
-    def factory(self, factory: _U) -> _U: ...
+    def provider(self, factory: _U) -> _U: ...
 
     @overload
-    def factory(
+    def provider(
         self, *, enter: bool = ..., lifetime: LifetimeLiteral = ...
     ) -> Callable[[_U], _U]: ...
 
-    def factory(
+    def provider(
         self,
         factory: _U | None = None,
         *,
         enter: bool = True,
         lifetime: LifetimeLiteral = "transient",
     ) -> Any:
-        """Register decorated function as factory provider for its return type annotation.
+        """Register decorated function as a provider for its return type annotation.
 
         :param factory: The decorated factory function, defaults to None
         :param lifetime: The factory lifetime, defaults to "transient"
@@ -89,7 +94,7 @@ class Registry:
             if not rettype:
                 msg = f"{factory} has no return type annotation"
                 raise TypeError(msg)
-            self.bind(rettype).to_factory(factory, lifetime=lifetime, enter=enter)
+            self.bind(rettype).to_provider(factory, lifetime=lifetime, enter=enter)
             # NOTE: return decorated func untouched to ease reuse
             return factory
 
