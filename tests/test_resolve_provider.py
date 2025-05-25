@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import TypedDict
 from unittest.mock import Mock, call
 
@@ -7,6 +8,7 @@ from handless import Container, LifetimeLiteral, Registry, Scope
 from tests.helpers import (
     FakeService,
     FakeServiceWithParams,
+    FakeServiceWithUntypedParams,
     fake_service_factory_with_params,
     fake_service_factory_with_untyped_params,
 )
@@ -17,14 +19,18 @@ class ProviderBindingOptions(TypedDict, total=False):
     lifetime: LifetimeLiteral
 
 
-def test_can_not_bind_type_with_untyped_parameters_to_self(registry: Registry) -> None:
+@pytest.mark.parametrize(
+    "untyped_provider",
+    [fake_service_factory_with_untyped_params, FakeServiceWithUntypedParams],
+)
+def test_can_not_bind_to_untyped_provider(
+    registry: Registry, untyped_provider: Callable[..., FakeServiceWithParams]
+) -> None:
     with pytest.raises(TypeError):
-        registry.bind(FakeServiceWithParams).to_provider(
-            fake_service_factory_with_untyped_params
-        )
+        registry.bind(FakeServiceWithParams).to_provider(untyped_provider)
 
 
-def test_resolve_provider_binding_calls_provider_and_returns_created_instance(
+def test_resolve_provider_binding_calls_provider_and_returns_its_result(
     registry: Registry, container: Container
 ) -> None:
     provider = Mock(return_value=(expected := FakeService()))
@@ -60,8 +66,19 @@ def test_resolve_provider_binding_not_enter_context_manager_when_enter_is_false(
     assert not resolved.entered
 
 
+def test_resolve_provider_binding_not_enter_non_context_manager_objects(
+    registry: Registry, container: Container
+) -> None:
+    registry.bind(object).to_provider(lambda: object(), enter=True)
+
+    try:
+        container.get(object)
+    except AttributeError:
+        pytest.fail(reason="Should not try to enter non context manager object")
+
+
 # test resolve self calls constructor, and not enters context manager if enter is false
-def test_resolve_provide_binding_resolve_parameters_first(
+def test_resolve_provider_binding_resolve_parameters_first(
     registry: Registry, container: Container
 ) -> None:
     registry.bind(int).to_value(42)
@@ -98,7 +115,7 @@ class TestResolveTransientProviderBinding:
     def scope_resolved(self, scope: Scope) -> FakeService:
         return scope.get(FakeService)
 
-    def test_creates_a_new_instance_on_each_resolve(
+    def test_returns_provider_result_on_each_resolve(
         self, resolved: FakeService, container: Container, provider: Mock
     ) -> None:
         received = container.get(FakeService)
@@ -106,7 +123,7 @@ class TestResolveTransientProviderBinding:
         assert received is not resolved
         provider.assert_has_calls([call(), call()])
 
-    def test_creates_a_new_instance_for_another_container(
+    def test_returns_provider_result_for_another_container(
         self, resolved: FakeService, registry: Registry, provider: Mock
     ) -> None:
         container2 = Container(registry)
@@ -115,13 +132,13 @@ class TestResolveTransientProviderBinding:
         assert received is not resolved
         provider.assert_has_calls([call(), call()])
 
-    def test_creates_a_new_instance_for_a_scope(
+    def test_returns_provider_result_for_a_scope(
         self, resolved: FakeService, scope_resolved: FakeService, provider: Mock
     ) -> None:
         assert resolved is not scope_resolved
         provider.assert_has_calls([call(), call()])
 
-    def test_creates_a_new_instance_for_each_resolve_in_a_scope(
+    def test_returns_provider_result_for_each_resolve_in_a_scope(
         self, scope_resolved: FakeService, scope: Scope, provider: Mock
     ) -> None:
         scope_resolved2 = scope.get(FakeService)
@@ -147,7 +164,7 @@ class TestResolveSingletonProviderBinding:
     def scope_resolved(self, scope: Scope) -> FakeService:
         return scope.get(FakeService)
 
-    def test_reuse_cached_provider_return_value_on_successive_resolve(
+    def test_returns_cached_provider_result_on_successive_resolve(
         self, resolved: FakeService, container: Container, provider: Mock
     ) -> None:
         received = container.get(FakeService)
@@ -155,7 +172,7 @@ class TestResolveSingletonProviderBinding:
         assert received is resolved
         provider.assert_called_once_with()
 
-    def test_cache_provider_return_value_per_container(
+    def test_returns_cached_provider_result_per_container(
         self, resolved: FakeService, registry: Registry, provider: Mock
     ) -> None:
         container2 = Container(registry)
@@ -164,13 +181,13 @@ class TestResolveSingletonProviderBinding:
         assert received is not resolved
         provider.assert_has_calls([call(), call()])
 
-    def test_reuse_cached_provider_return_value_on_scope(
+    def test_returns_cached_provider_result_on_scope(
         self, resolved: FakeService, scope_resolved: FakeService, provider: Mock
     ) -> None:
         assert resolved is scope_resolved
         provider.assert_called_once_with()
 
-    def test_reuse_cached_provider_return_value_on_scope_successive_resolve(
+    def test_returns_cached_provider_result_on_scope_successive_resolve(
         self, scope_resolved: FakeService, scope: Scope, provider: Mock
     ) -> None:
         scope_resolved2 = scope.get(FakeService)
@@ -196,7 +213,7 @@ class TestResolveScopedSelfBinding:
     def scope_resolved(self, scope: Scope) -> FakeService:
         return scope.get(FakeService)
 
-    def test_reuse_cached_provider_return_value_on_successive_resolve(
+    def test_returns_cached_provider_result_on_successive_resolve(
         self, resolved: FakeService, container: Container, provider: Mock
     ) -> None:
         received = container.get(FakeService)
@@ -204,7 +221,7 @@ class TestResolveScopedSelfBinding:
         assert received is resolved
         provider.assert_called_once_with()
 
-    def test_cache_provider_return_value_per_container(
+    def test_returns_cached_provider_result_per_container(
         self, resolved: FakeService, registry: Registry, provider: Mock
     ) -> None:
         container2 = Container(registry)
@@ -213,13 +230,13 @@ class TestResolveScopedSelfBinding:
         assert received is not resolved
         provider.assert_has_calls([call(), call()])
 
-    def test_cache_provider_return_value_per_scope(
+    def test_returns_cached_provider_result_per_scope(
         self, resolved: FakeService, scope_resolved: FakeService, provider: Mock
     ) -> None:
         assert resolved is not scope_resolved
         provider.assert_has_calls([call(), call()])
 
-    def test_reuse_cached_provider_return_value_on_scope_successive_resolve(
+    def test_returns_cached_provider_result_on_scope_successive_resolve(
         self, scope_resolved: FakeService, scope: Scope, provider: Mock
     ) -> None:
         scope_resolved2 = scope.get(FakeService)

@@ -54,6 +54,17 @@ def test_resolve_self_binding_not_enter_context_manager_when_enter_is_false(
     assert not resolved.entered
 
 
+def test_resolve_self_binding_not_enter_non_context_manager_objects(
+    registry: Registry, container: Container
+) -> None:
+    registry.bind(object).to_self(enter=True)
+
+    try:
+        container.get(FakeService)
+    except AttributeError:
+        pytest.fail(reason="Should not try to enter non context manager object")
+
+
 # test resolve self calls constructor, and not enters context manager if enter is false
 def test_resolve_self_binding_resolve_type_parameters_first(
     registry: Registry, container: Container

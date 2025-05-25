@@ -47,6 +47,9 @@ class Registry:
             isinstance(value, Registry) and self._registrations == value._registrations
         )
 
+    def __repr__(self) -> str:
+        return f"Registry(registrations={self._registrations})"
+
     def lookup(self, key: type[_T]) -> Binding[_T]:
         if key not in self:
             if not self._autobind:

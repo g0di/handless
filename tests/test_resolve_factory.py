@@ -1,325 +1,265 @@
-from collections.abc import Callable, Iterator
-from contextlib import nullcontext
 from typing import TypedDict
+from unittest.mock import Mock, call
 
 import pytest
 
 from handless import Container, LifetimeLiteral, Registry, Scope
-from tests.helpers import (
-    FakeContextManager,
-    FakeService,
-    FakeServiceWithParams,
-    IFakeService,
-    UntypedService,
-    fake_service_factory_with_params,
-    untyped_function,
-    untyped_lambda,
-)
+from tests.helpers import FakeService
 
 
-class FactoryOptions(TypedDict, total=False):
+class FactoryBindingOptions(TypedDict, total=False):
     enter: bool
     lifetime: LifetimeLiteral
 
 
-@pytest.mark.parametrize(
-    "untyped_callable", [untyped_function, untyped_lambda, UntypedService]
-)
-def test_register_factory_raise_an_error_for_untyped_callable(
-    registry: Registry, untyped_callable: Callable[..., object]
+def test_resolve_factory_binding_calls_factory_and_returns_its_result(
+    registry: Registry, container: Container
 ) -> None:
-    with pytest.raises(TypeError):
-        registry.bind(object).to_provider(untyped_callable)
+    expected = FakeService()
+    factory = Mock(wraps=lambda _: expected)
+    registry.bind(FakeService).to_factory(factory)
+
+    resolved = container.get(FakeService)
+
+    assert resolved is expected
+    factory.assert_called_once_with(container)
 
 
-class TestResolveFactory:
-    @pytest.mark.parametrize(
-        "factory", [FakeService, lambda: FakeService()], ids=["Type", "Function"]
+@pytest.mark.parametrize(
+    "options", [FactoryBindingOptions(), FactoryBindingOptions(enter=True)]
+)
+def test_resolve_factory_binding_enters_context_manager(
+    registry: Registry, container: Container, options: FactoryBindingOptions
+) -> None:
+    registry.bind(FakeService).to_factory(lambda _: FakeService(), **options)
+
+    resolved = container.get(FakeService)
+
+    assert resolved.entered
+    assert not resolved.exited
+
+
+def test_resolve_factory_binding_not_enter_context_manager_when_enter_is_false(
+    registry: Registry, container: Container
+) -> None:
+    registry.bind(FakeService).to_factory(lambda _: FakeService(), enter=False)
+
+    resolved = container.get(FakeService)
+
+    assert not resolved.entered
+
+
+def test_resolve_factory_binding_not_enter_non_context_manager_objects(
+    registry: Registry, container: Container
+) -> None:
+    registry.bind(object).to_factory(lambda _: object(), enter=True)
+
+    try:
+        container.get(object)
+    except AttributeError:
+        pytest.fail(reason="Should not try to enter non context manager object")
+
+
+# test resolve self calls constructor, and not enters context manager if enter is false
+def test_resolve_factory_binding_inject_current_container_as_first_parameter(
+    registry: Registry, container: Container
+) -> None:
+    registry.bind(int).to_value(42)
+    registry.bind(str).to_factory(lambda c: f"Foo!{c.get(int)}")
+
+    resolved = container.get(str)
+
+    assert resolved == "Foo!42"
+
+
+class TestResolveTransientFactoryBinding:
+    @pytest.fixture
+    def factory(self) -> Mock:
+        return Mock(wraps=lambda _: FakeService())
+
+    @pytest.fixture(
+        autouse=True,
+        params=[FactoryBindingOptions(), FactoryBindingOptions(lifetime="transient")],
     )
-    def test_resolve_factory_calls_and_returns_factory_result(
+    def resolved(
         self,
+        request: pytest.FixtureRequest,
         registry: Registry,
         container: Container,
-        factory: Callable[..., FakeService],
+        factory: Mock,
+    ) -> FakeService:
+        registry.bind(FakeService).to_factory(factory, **request.param)
+
+        return container.get(FakeService)
+
+    @pytest.fixture
+    def scope_resolved(self, scope: Scope) -> FakeService:
+        return scope.get(FakeService)
+
+    def test_returns_factory_result_on_each_resolve(
+        self, resolved: FakeService, container: Container, factory: Mock
     ) -> None:
-        registry.bind(IFakeService).to_provider(factory)  # type: ignore[type-abstract]
+        received = container.get(FakeService)
 
-        resolved = container.get(IFakeService)  # type: ignore[type-abstract]
+        assert received is not resolved
+        factory.assert_has_calls([call(container), call(container)])
 
-        assert isinstance(resolved, FakeService)
-
-    @pytest.mark.parametrize(
-        "factory",
-        [FakeServiceWithParams, fake_service_factory_with_params],
-        ids=["Type", "Function"],
-    )
-    def test_resolve_factory_with_params_resolve_its_params_before_calling_the_factory(
+    def test_returns_factory_result_for_another_container(
         self,
+        resolved: FakeService,
         registry: Registry,
+        factory: Mock,
         container: Container,
-        factory: Callable[..., FakeServiceWithParams],
     ) -> None:
-        registry.bind(str).to_value("Hello World!")
-        registry.bind(int).to_value(42)
-        registry.bind(FakeServiceWithParams).to_provider(factory)
+        container2 = Container(registry)
+        received = container2.get(FakeService)
 
-        received = container.get(FakeServiceWithParams)
+        assert received is not resolved
+        factory.assert_has_calls([call(container), call(container2)])
 
-        assert received == FakeServiceWithParams("Hello World!", 42)
-
-
-class TestResolveFactoryContextManager:
-    def test_resolve_factory_enters_and_returns_context_manager_enter_result(
-        self, registry: Registry, container: Container
+    def test_returns_factory_result_for_a_scope(
+        self,
+        resolved: FakeService,
+        scope: Scope,
+        scope_resolved: FakeService,
+        factory: Mock,
+        container: Container,
     ) -> None:
-        cm = FakeContextManager(FakeService())
-        registry.bind(FakeService).to_provider(lambda: cm)
+        assert resolved is not scope_resolved
+        factory.assert_has_calls([call(container), call(scope)])
 
-        received = container.get(FakeService)
-
-        assert received is cm.enter_result
-        assert cm.entered
-        assert not cm.exited
-
-    def test_resolve_factory_wraps_generators_as_context_manager(
-        self, registry: Registry, container: Container
+    def test_returns_factory_result_for_each_resolve_in_a_scope(
+        self,
+        scope_resolved: FakeService,
+        scope: Scope,
+        factory: Mock,
+        container: Container,
     ) -> None:
-        expected = FakeService()
+        scope_resolved2 = scope.get(FakeService)
 
-        def fake_service_generator() -> Iterator[FakeService]:
-            yield expected
-
-        registry.bind(FakeService).to_provider(fake_service_generator)
-
-        received = container.get(FakeService)
-
-        assert received is expected
-
-    def test_register_factory_not_enter_context_manager_if_enter_is_false(
-        self, registry: Registry, container: Container
-    ) -> None:
-        registry.bind(FakeService).to_provider(lambda: FakeService(), enter=False)
-
-        received = container.get(FakeService)
-
-        assert not received.entered
-        assert not received.exited
-
-    def test_register_factory_with_context_manager_not_being_instance_of_registered_type_disallow_enter_to_be_false(
-        self, registry: Registry
-    ) -> None:
-        # This test just ensure type checking
-        registry.bind(str).to_provider(
-            lambda: nullcontext("Hello World!"),  # type: ignore[arg-type, return-value]
-            enter=False,
-        )
+        assert scope_resolved2 is not scope_resolved
+        factory.assert_has_calls([call(container), call(scope), call(scope)])
 
 
-class TestResolveTransientFactory:
-    @pytest.fixture(autouse=True, name="resolved")
-    def resolve_transient_factory(
-        self, registry: Registry, container: Container
+class TestResolveSingletonFactoryBinding:
+    @pytest.fixture
+    def factory(self) -> Mock:
+        return Mock(wraps=lambda _: FakeService())
+
+    @pytest.fixture(autouse=True)
+    def resolved(
+        self, registry: Registry, container: Container, factory: Mock
     ) -> FakeService:
-        registry.bind(FakeService).to_provider(
-            lambda: FakeService(), lifetime="transient"
-        )
+        registry.bind(FakeService).to_factory(factory, lifetime="singleton")
 
         return container.get(FakeService)
 
-    def test_resolve_always_calls_and_returns_factory_result(
-        self, container: Container, resolved: FakeService
+    @pytest.fixture
+    def scope_resolved(self, scope: Scope) -> FakeService:
+        return scope.get(FakeService)
+
+    def test_returns_cached_factory_result_on_successive_resolve(
+        self, resolved: FakeService, container: Container, factory: Mock
     ) -> None:
-        another = container.get(FakeService)
+        received = container.get(FakeService)
 
-        assert another is not resolved
-        assert another.entered
-        assert not another.exited
+        assert received is resolved
+        factory.assert_called_once_with(container)
 
-    def test_scope_resolve_always_calls_and_returns_factory_result(
-        self, scope: Scope, resolved: FakeService
+    def test_returns_cached_factory_result_per_container(
+        self,
+        resolved: FakeService,
+        registry: Registry,
+        factory: Mock,
+        container: Container,
     ) -> None:
-        another1 = scope.get(FakeService)
-        another2 = scope.get(FakeService)
+        container2 = Container(registry)
+        received = container2.get(FakeService)
 
-        assert another1 is not resolved
-        assert another2 is not resolved
-        assert another1.entered
-        assert another2.entered
-        assert not another1.exited
-        assert not another2.exited
+        assert received is not resolved
+        factory.assert_has_calls([call(container), call(container2)])
 
-    def test_container_close_exits_transient_context_managers(
-        self, container: Container, resolved: FakeService
+    def test_returns_cached_factory_result_on_scope(
+        self,
+        resolved: FakeService,
+        scope_resolved: FakeService,
+        factory: Mock,
+        container: Container,
     ) -> None:
-        another = container.get(FakeService)
+        assert resolved is scope_resolved
+        factory.assert_called_once_with(container)
 
-        container.close()
-
-        assert another.exited
-        assert resolved.exited
-
-    def test_scope_close_exits_transient_context_managers(self, scope: Scope) -> None:
-        another1 = scope.get(FakeService)
-        another2 = scope.get(FakeService)
-
-        scope.close()
-
-        assert another1.exited
-        assert another2.exited
-
-    def test_scope_close_not_exit_container_transient_context_managers(
-        self, scope: Scope, resolved: FakeService
+    def test_returns_cached_factory_result_on_scope_successive_resolve(
+        self,
+        scope_resolved: FakeService,
+        scope: Scope,
+        factory: Mock,
+        container: Container,
     ) -> None:
-        scope.close()
+        scope_resolved2 = scope.get(FakeService)
 
-        assert not resolved.exited
+        assert scope_resolved2 is scope_resolved
+        factory.assert_called_once_with(container)
 
 
-class TestResolveSingletonFactory:
-    @pytest.fixture(autouse=True, name="resolved")
-    def resolve_singleton_factory(
-        self, registry: Registry, container: Container
+class TestResolveScopedSelfBinding:
+    @pytest.fixture
+    def factory(self) -> Mock:
+        return Mock(wraps=lambda _: FakeService())
+
+    @pytest.fixture(autouse=True)
+    def resolved(
+        self, registry: Registry, container: Container, factory: Mock
     ) -> FakeService:
-        registry.bind(FakeService).to_provider(
-            lambda: FakeService(), lifetime="singleton"
-        )
+        registry.bind(FakeService).to_factory(factory, lifetime="scoped")
 
         return container.get(FakeService)
 
-    def test_next_resolve_returns_cached_factory_result(
-        self, container: Container, resolved: FakeService
+    @pytest.fixture
+    def scope_resolved(self, scope: Scope) -> FakeService:
+        return scope.get(FakeService)
+
+    def test_returns_cached_factory_result_on_successive_resolve(
+        self, resolved: FakeService, container: Container, factory: Mock
     ) -> None:
-        another = container.get(FakeService)
+        received = container.get(FakeService)
 
-        assert another is resolved
+        assert received is resolved
+        factory.assert_called_once_with(container)
 
-    def test_next_resolve_not_reenter_cached_context_manager(
-        self, container: Container, resolved: FakeService
+    def test_returns_cached_factory_result_per_container(
+        self,
+        resolved: FakeService,
+        registry: Registry,
+        factory: Mock,
+        container: Container,
     ) -> None:
-        container.get(FakeService)
+        container2 = Container(registry)
+        received = container2.get(FakeService)
 
-        assert not resolved.reentered
+        assert received is not resolved
+        factory.assert_has_calls([call(container), call(container2)])
 
-    def test_next_resolve_not_exit_cached_context_manager(
-        self, container: Container, resolved: FakeService
+    def test_returns_cached_factory_result_per_scope(
+        self,
+        resolved: FakeService,
+        scope_resolved: FakeService,
+        factory: Mock,
+        container: Container,
+        scope: Scope,
     ) -> None:
-        container.get(FakeService)
+        assert resolved is not scope_resolved
+        factory.assert_has_calls([call(container), call(scope)])
 
-        assert not resolved.exited
-
-    def test_scope_resolve_returns_container_cached_factory_result(
-        self, scope: Scope, resolved: FakeService
+    def test_returns_cached_factory_result_on_scope_successive_resolve(
+        self,
+        scope_resolved: FakeService,
+        scope: Scope,
+        factory: Mock,
+        container: Container,
     ) -> None:
-        another = scope.get(FakeService)
+        scope_resolved2 = scope.get(FakeService)
 
-        assert another is resolved
-
-    def test_close_container_exits_cached_factory_result_context_manager(
-        self, container: Container, resolved: FakeService
-    ) -> None:
-        container.close()
-
-        assert resolved.exited
-
-    def test_close_container_clear_cached_factory_result(
-        self, container: Container, resolved: FakeService
-    ) -> None:
-        container.close()
-
-        assert container.get(FakeService) is not resolved
-
-    def test_close_scope_not_exit_cached_factory_result_context_manager(
-        self, scope: Scope, resolved: FakeService
-    ) -> None:
-        scope.close()
-
-        assert not resolved.exited
-
-    def test_close_scope_not_clear_cached_factory_result_context_manager(
-        self, scope: Scope, resolved: FakeService
-    ) -> None:
-        scope.close()
-
-        assert scope.get(FakeService) is resolved
-
-
-class TestResolveScopedFactory:
-    @pytest.fixture(autouse=True, name="resolved")
-    def resolve_scoped_factory(
-        self, registry: Registry, container: Container
-    ) -> FakeService:
-        registry.bind(FakeService).to_provider(lambda: FakeService(), lifetime="scoped")
-
-        return container.get(FakeService)
-
-    def test_next_resolve_returns_own_cached_factory_result(
-        self, container: Container, resolved: FakeService
-    ) -> None:
-        another = container.get(FakeService)
-
-        assert another is resolved
-
-    def test_next_resolve_not_reenter_own_cached_factory_result_context_manager(
-        self, container: Container, resolved: FakeService
-    ) -> None:
-        container.get(FakeService)
-
-        assert not resolved.reentered
-
-    def test_next_resolve_not_exit_own_cached_factory_result_context_manager(
-        self, container: Container, resolved: FakeService
-    ) -> None:
-        container.get(FakeService)
-
-        assert not resolved.exited
-
-    def test_scope_resolve_calls_cache_and_returns_own_factory_result(
-        self, scope: Scope, resolved: FakeService
-    ) -> None:
-        another1 = scope.get(FakeService)
-        another2 = scope.get(FakeService)
-
-        assert another1 is not resolved
-        assert another1 is another2
-        assert another1.entered
-        assert not another1.exited
-        assert not another1.reentered
-
-    def test_close_container_exits_own_cached_factory_result_context_manager(
-        self, container: Container, resolved: FakeService
-    ) -> None:
-        container.close()
-
-        assert resolved.exited
-
-    def test_close_container_clear_own_cached_factory_result(
-        self, container: Container, resolved: FakeService
-    ) -> None:
-        container.close()
-
-        assert container.get(FakeService) is not resolved
-
-    def test_close_scope_exits_own_cached_factory_result_context_manager(
-        self, scope: Scope
-    ) -> None:
-        scoped = scope.get(FakeService)
-
-        scope.close()
-
-        assert scoped.exited
-
-    def test_close_scope_clear_own_cached_factory_result(
-        self, scope: Container
-    ) -> None:
-        scoped = scope.get(FakeService)
-
-        scope.close()
-
-        assert scope.get(FakeService) is not scoped
-
-    def test_close_scope_not_exit_others_scoped_context_manager(
-        self, scope: Scope, resolved: FakeService
-    ) -> None:
-        scope.close()
-
-        assert not resolved.exited
+        assert scope_resolved2 is scope_resolved
+        # One call on the container itself on fixture, and another one for the scope
+        factory.assert_has_calls([call(container), call(scope)])

@@ -4,9 +4,6 @@ This document contains all the ideas I've got for new features or changes to be 
 
 ## TOP PRIORITY
 
-- simplify container resolve tests to simply use a Binding object directly rather than testing all possible registrations
-- Make Binding object public
-- find better names for to_lambda and to_factory (maybe swap to_lambda to to_factory and to_lambda to to_provider)
 - maybe rollback to registry.register(...).factory() API and container.resolve() rather than get.
 - find better way to manage scopes/lifetimes
 - add tests for covering uncovered code

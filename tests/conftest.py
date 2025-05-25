@@ -5,6 +5,8 @@ import pytest
 
 from handless import Container, Registry, Scope
 
+pytest.register_assert_rewrite("tests.helpers")
+
 
 @pytest.fixture
 def registry(request: pytest.FixtureRequest) -> Registry:

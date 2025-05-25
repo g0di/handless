@@ -17,58 +17,6 @@ from tests.helpers import (
 )
 
 
-def test_bind_to_self_is_shorthand_for_provider() -> None:
-    received_registry = Registry()
-    expected_registry = Registry()
-
-    received_registry.bind(FakeService).to_self()
-    expected_registry.bind(FakeService).to_provider(FakeService)
-
-    assert received_registry == expected_registry
-
-
-def test_bind_to_value_is_shorthand_for_provider() -> None:
-    received_registry = Registry()
-    expected_registry = Registry()
-    value = FakeService()
-
-    received_registry.bind(FakeService).to_value(value)
-    expected_registry.bind(FakeService).to_provider(
-        lambda: value, lifetime="singleton", enter=False
-    )
-
-    assert received_registry == expected_registry
-
-
-def test_bind_to_alias_is_shorthand_for_provider() -> None:
-    received_registry = Registry()
-    expected_registry = Registry()
-
-    received_registry.bind(IFakeService).to(FakeService)  # type: ignore[type-abstract]
-    expected_registry.bind(IFakeService).to_provider(  # type: ignore[type-abstract]
-        lambda alias: alias,
-        lifetime="transient",
-        enter=False,
-        params={"alias": FakeService},
-    )
-
-    assert received_registry == expected_registry
-
-
-def test_bind_to_factory_is_shorthand_for_provider() -> None:
-    received_registry = Registry()
-    expected_registry = Registry()
-
-    received_registry.bind(FakeServiceWithParams).to_factory(
-        lambda c: FakeServiceWithParams(c.get(str), c.get(int))
-    )
-    expected_registry.bind(FakeServiceWithParams).to_provider(
-        lambda c: FakeServiceWithParams(c.get(str), c.get(int)), params={"c": Container}
-    )
-
-    assert received_registry == expected_registry
-
-
 class TestBindToProvider:
     @pytest.mark.parametrize(
         "service_type", [IFakeService, FakeService, FakeServiceNewType]
@@ -158,10 +106,10 @@ class TestBindToFactory:
 
         assert registry.lookup(FakeService) == Binding(
             type_=FakeService,
-            provider=expected,
+            provider=lambda container: expected(container),
             enter=True,
             lifetime=Transient(),
-            dependencies={"_": Dependency(Container)},
+            dependencies={"container": Dependency(Container)},
         )
 
     @use_enter

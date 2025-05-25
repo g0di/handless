@@ -9,7 +9,6 @@ from handless._lifetimes import Lifetime, LifetimeLiteral
 from handless._lifetimes import parse as parse_lifetime
 from handless._utils import (
     compare_functions,
-    get_first_param_name,
     get_non_variadic_params,
     get_untyped_parameters,
 )
@@ -120,10 +119,12 @@ class Binder(Generic[_T]):
         enter: bool = True,
     ) -> Binding[_T]:
         return self.to_provider(
-            factory,
+            # NOTE: using a lambda here avoid issues where the given function is
+            # is wrapped and the actual parameter name does not match the wrapped one
+            lambda container: factory(container),
             enter=enter,
             lifetime=lifetime,
-            params={get_first_param_name(factory): Container},
+            params={"container": Container},
         )
 
     @overload
@@ -179,7 +180,9 @@ def get_dependencies(
     # NOTE: we omit variadic params because we don't know how to autowire them yet
     params = get_non_variadic_params(function)
     for pname, override_type in (overrides or {}).items():
-        params[pname] = params[pname].replace(annotation=override_type)
+        params[pname] = params.get(
+            pname, Parameter(pname, kind=Parameter.POSITIONAL_OR_KEYWORD)
+        ).replace(annotation=override_type)
 
     if empty_params := get_untyped_parameters(params):
         # NOTE: if some parameters are missing type annotation we cannot autowire

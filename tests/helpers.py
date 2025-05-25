@@ -3,7 +3,7 @@ from typing import NewType, Protocol
 
 import pytest
 
-from handless import Container
+from handless import Container, Registry
 from handless._lifetimes import Scoped, Singleton, Transient
 
 
@@ -180,3 +180,7 @@ class UntypedService:
 def assert_uniques(*objects: object) -> None:
     ids = [id(obj) for obj in objects]
     assert len(ids) == len(set(ids)), "Not all objects are unique instances"
+
+
+def assert_registry_equals(left: Registry, right: Registry) -> None:
+    assert left._registrations == right._registrations  # noqa: SLF001
