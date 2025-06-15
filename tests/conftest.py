@@ -1,31 +1,19 @@
 from collections.abc import Iterator
-from typing import cast
 
 import pytest
 
-from handless import Container, Registry, Scope
+from handless import Container, Scope
 
 pytest.register_assert_rewrite("tests.helpers")
 
 
 @pytest.fixture
-def registry(request: pytest.FixtureRequest) -> Registry:
-    registry_options_mark = cast(
-        "pytest.Mark | None", request.node.get_closest_marker("registry_options")
-    )
-    registry_options = (
-        registry_options_mark.kwargs if registry_options_mark is not None else {}
-    )
-    return Registry(**registry_options)
-
-
-@pytest.fixture
-def container(registry: Registry) -> Iterator[Container]:
-    with Container(registry) as container:
+def container() -> Iterator[Container]:
+    with Container() as container:
         yield container
 
 
 @pytest.fixture
 def scope(container: Container) -> Iterator[Scope]:
-    with container.create_scope() as scope:
-        yield scope
+    with Scope(container) as scp:
+        yield scp

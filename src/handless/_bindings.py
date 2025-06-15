@@ -1,38 +1,37 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from inspect import Parameter, isgeneratorfunction
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeGuard, TypeVar, overload
 
-from handless._lifetimes import Lifetime, LifetimeLiteral
-from handless._lifetimes import parse as parse_lifetime
 from handless._utils import (
     compare_functions,
     get_non_variadic_params,
     get_untyped_parameters,
 )
-from handless.containers import Container
+from handless.lifetimes import Singleton, Transient
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Iterator
     from contextlib import AbstractContextManager
 
-    from handless.registry import Registry
+    from handless._registry import Registry
+    from handless.container import Scope
+    from handless.lifetimes import Lifetime
 
 _T = TypeVar("_T")
+Provider = Callable[["Scope"], _T]
+Factory = Provider[_T] | Callable[[], _T]
 
 
 @dataclass(slots=True)
 class Binding(Generic[_T]):
     type_: type[_T]
-    provider: Callable[..., _T | AbstractContextManager[_T]]
+    provider: Provider[_T | AbstractContextManager[_T]]
     enter: bool
     lifetime: Lifetime
-    dependencies: dict[str, Dependency] = field(default_factory=dict)
-
-    def resolve(self, container: Container) -> _T:
-        return self.lifetime.accept(container, self)
 
     def __eq__(self, value: object) -> bool:
         return (
@@ -41,22 +40,6 @@ class Binding(Generic[_T]):
             and compare_functions(self.provider, value.provider)
             and self.enter == value.enter
             and self.lifetime == value.lifetime
-            and self.dependencies == value.dependencies
-        )
-
-
-@dataclass(slots=True)
-class Dependency:
-    annotation: type[Any]
-    default: Any = ...
-    positional: bool = False
-
-    @classmethod
-    def from_parameter(cls, param: Parameter) -> Dependency:
-        return Dependency(
-            annotation=param.annotation,
-            default=param.default if param.default != Parameter.empty else ...,
-            positional=param.kind == Parameter.POSITIONAL_ONLY,
         )
 
 
@@ -65,112 +48,73 @@ class Binder(Generic[_T]):
         self._registry = registry
         self._type = type_
 
-    def to_self(
-        self, lifetime: LifetimeLiteral = "transient", *, enter: bool = True
-    ) -> Binding[_T]:
-        return self.to_provider(self._type, lifetime=lifetime, enter=enter)
-
-    def to(self, alias_type: type[_T]) -> Binding[_T]:
-        return self.to_provider(
-            lambda alias: alias,
-            lifetime="transient",
-            enter=False,
-            params={"alias": alias_type},
-        )
+    def alias(self, alias_type: type[_T]) -> None:
+        self.factory(lambda c: c.resolve(alias_type), lifetime=Transient(), enter=False)
 
     @overload
-    def to_value(self, value: _T, *, enter: bool = ...) -> Binding[_T]: ...
+    def value(self, value: _T, *, enter: bool = ...) -> None: ...
 
     # NOTE: following overload ensure enter is True when passing a context manager not being
     # an instance of _T
     @overload
-    def to_value(
+    def value(
         self, value: AbstractContextManager[_T], *, enter: Literal[True]
-    ) -> Binding[_T]: ...
+    ) -> None: ...
 
-    def to_value(self, value: Any, *, enter: bool = False) -> Binding[_T]:
-        return self.to_provider(lambda: value, lifetime="singleton", enter=enter)
+    def value(self, value: Any, *, enter: bool = False) -> None:
+        self.factory(lambda _: value, lifetime=Singleton(), enter=enter)
 
     @overload
-    def to_factory(
+    def factory(
         self,
-        factory: Callable[[Container], _T],
+        factory: Factory[_T],
         *,
-        lifetime: LifetimeLiteral = ...,
+        lifetime: Lifetime | None = ...,
         enter: bool = ...,
-    ) -> Binding[_T]: ...
+    ) -> None: ...
 
-    # NOTE:: Following overload ensure enter is not False when passing a callable returning
+    # NOTE:: Following overload ensure enter must not be False when passing a callable returning
     # context manager or an iterator not being an instance of _T
     @overload
-    def to_factory(
+    def factory(
         self,
-        factory: Callable[[Container], AbstractContextManager[_T]],
+        factory: Factory[Iterator[_T] | AbstractContextManager[_T]],
         *,
-        lifetime: LifetimeLiteral = ...,
+        lifetime: Lifetime | None = ...,
         enter: Literal[True] = ...,
-    ) -> Binding[_T]: ...
+    ) -> None: ...
 
-    def to_factory(
+    def factory(
         self,
-        factory: Callable[..., Any],
+        factory: Factory[Any],
         *,
-        lifetime: LifetimeLiteral = "transient",
+        lifetime: Lifetime | None = None,
         enter: bool = True,
-    ) -> Binding[_T]:
-        return self.to_provider(
-            # NOTE: using a lambda here avoid issues where the given function is
-            # is wrapped and the actual parameter name does not match the wrapped one
-            lambda container: factory(container),
-            enter=enter,
-            lifetime=lifetime,
-            params={"container": Container},
-        )
+    ) -> None:
+        if isgeneratorfunction(factory):
+            factory = contextmanager(factory)
 
-    @overload
-    def to_provider(
+        if _is_factory_a_provider(factory):
+            self._provider(factory, lifetime=lifetime, enter=enter)
+        else:
+            # If the given function is not taking any argument
+            self._provider(lambda _: factory(), lifetime=lifetime, enter=enter)  # type: ignore[call-arg]
+
+    def _provider(
         self,
-        provider: Callable[..., _T],
+        provider: Provider[_T],
         *,
-        lifetime: LifetimeLiteral = ...,
-        enter: bool = ...,
-        params: dict[str, type[Any]] | None = ...,
-    ) -> Binding[_T]: ...
-
-    # NOTE:: Following overload ensure enter is not False when passing a callable returning
-    # context manager or an iterator not being an instance of _T
-    @overload
-    def to_provider(
-        self,
-        provider: Callable[..., Iterator[_T] | AbstractContextManager[_T]],
-        *,
-        lifetime: LifetimeLiteral = ...,
-        enter: Literal[True] = ...,
-        params: dict[str, type[Any]] | None = ...,
-    ) -> Binding[_T]: ...
-
-    # Overloads ensures that passing an iterator or a context manager which is NOT
-    # an instance of _T requires enter=True
-
-    def to_provider(
-        self,
-        provider: Callable[..., Any],
-        *,
-        lifetime: LifetimeLiteral = "transient",
+        lifetime: Lifetime | None = None,
         enter: bool = True,
-        params: dict[str, type[Any]] | None = None,
-    ) -> Binding[_T]:
-        if isgeneratorfunction(provider):
-            provider = contextmanager(provider)
+    ) -> None:
         binding = Binding(
-            self._type,
-            provider,
-            lifetime=parse_lifetime(lifetime),
-            enter=enter,
-            dependencies=get_dependencies(provider, overrides=params),
+            self._type, provider, lifetime=lifetime or Transient(), enter=enter
         )
         self._registry.register(binding)
-        return binding
+
+
+def _is_factory_a_provider(func: Factory[_T]) -> TypeGuard[Provider[_T]]:
+    return bool(get_non_variadic_params(func))
 
 
 def get_dependencies(
@@ -190,3 +134,18 @@ def get_dependencies(
         raise TypeError(msg)
 
     return {pname: Dependency.from_parameter(param) for pname, param in params.items()}
+
+
+@dataclass(slots=True)
+class Dependency:
+    annotation: type[Any]
+    default: Any = ...
+    positional: bool = False
+
+    @classmethod
+    def from_parameter(cls, param: Parameter) -> Dependency:
+        return Dependency(
+            annotation=param.annotation,
+            default=param.default if param.default != Parameter.empty else ...,
+            positional=param.kind == Parameter.POSITIONAL_ONLY,
+        )

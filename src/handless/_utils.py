@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import inspect
+from functools import cache
 from inspect import Parameter, isgeneratorfunction
 from typing import TYPE_CHECKING, Any, NewType, TypeVar, cast, get_type_hints
+from unittest.mock import Mock
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,15 +33,20 @@ def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
     return cast("type[_T]", get_type_hints(func).get("return"))
 
 
+@cache
 def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Parameter]:
     """Return non variadic parameters of given callable mapped to their name.
 
     Non variadic parameters are all parameters except *args and **kwargs
     """
-    signature = inspect.signature(
-        callable_.__supertype__ if isinstance(callable_, NewType) else callable_,
-        eval_str=True,
+    callable_to_inspect = (
+        callable_.__supertype__
+        if isinstance(callable_, NewType)
+        else callable_._mock_wraps  # noqa: SLF001
+        if isinstance(callable_, Mock)
+        else callable_
     )
+    signature = inspect.signature(callable_to_inspect, eval_str=True)
     return {
         name: param
         for name, param in signature.parameters.items()

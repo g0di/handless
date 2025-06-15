@@ -1,6 +1,5 @@
 from handless._bindings import Binding
-from handless._lifetimes import LifetimeLiteral
-from handless.containers import Container, Scope
-from handless.registry import Registry
+from handless.container import Container, Scope
+from handless.lifetimes import Scoped, Singleton, Transient
 
-__all__ = ["Binding", "Container", "LifetimeLiteral", "Registry", "Scope"]
+__all__ = ["Binding", "Container", "Scope", "Scoped", "Singleton", "Transient"]

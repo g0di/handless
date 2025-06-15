@@ -5,7 +5,7 @@ class HandlessException(Exception):  # noqa: N818
     """Base exception for all handless errors."""
 
 
-class RegistrationNotFoundError(HandlessException):
+class BindingNotFoundError(HandlessException):
     """When there is no provider registered for a given type."""
 
     def __init__(self, type_: type[Any]) -> None:
@@ -19,6 +19,6 @@ class RegistrationAlreadyExistError(HandlessException):
         super().__init__(f"There is already a provider registered for {type_}")
 
 
-class ResolveError(HandlessException):
+class ResolutionError(HandlessException):
     def __init__(self, type_: type) -> None:
         super().__init__(f"An error happenned when resolving {type_}")
