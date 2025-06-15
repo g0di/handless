@@ -92,7 +92,7 @@ class TestResolveTypeBoundToTransientBinding:
     def test_calls_and_returns_binding_provider_result_on_different_scope(
         self, resolved: FakeService, container: Container, scope: Scope, provider: Mock
     ) -> None:
-        with Scope(container) as scope2:
+        with container.create_scope() as scope2:
             received = scope2.resolve(FakeService)
 
         assert received is not resolved

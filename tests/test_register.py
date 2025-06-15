@@ -40,6 +40,15 @@ class TestBindToProvider:
             FakeService, provider, enter=enter, lifetime=lifetime
         )
 
+    def test_bind_type_to_factory_without_arguments_wraps_it_as_a_provider(
+        self, container: Container
+    ) -> None:
+        container.register(FakeService).factory(provider := FakeService)
+
+        assert container.lookup(FakeService) == Binding(
+            FakeService, lambda _: provider(), enter=True, lifetime=Transient()
+        )
+
     def test_bind_type_to_generator_function_wraps_it_as_a_context_manager(
         self, container: Container
     ) -> None:
@@ -98,7 +107,7 @@ class TestBindToType:
 
 class TestBindToProviderDecorator:
     def test_provider_decorator(self, container: Container) -> None:
-        @container.provider
+        @container.factory
         def get_fake_service(_: Scope) -> FakeService:
             return FakeService()
 
@@ -109,7 +118,7 @@ class TestBindToProviderDecorator:
     def test_provider_decorator_with_generator_function(
         self, container: Container
     ) -> None:
-        @container.provider
+        @container.factory
         def get_fake_service(_: Scope) -> Iterator[FakeService]:
             yield FakeService()
 
@@ -123,7 +132,7 @@ class TestBindToProviderDecorator:
     def test_provider_decorator_with_context_manager_function(
         self, container: Container
     ) -> None:
-        @container.provider
+        @container.factory
         @contextmanager
         def get_fake_service(_: Scope) -> Iterator[FakeService]:
             yield FakeService()
@@ -137,7 +146,7 @@ class TestBindToProviderDecorator:
     def test_provider_decorator_with_options(
         self, container: Container, enter: bool, lifetime: Lifetime
     ) -> None:
-        @container.provider(lifetime=lifetime, enter=enter)
+        @container.factory(lifetime=lifetime, enter=enter)
         def get_fake_service(_: Scope) -> FakeService:
             return FakeService()
 

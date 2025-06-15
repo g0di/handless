@@ -49,6 +49,7 @@ class Binder(Generic[_T]):
         self._type = type_
 
     def alias(self, alias_type: type[_T]) -> None:
+        """Resolve the given type when resolving the registered one."""
         self.factory(lambda c: c.resolve(alias_type), lifetime=Transient(), enter=False)
 
     @overload
@@ -62,6 +63,7 @@ class Binder(Generic[_T]):
     ) -> None: ...
 
     def value(self, value: Any, *, enter: bool = False) -> None:
+        """Use given value when resolving the registered type."""
         self.factory(lambda _: value, lifetime=Singleton(), enter=enter)
 
     @overload
@@ -91,6 +93,11 @@ class Binder(Generic[_T]):
         lifetime: Lifetime | None = None,
         enter: bool = True,
     ) -> None:
+        """Use a function to produce an instance of registered type when resolved.
+
+        The function can eventually takes a single argument allowing to resolve nested
+        dependencies required to build this type.
+        """
         if isgeneratorfunction(factory):
             factory = contextmanager(factory)
 

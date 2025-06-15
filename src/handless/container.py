@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
+import weakref
 from collections.abc import Callable
-from contextlib import AbstractContextManager
 from inspect import isgeneratorfunction
 from typing import TYPE_CHECKING, Any, TypeVar, get_args, overload
 
@@ -10,6 +10,7 @@ from handless._bindings import Binder
 from handless._registry import Registry
 from handless._utils import get_return_type, iscontextmanager
 from handless.exceptions import BindingNotFoundError, ResolutionError
+from handless.lifetimes import Releasable
 
 if TYPE_CHECKING:
     from handless._bindings import Binding
@@ -18,34 +19,13 @@ if TYPE_CHECKING:
 
 _T = TypeVar("_T")
 _U = TypeVar("_U", bound=Callable[["Scope"], Any])
-CloseCallback = Callable[[], Any]
-
-
-class Releasable(AbstractContextManager[_T]):
-    """Supports release method and registering callbacks on release."""
-
-    def __init__(self) -> None:
-        self._on_release_callbacks: list[CloseCallback] = []
-
-    def __exit__(self, *args: object) -> None:
-        self.release()
-
-    def on_release(self, callback: CloseCallback) -> None:
-        self._on_release_callbacks.append(callback)
-
-    def release(self) -> None:
-        """Release cached instances and exit entered context managers.
-
-        Note that the object is still fully usable afterwards.
-        """
-        for cb in self._on_release_callbacks:
-            cb()
 
 
 class Container(Releasable["Container"]):
     def __init__(self) -> None:
         super().__init__()
         self._registry = Registry()
+        self._scopes = weakref.WeakSet[Scope]()
 
     def lookup(self, key: type[_T]) -> Binding[_T]:
         """Return binding registered for given type or raise a BindingNotFoundError."""
@@ -55,17 +35,18 @@ class Container(Releasable["Container"]):
         return binding
 
     def register(self, type_: type[_T]) -> Binder[_T]:
+        """Register given type and define its resolution at runtime."""
         return Binder(self._registry, type_)
 
     @overload
-    def provider(self, factory: _U) -> _U: ...
+    def factory(self, factory: _U) -> _U: ...
 
     @overload
-    def provider(
+    def factory(
         self, *, enter: bool = ..., lifetime: Lifetime = ...
     ) -> Callable[[_U], _U]: ...
 
-    def provider(
+    def factory(
         self,
         factory: _U | None = None,
         *,
@@ -95,15 +76,38 @@ class Container(Releasable["Container"]):
             return wrapper(factory)
         return wrapper
 
+    def release(self) -> None:
+        # TODO: create a test that ensure scopes are properly closed on container close
+        for scope in self._scopes:
+            scope.release()
+        return super().release()
+
+    def create_scope(self) -> Scope:
+        scope = Scope(self)
+        self._scopes.add(scope)
+        return scope
+
+
+# TODO: introduce a protocol defining only the resolve method that will be passed to
+# providers at resolution time to avoid users from consuming scope object methods at that time.
+
+# TODO: pass the Scope class as a private one and only expose its protocol to prevent
+# users from creating them by hand.
+
 
 class Scope(Releasable["Scope"]):
     def __init__(self, container: Container) -> None:
         super().__init__()
-        self.container = container
+        self._container = container
         self._registry = Registry()
         self._logger = logging.getLogger(__name__)
 
-        self.container.on_release(self.release)
+        # NOTE: If user creates the scope manually, we get his back covered
+        self._container._scopes.add(self)  # noqa: SLF001
+
+    @property
+    def container(self) -> Container:
+        return self._container
 
     def register_local(self, type_: type[_T]) -> Binder[_T]:
         return Binder(self._registry, type_)
@@ -120,4 +124,4 @@ class Scope(Releasable["Scope"]):
             return value
 
     def _lookup(self, type_: type[_T]) -> Binding[_T]:
-        return self._registry.get_binding(type_) or self.container.lookup(type_)
+        return self._registry.get_binding(type_) or self._container.lookup(type_)
