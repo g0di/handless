@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import warnings
 import weakref
 from collections.abc import Callable
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, ExitStack, suppress
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
-from handless.context import ResolutionContext
+from handless._bindings import Binding
+from handless.container import Scope
 
 if TYPE_CHECKING:
     from handless._bindings import Binding
@@ -21,10 +23,10 @@ class Lifetime(Protocol):
         """Resolve given binding within given scope."""
 
 
-# NOTE: we use dataclasses for lifetime to simplify equality comparisons.
+# NOTE: We use dataclasses for lifetime to simplify equality comparisons.
 
 
-@dataclass
+@dataclass(slots=True)
 class Transient(Lifetime):
     """Calls binding provider on each resolve."""
 
@@ -33,7 +35,7 @@ class Transient(Lifetime):
         return ctx.get_instance(binding, scope)
 
 
-@dataclass
+@dataclass(slots=True)
 class Scoped(Lifetime):
     """Calls binding provider on resolve once per scope."""
 
@@ -42,7 +44,7 @@ class Scoped(Lifetime):
         return ctx.get_cached_instance(binding, scope)
 
 
-@dataclass
+@dataclass(slots=True)
 class Singleton(Lifetime):
     """Calls binding provider on resolve once per container."""
 
@@ -52,6 +54,15 @@ class Singleton(Lifetime):
 
 
 ReleaseCallback = Callable[[], Any]
+_resolution_contexts = weakref.WeakKeyDictionary["Releasable[Any]", "LifetimeContext"]()
+
+
+def get_context_for(obj: Releasable[Any]) -> LifetimeContext:
+    """Get or create a lifetime context for given closable."""
+    if obj not in _resolution_contexts:
+        _resolution_contexts[obj] = ctx = LifetimeContext()
+        obj.on_release(ctx.release)
+    return _resolution_contexts[obj]
 
 
 class Releasable(AbstractContextManager[_T]):
@@ -75,12 +86,48 @@ class Releasable(AbstractContextManager[_T]):
             cb()
 
 
-_resolution_contexts = weakref.WeakKeyDictionary["Releasable[Any]", ResolutionContext]()
+class LifetimeContext:
+    """Holds cached resolved objects and their context managers."""
 
+    def __init__(self) -> None:
+        self._cache: dict[type[Any], Any] = {}
+        self._exit_stack = ExitStack()
 
-def get_context_for(obj: Releasable[Any]) -> ResolutionContext:
-    """Get or create a resolution context for given closable."""
-    if obj not in _resolution_contexts:
-        _resolution_contexts[obj] = ctx = ResolutionContext()
-        obj.on_release(ctx.close)
-    return _resolution_contexts[obj]
+    def release(self) -> None:
+        """Exit all entered context managers and clear cached values."""
+        self._exit_stack.close()
+        self._cache.clear()
+
+    def get_cached_instance(self, binding: Binding[_T], scope: Scope) -> _T:
+        if binding.type_ not in self._cache:
+            self._cache[binding.type_] = self.get_instance(binding, scope)
+        return cast("_T", self._cache[binding.type_])
+
+    def get_instance(self, binding: Binding[_T], scope: Scope) -> _T:
+        instance = binding.provider(scope)
+        if isinstance(instance, AbstractContextManager) and binding.enter:
+            instance = self._exit_stack.enter_context(instance)
+
+        with suppress(TypeError):
+            if not isinstance(instance, binding.type_):
+                warnings.warn(
+                    f"Container resolved {binding.type_} with {instance} which is not an instance of this type. "
+                    "This could lead to unexpected errors.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+        # NOTE: Normally type annotations should prevent having enter=False with instance
+        # not being an instance of resolved type. Still, at this point in code there
+        # is not way to enforce this so we just return the value anyway
+        return cast("_T", instance)
+
+    def __del__(self) -> None:
+        # NOTE: there is no other ways than using exist stack private attr to get
+        # the remaining number of callbacks
+        if self._exit_stack._exit_callbacks:  # type: ignore [attr-defined] # noqa: SLF001
+            warnings.warn(
+                "Lifetime context has been garbage-collected without releasing its resources."
+                " You may have forgot to call `.release()` on a scope or container",
+                ResourceWarning,
+                stacklevel=1,
+            )
