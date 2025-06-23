@@ -97,8 +97,8 @@ split-on-trailing-comma = false
 convention = "pep257"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = ["--no-cov", "--cov-report=term-missing"]
+testpaths = ["src", "tests"]
+addopts = ["--no-cov", "--cov-report=term-missing", "--doctest-modules"]
 
 [tool.coverage.run]
 branch = true

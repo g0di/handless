@@ -7,19 +7,16 @@ from contextlib import AbstractContextManager, ExitStack, suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
-from handless._bindings import Binding
-from handless.container import Scope
-
 if TYPE_CHECKING:
-    from handless._bindings import Binding
-    from handless.container import Scope
+    from handless._registry import Registration
+    from handless.container import ResolutionContext
 
 
 _T = TypeVar("_T")
 
 
 class Lifetime(Protocol):
-    def resolve(self, scope: Scope, binding: Binding[_T]) -> _T:
+    def resolve(self, scope: ResolutionContext, binding: Registration[_T]) -> _T:
         """Resolve given binding within given scope."""
 
 
@@ -28,27 +25,27 @@ class Lifetime(Protocol):
 
 @dataclass(slots=True)
 class Transient(Lifetime):
-    """Calls binding provider on each resolve."""
+    """Calls binding factory on each resolve."""
 
-    def resolve(self, scope: Scope, binding: Binding[_T]) -> _T:
+    def resolve(self, scope: ResolutionContext, binding: Registration[_T]) -> _T:
         ctx = get_context_for(scope)
         return ctx.get_instance(binding, scope)
 
 
 @dataclass(slots=True)
-class Scoped(Lifetime):
-    """Calls binding provider on resolve once per scope."""
+class Contextual(Lifetime):
+    """Calls binding factory on resolve once per context."""
 
-    def resolve(self, scope: Scope, binding: Binding[_T]) -> _T:
+    def resolve(self, scope: ResolutionContext, binding: Registration[_T]) -> _T:
         ctx = get_context_for(scope)
         return ctx.get_cached_instance(binding, scope)
 
 
 @dataclass(slots=True)
 class Singleton(Lifetime):
-    """Calls binding provider on resolve once per container."""
+    """Calls binding factory on resolve once per container."""
 
-    def resolve(self, scope: Scope, binding: Binding[_T]) -> _T:
+    def resolve(self, scope: ResolutionContext, binding: Registration[_T]) -> _T:
         ctx = get_context_for(scope.container)
         return ctx.get_cached_instance(binding, scope)
 
@@ -98,13 +95,15 @@ class LifetimeContext:
         self._exit_stack.close()
         self._cache.clear()
 
-    def get_cached_instance(self, binding: Binding[_T], scope: Scope) -> _T:
+    def get_cached_instance(
+        self, binding: Registration[_T], ctx: ResolutionContext
+    ) -> _T:
         if binding.type_ not in self._cache:
-            self._cache[binding.type_] = self.get_instance(binding, scope)
+            self._cache[binding.type_] = self.get_instance(binding, ctx)
         return cast("_T", self._cache[binding.type_])
 
-    def get_instance(self, binding: Binding[_T], scope: Scope) -> _T:
-        instance = binding.provider(scope)
+    def get_instance(self, binding: Registration[_T], ctx: ResolutionContext) -> _T:
+        instance = binding.provider(ctx)
         if isinstance(instance, AbstractContextManager) and binding.enter:
             instance = self._exit_stack.enter_context(instance)
 

@@ -1,5 +1,12 @@
-from handless._bindings import Binding
-from handless.container import Container, Scope
-from handless.lifetimes import Scoped, Singleton, Transient
+from handless._registry import Registration
+from handless.container import Container, ResolutionContext
+from handless.lifetimes import Contextual, Singleton, Transient
 
-__all__ = ["Binding", "Container", "Scope", "Scoped", "Singleton", "Transient"]
+__all__ = [
+    "Container",
+    "Contextual",
+    "Registration",
+    "ResolutionContext",
+    "Singleton",
+    "Transient",
+]

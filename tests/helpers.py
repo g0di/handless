@@ -2,7 +2,7 @@ from typing import NewType, Protocol
 
 import pytest
 
-from handless.lifetimes import Scoped, Singleton, Transient
+from handless.lifetimes import Contextual, Singleton, Transient
 
 
 class IFakeService(Protocol): ...
@@ -27,7 +27,7 @@ class FakeService(IFakeService):
 FakeServiceNewType = NewType("FakeServiceNewType", FakeService)
 
 use_lifetimes = pytest.mark.parametrize(
-    "lifetime", [Transient(), Scoped(), Singleton()]
+    "lifetime", [Transient(), Contextual(), Singleton()]
 )
 use_enter = pytest.mark.parametrize(
     "enter", [True, False], ids=["Enter CM", "Not enter CM"]

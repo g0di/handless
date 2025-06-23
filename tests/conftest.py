@@ -2,7 +2,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from handless import Container, Scope
+from handless import Container, ResolutionContext
 
 pytest.register_assert_rewrite("tests.helpers")
 
@@ -14,6 +14,6 @@ def container() -> Iterator[Container]:
 
 
 @pytest.fixture
-def scope(container: Container) -> Iterator[Scope]:
-    with Scope(container) as scp:
+def scope(container: Container) -> Iterator[ResolutionContext]:
+    with ResolutionContext(container) as scp:
         yield scp
