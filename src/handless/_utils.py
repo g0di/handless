@@ -12,22 +12,6 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
-def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
-    """List keys of given dict having `Parameter.empty` value."""
-    return [
-        pname for pname, param in params.items() if param.annotation is Parameter.empty
-    ]
-
-
-def get_first_param_name(func: Callable[..., Any]) -> str:
-    """Get the name of the first parameter of given function, if any, otherwise raise an error."""
-    try:
-        return next(iter(inspect.signature(func).parameters))
-    except StopIteration:
-        msg = "Given function has no parameters"
-        raise ValueError(msg) from None
-
-
 def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
     """Get return type of given function if specified or None."""
     return cast("type[_T]", get_type_hints(func).get("return"))
@@ -39,6 +23,8 @@ def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Paramete
 
     Non variadic parameters are all parameters except *args and **kwargs
     """
+    # NOTE: when receiving a mock or a new type we must inspect the signature of the
+    # wrapped object because inspect does not do it automatically
     callable_to_inspect = (
         callable_.__supertype__
         if isinstance(callable_, NewType)

@@ -2,30 +2,33 @@ from __future__ import annotations
 
 import logging
 import weakref
+from collections.abc import Callable
 from inspect import isgeneratorfunction
 from typing import TYPE_CHECKING, Any, TypeVar, get_args, overload
 
-from handless._registry import Factory, RegistrationBuilder, Registry
+from handless._registry import RegistrationBuilder, Registry
 from handless._utils import get_return_type, iscontextmanager
-from handless.exceptions import RegistrationNotFoundError, ResolutionError
+from handless.exceptions import (
+    RegistrationError,
+    RegistrationNotFoundError,
+    ResolutionError,
+)
 from handless.lifetimes import Releasable
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from handless._registry import Registration
     from handless.lifetimes import Lifetime
 
 
 _T = TypeVar("_T")
-_U = TypeVar("_U", bound=Factory[Any])
+_U = TypeVar("_U", bound=Callable[..., Any])
 
 
 class Container(Releasable["Container"]):
     """Create a new container.
 
     Containers hold registrations defining how to resolve registered types. It also cache
-    all singleton lifetime types. To resolve a type from a container you must a resolution
+    all singleton lifetime types. To resolve a type from a container you must open a resolution
     context. This is to prevent containers to keep transient lifetime types for its whole
     duration and ensures proper release of any resolved resources.
 
@@ -33,8 +36,13 @@ class Container(Releasable["Container"]):
     method, both does the same. The release function does not prevent to reuse the container
     it just clears all cached singleton and exits their context manager if entered.
 
+    You should release your container when your application stops.
+    You should open context anytime you need to resolve types and release it as soon as possible.
+    For example, in a HTTP API, you may open one context per request. For a message listener
+    you may open one per message handling. For a CLI you open a context per command received.
+
     >>> container = Container()
-    >>> container.register(str).use_value("Hello Container!")
+    >>> container.register(str).value("Hello Container!")
     >>> with container.open_context() as ctx:
     ...     value = ctx.resolve(str)
     ...     print(value)
@@ -93,9 +101,9 @@ class Container(Releasable["Container"]):
                 rettype = get_args(rettype)[0]
             if not rettype:
                 msg = f"{factory} has no return type annotation"
-                raise TypeError(msg)
+                raise RegistrationError(msg)
 
-            self.register(rettype).use_factory(factory, lifetime=lifetime, enter=enter)
+            self.register(rettype).factory(factory, lifetime=lifetime, enter=enter)
             # NOTE: return decorated func untouched to ease reuse
             return factory
 
@@ -118,7 +126,6 @@ class Container(Releasable["Container"]):
 
         Note that the container automatically releases all opened context on release as
         long as those context are still referenced (not garbage collected)
-
         """
         ctx = ResolutionContext(self)
         self._contexts.add(ctx)
@@ -157,6 +164,9 @@ class ResolutionContext(Releasable["ResolutionContext"]):
         The provider is looked up from this context local registry first then from its
         parent container if not found.
         """
+        if type_ is type(self):
+            return self
+
         binding = self._lookup(type_)
 
         try:

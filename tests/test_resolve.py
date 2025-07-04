@@ -5,152 +5,184 @@ import pytest
 
 from handless import Container, Contextual, ResolutionContext, Singleton, Transient
 from handless.lifetimes import Lifetime
-from tests.helpers import FakeService
+from tests.helpers import FakeService, FakeServiceWithParams
 
 
-class ProviderBindingOptions(TypedDict, total=False):
+class FactoryRegistrationOptions(TypedDict, total=False):
     enter: bool
     lifetime: Lifetime
 
 
-def test_resolve_type_calls_binding_provider_and_returns_its_result(
-    container: Container, scope: ResolutionContext
+def test_resolve_type_calls_registration_factory_and_returns_its_result(
+    container: Container, context: ResolutionContext
 ) -> None:
     expected = FakeService()
-    provider = Mock(wraps=lambda: expected)
-    container.register(FakeService).use_factory(provider)
+    factory = Mock(wraps=lambda: expected)
+    container.register(FakeService).factory(factory)
 
-    resolved = scope.resolve(FakeService)
+    resolved = context.resolve(FakeService)
 
     assert resolved is expected
-    provider.assert_called_once()
+    factory.assert_called_once()
+
+
+def test_resolve_type_calls_registration_factory_with_ctx_and_returns_its_result(
+    container: Container, context: ResolutionContext
+) -> None:
+    expected = FakeService()
+    factory = Mock(wraps=lambda ctx: expected)
+    container.register(FakeService).factory(factory)
+
+    resolved = context.resolve(FakeService)
+
+    assert resolved is expected
+    factory.assert_called_once_with(ctx=context)
+
+
+def test_resolve_type_calls_registration_factory_with_dependencies_and_returns_its_result(
+    container: Container, context: ResolutionContext
+) -> None:
+    factory = Mock(wraps=FakeServiceWithParams)
+    container.register(FakeService).factory(factory)
+    container.register(str).value("foo")
+    container.register(int).value(42)
+
+    resolved = context.resolve(FakeService)
+
+    assert isinstance(resolved, FakeServiceWithParams)
+    factory.assert_called_once_with(foo="foo", bar=42)
 
 
 @pytest.mark.parametrize(
-    "options", [ProviderBindingOptions(), ProviderBindingOptions(enter=True)]
+    "options", [FactoryRegistrationOptions(), FactoryRegistrationOptions(enter=True)]
 )
-def test_resolve_type_enters_context_manager_returned_by_binding_provider(
-    container: Container, scope: ResolutionContext, options: ProviderBindingOptions
+def test_resolve_type_enters_context_manager_returned_by_registration_factory(
+    container: Container,
+    context: ResolutionContext,
+    options: FactoryRegistrationOptions,
 ) -> None:
-    container.register(FakeService).use_factory(lambda _: FakeService(), **options)
+    container.register(FakeService).self(**options)
 
-    resolved = scope.resolve(FakeService)
+    resolved = context.resolve(FakeService)
 
     assert resolved.entered
     assert not resolved.exited
 
 
-def test_resolve_type_not_enter_context_manager_returned_by_binding_provider_when_enter_is_false(
-    container: Container, scope: ResolutionContext
+def test_resolve_type_not_enter_context_manager_returned_by_registration_factory_when_enter_is_false(
+    container: Container, context: ResolutionContext
 ) -> None:
-    container.register(FakeService).use_factory(lambda _: FakeService(), enter=False)
+    container.register(FakeService).self(enter=False)
 
-    resolved = scope.resolve(FakeService)
+    resolved = context.resolve(FakeService)
 
     assert not resolved.entered
 
 
-def test_resolve_type_not_enter_non_context_manager_object_returned_by_binding_provider(
-    container: Container, scope: ResolutionContext
+def test_resolve_type_not_enter_non_context_manager_object_returned_by_registration_factory(
+    container: Container, context: ResolutionContext
 ) -> None:
-    container.register(object).use_factory(lambda _: object(), enter=True)
+    container.register(object).self(enter=True)
 
     try:
-        scope.resolve(object)
+        context.resolve(object)
     except AttributeError:
         pytest.fail(reason="Should not try to enter non context manager object")
 
 
-class TestResolveTypeBoundToTransientBinding:
+class TestResolveTypeUsingTransientLifetime:
     @pytest.fixture
-    def provider(self) -> Mock:
+    def factory(self) -> Mock:
         return Mock(wraps=lambda _: FakeService())
 
     @pytest.fixture(
         autouse=True,
-        params=[ProviderBindingOptions(), ProviderBindingOptions(lifetime=Transient())],
+        params=[
+            FactoryRegistrationOptions(),
+            FactoryRegistrationOptions(lifetime=Transient()),
+        ],
     )
     def resolved(
         self,
         request: pytest.FixtureRequest,
         container: Container,
-        scope: ResolutionContext,
-        provider: Mock,
+        context: ResolutionContext,
+        factory: Mock,
     ) -> FakeService:
-        container.register(FakeService).use_factory(provider, **request.param)
+        container.register(FakeService).factory(factory, **request.param)
 
-        return scope.resolve(FakeService)
+        return context.resolve(FakeService)
 
-    def test_calls_and_returns_binding_provider_result_on_each_resolve(
-        self, resolved: FakeService, scope: ResolutionContext, provider: Mock
+    def test_calls_and_returns_registration_factory_result_on_each_resolve(
+        self, resolved: FakeService, context: ResolutionContext, factory: Mock
     ) -> None:
-        received = scope.resolve(FakeService)
+        received = context.resolve(FakeService)
 
         assert received is not resolved
-        provider.assert_has_calls([call(scope), call(scope)])
+        factory.assert_has_calls([call(_=context), call(_=context)])
 
-    def test_calls_and_returns_binding_provider_result_on_different_scope(
+    def test_calls_and_returns_registration_factory_result_on_different_context(
         self,
         resolved: FakeService,
         container: Container,
-        scope: ResolutionContext,
-        provider: Mock,
+        context: ResolutionContext,
+        factory: Mock,
     ) -> None:
-        with container.open_context() as scope2:
-            received = scope2.resolve(FakeService)
+        with container.open_context() as context2:
+            received = context2.resolve(FakeService)
 
         assert received is not resolved
-        provider.assert_has_calls([call(scope), call(scope2)])
+        factory.assert_has_calls([call(_=context), call(_=context2)])
 
-    def test_release_scope_exit_entered_context_manager(
-        self, scope: ResolutionContext, resolved: FakeService
+    def test_release_context_exit_entered_context_manager(
+        self, context: ResolutionContext, resolved: FakeService
     ) -> None:
-        another = scope.resolve(FakeService)
+        another = context.resolve(FakeService)
 
-        scope.release()
+        context.release()
 
         assert resolved.exited
         assert another.exited
 
 
-class TestResolveTypeBoundToSingletonBinding:
+class TestResolveTypeBoundToSingletonRegistration:
     @pytest.fixture
-    def provider(self) -> Mock:
+    def factory(self) -> Mock:
         return Mock(wraps=lambda _: FakeService())
 
     @pytest.fixture(autouse=True)
     def resolved(
-        self, container: Container, scope: ResolutionContext, provider: Mock
+        self, container: Container, context: ResolutionContext, factory: Mock
     ) -> FakeService:
-        container.register(FakeService).use_factory(provider, lifetime=Singleton())
+        container.register(FakeService).factory(factory, lifetime=Singleton())
 
-        return scope.resolve(FakeService)
+        return context.resolve(FakeService)
 
-    def test_calls_and_returns_binding_provider_result_once_per_scope(
-        self, resolved: FakeService, scope: ResolutionContext, provider: Mock
+    def test_calls_and_returns_registration_factory_result_once_per_context(
+        self, resolved: FakeService, context: ResolutionContext, factory: Mock
     ) -> None:
-        received = scope.resolve(FakeService)
+        received = context.resolve(FakeService)
 
         assert received is resolved
-        provider.assert_called_once_with(scope)
+        factory.assert_called_once_with(_=context)
 
-    def test_calls_and_returns_binding_provider_result_once_accross_scopes(
+    def test_calls_and_returns_registration_factory_result_once_accross_contexts(
         self,
         resolved: FakeService,
         container: Container,
-        scope: Container,
-        provider: Mock,
+        context: Container,
+        factory: Mock,
     ) -> None:
-        with ResolutionContext(container) as scope2:
-            received = scope2.resolve(FakeService)
+        with ResolutionContext(container) as context2:
+            received = context2.resolve(FakeService)
 
         assert received is resolved
-        provider.assert_called_once_with(scope)
+        factory.assert_called_once_with(_=context)
 
-    def test_release_scope_not_exit_entered_context_manager(
-        self, scope: ResolutionContext, resolved: FakeService
+    def test_release_context_not_exit_entered_context_manager(
+        self, context: ResolutionContext, resolved: FakeService
     ) -> None:
-        scope.release()
+        context.release()
 
         assert not resolved.exited
 
@@ -162,70 +194,70 @@ class TestResolveTypeBoundToSingletonBinding:
         assert resolved.exited
 
     def test_release_container_clear_cached_value(
-        self, container: Container, scope: ResolutionContext, resolved: FakeService
+        self, container: Container, context: ResolutionContext, resolved: FakeService
     ) -> None:
         container.release()
 
-        received = scope.resolve(FakeService)
+        received = context.resolve(FakeService)
 
         assert received is not resolved
 
-    def test_release_scope_not_clear_cached_value(
-        self, scope: ResolutionContext, resolved: FakeService
+    def test_release_context_not_clear_cached_value(
+        self, context: ResolutionContext, resolved: FakeService
     ) -> None:
-        scope.release()
+        context.release()
 
-        received = scope.resolve(FakeService)
+        received = context.resolve(FakeService)
 
         assert received is resolved
 
 
-class TestResolveTypeBoundToScopedBinding:
+class TestResolveTypeBoundToContextdRegistration:
     @pytest.fixture
-    def provider(self) -> Mock:
+    def factory(self) -> Mock:
         return Mock(wraps=lambda _: FakeService())
 
     @pytest.fixture(autouse=True)
     def resolved(
-        self, container: Container, scope: ResolutionContext, provider: Mock
+        self, container: Container, context: ResolutionContext, factory: Mock
     ) -> FakeService:
-        container.register(FakeService).use_factory(provider, lifetime=Contextual())
+        container.register(FakeService).factory(factory, lifetime=Contextual())
 
-        return scope.resolve(FakeService)
+        return context.resolve(FakeService)
 
-    def test_calls_and_returns_binding_provider_result_once_per_scope(
-        self, resolved: FakeService, scope: ResolutionContext, provider: Mock
+    def test_calls_and_returns_registration_factory_result_once_per_context(
+        self, resolved: FakeService, context: ResolutionContext, factory: Mock
     ) -> None:
-        received = scope.resolve(FakeService)
+        received = context.resolve(FakeService)
 
         assert received is resolved
-        provider.assert_called_once_with(scope)
+        factory.assert_called_once_with(_=context)
 
-    def test_calls_and_returns_binding_provider_result_on_different_scope(
+    def test_calls_and_returns_registration_factory_result_on_different_context(
         self,
         resolved: FakeService,
         container: Container,
-        scope: ResolutionContext,
-        provider: Mock,
+        context: ResolutionContext,
+        factory: Mock,
     ) -> None:
-        with ResolutionContext(container) as scope2:
-            received = scope2.resolve(FakeService)
+        with ResolutionContext(container) as context2:
+            received = context2.resolve(FakeService)
 
         assert received is not resolved
-        provider.assert_has_calls([call(scope), call(scope2)])
+        factory.assert_has_calls([call(_=context), call(_=context2)])
 
-    def test_release_scope_exit_entered_context_manager(
-        self, scope: ResolutionContext, resolved: FakeService
+    def test_release_context_exit_entered_context_manager(
+        self, context: ResolutionContext, resolved: FakeService
     ) -> None:
-        scope.release()
+        context.release()
 
         assert resolved.exited
 
-    def test_release_scope_clear_cached_value(
-        self, scope: ResolutionContext, resolved: FakeService
+    def test_release_context_clear_cached_value(
+        self, context: ResolutionContext, resolved: FakeService
     ) -> None:
-        scope.release()
+        context.release()
 
-        received = scope.resolve(FakeService)
+        received = context.resolve(FakeService)
 
         assert received is not resolved

@@ -14,6 +14,6 @@ def container() -> Iterator[Container]:
 
 
 @pytest.fixture
-def scope(container: Container) -> Iterator[ResolutionContext]:
-    with ResolutionContext(container) as scp:
-        yield scp
+def context(container: Container) -> Iterator[ResolutionContext]:
+    with container.open_context() as ctx:
+        yield ctx

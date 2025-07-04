@@ -55,10 +55,10 @@ _resolution_contexts = weakref.WeakKeyDictionary["Releasable[Any]", "LifetimeCon
 
 
 def get_context_for(obj: Releasable[Any]) -> LifetimeContext:
-    """Get or create a lifetime context for given closable."""
+    """Get or create a lifetime context for given releasable object."""
     if obj not in _resolution_contexts:
         _resolution_contexts[obj] = ctx = LifetimeContext()
-        obj.on_release(ctx.release)
+        obj.on_release(ctx.close)
     return _resolution_contexts[obj]
 
 
@@ -90,7 +90,7 @@ class LifetimeContext:
         self._cache: dict[type[Any], Any] = {}
         self._exit_stack = ExitStack()
 
-    def release(self) -> None:
+    def close(self) -> None:
         """Exit all entered context managers and clear cached values."""
         self._exit_stack.close()
         self._cache.clear()
@@ -103,7 +103,9 @@ class LifetimeContext:
         return cast("_T", self._cache[binding.type_])
 
     def get_instance(self, binding: Registration[_T], ctx: ResolutionContext) -> _T:
-        instance = binding.provider(ctx)
+        args, kwargs = self._resolve_dependencies(binding, ctx)
+        instance = binding.factory(*args, **kwargs)
+
         if isinstance(instance, AbstractContextManager) and binding.enter:
             instance = self._exit_stack.enter_context(instance)
 
@@ -120,12 +122,27 @@ class LifetimeContext:
         # is not way to enforce this so we just return the value anyway
         return cast("_T", instance)
 
+    def _resolve_dependencies(
+        self, binding: Registration[_T], ctx: ResolutionContext
+    ) -> tuple[list[Any], dict[str, Any]]:
+        args = []
+        kwargs: dict[str, Any] = {}
+
+        for dep in binding.dependencies:
+            resolved = ctx.resolve(dep.type_)
+            if dep.positional_only:
+                args.append(resolved)
+                continue
+            kwargs[dep.name] = resolved
+
+        return args, kwargs
+
     def __del__(self) -> None:
-        # NOTE: there is no other ways than using exist stack private attr to get
+        # NOTE: there is no other ways than using exit stack private attr to get
         # the remaining number of callbacks
         if self._exit_stack._exit_callbacks:  # type: ignore [attr-defined] # noqa: SLF001
             warnings.warn(
-                "Lifetime context has been garbage-collected without releasing its resources."
+                "Lifetime context has been garbage-collected without being closed."
                 " You may have forgot to call `.release()` on a scope or container",
                 ResourceWarning,
                 stacklevel=1,

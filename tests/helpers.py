@@ -1,4 +1,4 @@
-from typing import NewType, Protocol
+from typing import Any, NewType, Protocol
 
 import pytest
 
@@ -24,7 +24,37 @@ class FakeService(IFakeService):
         self.exited = True
 
 
-FakeServiceNewType = NewType("FakeServiceNewType", FakeService)
+def create_fake_service() -> FakeService:
+    return FakeService()
+
+
+class FakeServiceWithParams(IFakeService):
+    def __init__(self, foo: str, bar: int) -> None:
+        pass
+
+
+class FakeServiceWithUntypedParams(IFakeService):
+    def __init__(self, foo, bar) -> None:  # type: ignore  # noqa: ANN001, PGH003
+        pass
+
+
+def create_fake_service_with_params(
+    foo: str,
+    *args: Any,  # noqa: ANN401, ARG001
+    bar: int = 5,
+    **kwargs: Any,  # noqa: ANN401, ARG001
+) -> FakeServiceWithParams:
+    return FakeServiceWithParams(foo, bar)
+
+
+def create_fake_service_with_untyped_params(  # type: ignore  # noqa: PGH003
+    foo,  # noqa: ANN001
+    bar,  # noqa: ANN001
+) -> FakeServiceWithParams:
+    return FakeServiceWithParams(foo, bar)
+
+
+FakeServiceNewType = NewType("FakeServiceNewType", IFakeService)
 
 use_lifetimes = pytest.mark.parametrize(
     "lifetime", [Transient(), Contextual(), Singleton()]
