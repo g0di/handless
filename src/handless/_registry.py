@@ -1,8 +1,7 @@
-from __future__ import annotations  # noqa: N999
+from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from inspect import Parameter, isclass, isgeneratorfunction
@@ -16,26 +15,28 @@ from handless.exceptions import RegistrationAlreadyExistError, RegistrationError
 from handless.lifetimes import Lifetime, Singleton, Transient
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from handless.container import ResolutionContext
 
 
 class Registry:
-    """Map object types to their binding."""
+    """Register object types and define how to resolve them."""
 
     def __init__(self) -> None:
         self._logger = logging.getLogger(__name__)
-        self._bindings: dict[type[Any], Registration[Any]] = {}
+        self._registrations: dict[type[Any], Registration[Any]] = {}
 
-    def register(self, binding: Registration[Any]) -> Self:
-        if binding.type_ in self._bindings:
-            raise RegistrationAlreadyExistError(binding.type_)
+    def register(self, registration: Registration[Any]) -> Self:
+        if registration.type_ in self._registrations:
+            raise RegistrationAlreadyExistError(registration.type_)
 
-        self._bindings[binding.type_] = binding
-        self._logger.info("Registered %s: %s", binding.type_, binding)
+        self._registrations[registration.type_] = registration
+        self._logger.info("Registered %s: %s", registration.type_, registration)
         return self
 
-    def get_binding(self, type_: type[_T]) -> Registration[_T] | None:
-        return self._bindings.get(type_)
+    def get_registration(self, type_: type[_T]) -> Registration[_T] | None:
+        return self._registrations.get(type_)
 
 
 _T = TypeVar("_T")

@@ -221,7 +221,7 @@ class TestRegisterFactoryUsingDecorator:
         with pytest.raises(RegistrationError):
 
             @container.factory
-            def get_fake_service():  # type: ignore  # noqa: PGH003
+            def get_fake_service():  # type: ignore  # noqa: ANN202, PGH003
                 return FakeService()
 
     def test_factory_decorator_wraps_decorated_generators_as_context_manager(

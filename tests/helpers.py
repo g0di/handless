@@ -54,7 +54,7 @@ def create_fake_service_with_untyped_params(  # type: ignore  # noqa: PGH003
     return FakeServiceWithParams(foo, bar)
 
 
-FakeServiceNewType = NewType("FakeServiceNewType", IFakeService)
+FakeServiceNewType = NewType("FakeServiceNewType", IFakeService)  # type: ignore[misc]
 
 use_lifetimes = pytest.mark.parametrize(
     "lifetime", [Transient(), Contextual(), Singleton()]

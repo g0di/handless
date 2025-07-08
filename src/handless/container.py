@@ -64,11 +64,14 @@ class Container(Releasable["Container"]):
         return RegistrationBuilder(self._registry, type_)
 
     def lookup(self, key: type[_T]) -> Registration[_T]:
-        """Return binding registered for given type or raise a BindingNotFoundError."""
-        binding = self._registry.get_binding(key)
-        if binding is None:
+        """Return registration for given type if any.
+
+        :raise RegistrationNotFoundError: If the given type is not registered
+        """
+        registration = self._registry.get_registration(key)
+        if registration is None:
             raise RegistrationNotFoundError(key)
-        return binding
+        return registration
 
     @overload
     def factory(self, factory: _U) -> _U: ...
@@ -167,15 +170,15 @@ class ResolutionContext(Releasable["ResolutionContext"]):
         if type_ is type(self):
             return self
 
-        binding = self._lookup(type_)
+        registration = self._lookup(type_)
 
         try:
-            value = binding.lifetime.resolve(self, binding)
-            self._logger.info("Resolved %s: %s -> %s", type_, binding, type(value))
+            value = registration.lifetime.resolve(self, registration)
+            self._logger.info("Resolved %s: %s -> %s", type_, registration, type(value))
         except Exception as error:
             raise ResolutionError(type_) from error
         else:
             return value
 
     def _lookup(self, type_: type[_T]) -> Registration[_T]:
-        return self._registry.get_binding(type_) or self._container.lookup(type_)
+        return self._registry.get_registration(type_) or self._container.lookup(type_)

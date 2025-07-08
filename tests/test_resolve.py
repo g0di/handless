@@ -30,7 +30,7 @@ def test_resolve_type_calls_registration_factory_with_ctx_and_returns_its_result
     container: Container, context: ResolutionContext
 ) -> None:
     expected = FakeService()
-    factory = Mock(wraps=lambda ctx: expected)
+    factory = Mock(wraps=lambda ctx: expected)  # noqa: ARG005
     container.register(FakeService).factory(factory)
 
     resolved = context.resolve(FakeService)

@@ -221,7 +221,7 @@ with container.open_context() as ctx:
 
 ## Contributing
 
-Running tests: `uv run pytest tests --cov --cov-report=term-missing`
+Running tests: `uv run nox`
 
 [lagom]: https://lagom-di.readthedocs.io
 [svcs]: https://svcs.hynek.me/

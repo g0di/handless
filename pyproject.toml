@@ -43,7 +43,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = ["invoke>=2.2.0", "tox>=4.25.0", "tox-uv>=1.25.0"]
+dev = ["nox>=2025.5.1"]
 lint = ["mypy>=1.15.0", "ruff>=0.9.9"]
 test = ["pytest>=8.3.4", "pytest-cov>=6.0.0", "pytest-mock>=3.14.0"]
 
@@ -98,7 +98,7 @@ convention = "pep257"
 
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]
-addopts = ["--no-cov", "--cov-report=term-missing", "--doctest-modules"]
+addopts = ["--doctest-modules"]
 
 [tool.coverage.run]
 branch = true
@@ -112,29 +112,3 @@ source = ["src/", "*/site-packages/"]
 
 [tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:", "class .*\\bProtocol\\):", "@overload"]
-
-[tool.tox]
-requires = ["tox>=4"]
-env_list = ["3.13", "3.12", "3.11", "3.10", "coverage"]
-# set_env = { COVERAGE_FILE = ".coverage" }
-
-[tool.tox.env_run_base]
-description = "run unit tests"
-dependency_groups = ["test"]
-commands = [
-    [
-        "coverage",
-        "run",
-        "-m",
-        "pytest",
-        "-rN",
-        { replace = "posargs", extend = true },
-    ],
-]
-
-[tool.tox.env.coverage]
-depends = ["3.13", "3.12", "3.11", "3.10"]
-description = "compute coverage"
-skip_install = true
-deps = ["coverage[toml]"]
-commands = [["coverage", "combine"], ["coverage", "html"]]

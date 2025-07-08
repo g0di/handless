@@ -16,8 +16,8 @@ _T = TypeVar("_T")
 
 
 class Lifetime(Protocol):
-    def resolve(self, scope: ResolutionContext, binding: Registration[_T]) -> _T:
-        """Resolve given binding within given scope."""
+    def resolve(self, scope: ResolutionContext, registration: Registration[_T]) -> _T:
+        """Resolve given registration within given scope."""
 
 
 # NOTE: We use dataclasses for lifetime to simplify equality comparisons.
@@ -25,29 +25,29 @@ class Lifetime(Protocol):
 
 @dataclass(slots=True)
 class Transient(Lifetime):
-    """Calls binding factory on each resolve."""
+    """Calls registration factory on each resolve."""
 
-    def resolve(self, scope: ResolutionContext, binding: Registration[_T]) -> _T:
+    def resolve(self, scope: ResolutionContext, registration: Registration[_T]) -> _T:
         ctx = get_context_for(scope)
-        return ctx.get_instance(binding, scope)
+        return ctx.get_instance(registration, scope)
 
 
 @dataclass(slots=True)
 class Contextual(Lifetime):
-    """Calls binding factory on resolve once per context."""
+    """Calls registration factory on resolve once per context."""
 
-    def resolve(self, scope: ResolutionContext, binding: Registration[_T]) -> _T:
+    def resolve(self, scope: ResolutionContext, registration: Registration[_T]) -> _T:
         ctx = get_context_for(scope)
-        return ctx.get_cached_instance(binding, scope)
+        return ctx.get_cached_instance(registration, scope)
 
 
 @dataclass(slots=True)
 class Singleton(Lifetime):
-    """Calls binding factory on resolve once per container."""
+    """Calls registration factory on resolve once per container."""
 
-    def resolve(self, scope: ResolutionContext, binding: Registration[_T]) -> _T:
+    def resolve(self, scope: ResolutionContext, registration: Registration[_T]) -> _T:
         ctx = get_context_for(scope.container)
-        return ctx.get_cached_instance(binding, scope)
+        return ctx.get_cached_instance(registration, scope)
 
 
 ReleaseCallback = Callable[[], Any]
@@ -96,23 +96,25 @@ class LifetimeContext:
         self._cache.clear()
 
     def get_cached_instance(
-        self, binding: Registration[_T], ctx: ResolutionContext
+        self, registration: Registration[_T], ctx: ResolutionContext
     ) -> _T:
-        if binding.type_ not in self._cache:
-            self._cache[binding.type_] = self.get_instance(binding, ctx)
-        return cast("_T", self._cache[binding.type_])
+        if registration.type_ not in self._cache:
+            self._cache[registration.type_] = self.get_instance(registration, ctx)
+        return cast("_T", self._cache[registration.type_])
 
-    def get_instance(self, binding: Registration[_T], ctx: ResolutionContext) -> _T:
-        args, kwargs = self._resolve_dependencies(binding, ctx)
-        instance = binding.factory(*args, **kwargs)
+    def get_instance(
+        self, registration: Registration[_T], ctx: ResolutionContext
+    ) -> _T:
+        args, kwargs = self._resolve_dependencies(registration, ctx)
+        instance = registration.factory(*args, **kwargs)
 
-        if isinstance(instance, AbstractContextManager) and binding.enter:
+        if isinstance(instance, AbstractContextManager) and registration.enter:
             instance = self._exit_stack.enter_context(instance)
 
         with suppress(TypeError):
-            if not isinstance(instance, binding.type_):
+            if not isinstance(instance, registration.type_):
                 warnings.warn(
-                    f"Container resolved {binding.type_} with {instance} which is not an instance of this type. "
+                    f"Container resolved {registration.type_} with {instance} which is not an instance of this type. "
                     "This could lead to unexpected errors.",
                     RuntimeWarning,
                     stacklevel=2,
@@ -123,12 +125,12 @@ class LifetimeContext:
         return cast("_T", instance)
 
     def _resolve_dependencies(
-        self, binding: Registration[_T], ctx: ResolutionContext
+        self, registration: Registration[_T], ctx: ResolutionContext
     ) -> tuple[list[Any], dict[str, Any]]:
         args = []
         kwargs: dict[str, Any] = {}
 
-        for dep in binding.dependencies:
+        for dep in registration.dependencies:
             resolved = ctx.resolve(dep.type_)
             if dep.positional_only:
                 args.append(resolved)
