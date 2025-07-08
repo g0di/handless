@@ -4,14 +4,12 @@
 
 A Python dependency injection container that automatically resolves and injects dependencies without polluting your code with framework-specific decorators. Inspired by [lagom] and [svcs], it keeps your code clean and flexible while offering multiple service registration options. 🚀
 
-> :warning: For the moment, autowiring is not available. It means that you have to use factories for constructing your types. This feature will be released in the future.
-
 - [🔧 What is Dependency Injection, and Why Should You Care?](#-what-is-dependency-injection-and-why-should-you-care)
 - [🧱 What is a DI Container?](#-what-is-a-di-container)
 - [🚀 What This Library Solves](#-what-this-library-solves)
 - [Getting started](#getting-started)
-- [Usage](#usage)
-  - [Registering types](#registering-types)
+- [Core](#core)
+  - [Containers](#containers)
   - [Register a value](#register-a-value)
   - [Register a factory](#register-a-factory)
   - [Register an alias](#register-an-alias)
@@ -73,9 +71,9 @@ Instead of writing all the wiring logic yourself, the container does it for you 
 
 This library provides a lightweight, flexible **dependency injection container for Python** that helps you:
 
-- ✅ **Register** services with factories, providers, or values
-- ✅ **Resolve** dependencies automatically (~~with type hints~~ or custom logic)
-- ✅ **Manage lifecycles** — including context-aware caching and cleanup
+- ✅ **Register** services with factories, values or aliases
+- ✅ **Resolve** dependencies automatically (with type hints or custom logic)
+- ✅ **Manage lifecycles** — including context-aware caching and cleanup (singleton, transient, contextual)
 - ✅ **Control instantiation** via explicit contexts, ensuring predictability
 
 It’s designed to be **explicit, minimal, and intuitive** — avoiding magic while saving you boilerplate.
@@ -88,62 +86,150 @@ Install it through you preferred packages manager:
 pip install handless
 ```
 
-Once installed, you can create a container allowing you to specify how to resolve your types and start resolving them.
+Once installed, you can create a container allowing you to specify how to resolve your types and start resolving them. Here is an example showcasing several features of the container.
 
 ```python
-from handless import Container
+import smtplib
+from dataclasses import dataclass
+from typing import Protocol
+
+from handless import Container, Contextual, ResolutionContext, Singleton, Transient
 
 
-class Cat:
-    def __init__(self, name: str) -> None:
-        self.name = name
+@dataclass
+class User:
+    email: str
 
-    def meow(self) -> None:
-        print(f"{self.name}: Meow!")
 
+@dataclass
+class Config:
+    smtp_host: str
+
+
+class UserRepository(Protocol):
+    def add(self, cat: User) -> None: ...
+    def get(self, email: str) -> User | None: ...
+
+
+class InMemoryUserRepository(UserRepository):
+    def __init__(self) -> None:
+        self._users: list[User] = []
+
+    def add(self, user: User) -> None:
+        self._users.append(user)
+
+    def get(self, email: str) -> User | None:
+        for user in self._users:
+            if user.email == email:
+                return user
+        return None
+
+
+class NotificationManager(Protocol):
+    def send(self, user: User, message: str) -> None: ...
+
+
+class StdoutNotificationManager(NotificationManager):
+    def send(self, user: User, message: str) -> None:
+        print(f"{user.email} - {message}")  # noqa: T201
+
+
+class EmailNotificationManager(NotificationManager):
+    def __init__(self, smtp: smtplib.SMTP) -> None:
+        self.server = smtp
+        self.server.noop()
+
+    def send(self, user: User, message: str) -> None:
+        msg = f"Subject: My Service notification\n{message}"
+        self.server.sendmail(
+            from_addr="myservice@example.com", to_addrs=[user.email], msg=msg
+        )
+
+
+class UserService:
+    def __init__(
+        self, users: UserRepository, notifications: NotificationManager
+    ) -> None:
+        self.users = users
+        self.notifications = notifications
+
+    def create_user(self, email: str) -> None:
+        user = User(email)
+        self.users.add(user)
+        self.notifications.send(user, "Your account has been created")
+
+    def get_user(self, email: str) -> User:
+        user = self.users.get(email)
+        if not user:
+            msg = f"There is no user with email {email}"
+            raise ValueError(msg)
+        return user
+
+
+config = Config(smtp_host="stdout")
 
 container = Container()
-container.register(str).use_value("Kitty")
-container.register(Cat).use_factory(lambda ctx: Cat(ctx.resolve(str)))
+container.register(Config).value(config)
+
+# User repository
+container.register(InMemoryUserRepository).self(lifetime=Singleton())
+container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore[type-abstract]
+
+# Notification manager
+container.register(smtplib.SMTP).factory(
+    lambda ctx: smtplib.SMTP(ctx.resolve(Config.smtp_host)),
+    lifetime=Singleton(),
+    enter=True,
+)
+container.register(StdoutNotificationManager).self(lifetime=Transient())
+container.register(EmailNotificationManager).self()
+
+
+@container.factory
+def create_notification_manager(
+    config: Config, ctx: ResolutionContext
+) -> NotificationManager:
+    if config.smtp_host == "stdout":
+        return ctx.resolve(StdoutNotificationManager)
+    return ctx.resolve(EmailNotificationManager)
+
+
+# Top level service
+container.register(UserService).self(lifetime=Contextual())
+
 
 with container.open_context() as ctx:
-    foo = ctx.resolve(Cat)
-    foo.meow()
-    # Kitty: Meow!
+    service = ctx.resolve(UserService)
+    service.create_user("hello.world@handless.io")
+    # hello.world@handless.io - Your account has been created
+    print(service.get_user("hello.world@handless.io"))  # noqa: T201
+    # User(email='hello.world@handless.io')  # noqa: ERA001
+
 
 container.release()
 ```
 
-## Usage
+## Core
 
-### Registering types
+### Containers
 
-To resolve types from your container, you must first create one and register them on it. There should be only one container per application. The container should be released when your application shutdown (or your tests ends).
+Containers allows to register types and specify how to resolve them (get an instance of this type). Each registered type get a factory function attached depending on how you registered it. During registration, a lifetime can be passed to tell the container when to call this factory function or prefer using a cached value.
+
+There should be at most one container per entrypoint in your application (a CLI, a HTTP server, ...). You can share the same container for all your entrypoints. A test is considered as an entrypoint as well.
 
 > :bulb: The container should be placed on your application composition root. This can be as simple as a `bootstrap.py` file on your package root.
 
-> :warning: The container is the most "high level" component of your application. It can import anything from any sub modules. However, none of your code should depends on the container itself. Otherwise you're going to use the service locator anti-pattern. There can be exceptions to this rule, for example, when used in an HTTP API controllers (as suggested in `svcs`). The most important thing is that your services and objects should not use the container directly in order to pull its dependencies on the fly.
+> :warning The container is the most "high level" component of your application. It can import anything from any sub modules. However, none of your code should depends on the container itself. Otherwise you're going to use the service locator anti-pattern. There can be exceptions to this rule, for example, when used in an HTTP API controllers (as suggested in `svcs`). The most important thing is that your services and objects should not use the container directly in order to pull its dependencies on the fly.
+
+If your application has no shutdown mechanism you can register your container `release` method using `atexit` module to release on program exit.
 
 ```python
-import random
 import atexit
 
-from handless import Container
-
-container = Container()
-container.register(str).use_value("Hello Container!")
-container.register(int).use_factory(lamba: random.randint(0, 10))
-
-# If your application has not shutdown callback you can use atexit
-# to release the container on program exit
 atexit.register(container.release)
-
-# You can also use the container with a context manager.
-# This can be useful during tests
-with Container() as container:
-    container.register(str).use_value("Hello Container!")
-    container.register(int).use_factory(lamba: random.randint(0, 10))
 ```
+
+Releasing the container is idempotent and can be used several times. Each time, all singletons will be cleared and then context manager exited, if any.
 
 ### Register a value
 
@@ -158,7 +244,7 @@ class Foo:
 
 foo = Foo()
 container = Container()
-container.register(Foo).use_value(foo)
+container.register(Foo).value(foo)
 
 with container.open_context() as ctx:
     resolved_foo = ctx.resolve(Foo)

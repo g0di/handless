@@ -48,12 +48,12 @@ lint = ["mypy>=1.15.0", "ruff>=0.9.9"]
 test = ["pytest>=8.3.4", "pytest-cov>=6.0.0", "pytest-mock>=3.14.0"]
 
 [tool.mypy]
-files = ["src", "tests"]
+files = ["src", "tests", "doc/examples"]
 strict = true
 
 
 [tool.ruff]
-src = ["src", "tests"]
+src = ["src", "tests", "doc/examples"]
 
 [tool.ruff.format]
 docstring-code-format = true
