@@ -33,6 +33,11 @@ class FakeServiceWithParams(IFakeService):
         pass
 
 
+class FakeServiceWithOneParam(IFakeService):
+    def __init__(self, foo: str) -> None:
+        pass
+
+
 class FakeServiceWithUntypedParams(IFakeService):
     def __init__(self, foo, bar) -> None:  # type: ignore  # noqa: ANN001, PGH003
         pass

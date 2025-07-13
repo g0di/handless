@@ -210,7 +210,11 @@ def _collect_dependencies(
     # This is to handle lambda expressions taking a single untyped parameter which is
     # expected to be a ResolutionContext.
     overrides_ = defaultdict[str, type[Any] | EllipsisType](
-        lambda: ResolutionContext if len(params) == 1 else ..., **overrides
+        lambda: ResolutionContext
+        if len(params) == 1
+        and next(iter(params.values())).annotation is Parameter.empty
+        else ...,
+        **overrides,
     )
 
     return tuple(

@@ -75,7 +75,7 @@ class UserService:
         return user
 
 
-config = Config(smtp_host="stdout")
+config = Config(smtp_host="test")
 
 container = Container()
 container.register(Config).value(config)
@@ -86,7 +86,7 @@ container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore
 
 # Notification manager
 container.register(smtplib.SMTP).factory(
-    lambda ctx: smtplib.SMTP(ctx.resolve(Config.smtp_host)),
+    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host),
     lifetime=Singleton(),
     enter=True,
 )

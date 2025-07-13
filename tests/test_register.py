@@ -12,6 +12,7 @@ from handless.lifetimes import Lifetime, Singleton, Transient
 from tests.helpers import (
     FakeService,
     FakeServiceNewType,
+    FakeServiceWithOneParam,
     FakeServiceWithParams,
     FakeServiceWithUntypedParams,
     IFakeService,
@@ -34,6 +35,11 @@ class TestRegisterFactory:
                 FakeServiceWithParams,
                 (Dependency("foo", str), Dependency("bar", int)),
                 id="Type with arguments",
+            ),
+            pytest.param(
+                FakeServiceWithOneParam,
+                (Dependency("foo", str),),
+                id="Type with one argument",
             ),
             pytest.param(
                 lambda ctx: FakeServiceWithParams(ctx.resolve(str), ctx.resolve(int)),
