@@ -4,319 +4,356 @@
 
 A Python dependency injection container that automatically resolves and injects dependencies without polluting your code with framework-specific decorators. Inspired by [lagom] and [svcs], it keeps your code clean and flexible while offering multiple service registration options. 🚀
 
+- [🔧 What is Dependency Injection, and Why Should You Care?](#-what-is-dependency-injection-and-why-should-you-care)
+- [🧱 What is a DI Container?](#-what-is-a-di-container)
+- [🚀 What This Library Solves](#-what-this-library-solves)
 - [Getting started](#getting-started)
-- [Naming](#naming)
-  - [Registry](#registry)
-  - [Binding](#binding)
-  - [Provider](#provider)
-  - [Container](#container)
-  - [Scoped Container](#scoped-container)
-  - [Lifetime](#lifetime)
-- [Usage](#usage)
-  - [Register an object](#register-an-object)
-    - [Context managers](#context-managers)
-  - [Register a factory](#register-a-factory)
-    - [Default factory](#default-factory)
-      - [Autowiring](#autowiring)
-    - [Manual factory](#manual-factory)
-    - [Decorator](#decorator)
+- [Core](#core)
+  - [Containers](#containers)
+    - [Register a value](#register-a-value)
+    - [Register a factory](#register-a-factory)
+      - [Use the given type as its own factory](#use-the-given-type-as-its-own-factory)
   - [Register an alias](#register-an-alias)
+  - [Lifetimes](#lifetimes)
+  - [Context managers and cleanups](#context-managers-and-cleanups)
+  - [Context local registry](#context-local-registry)
 - [Recipes](#recipes)
+  - [Registering implementations for protocols and abstract classes](#registering-implementations-for-protocols-and-abstract-classes)
+  - [Choosing dependencies at runtime](#choosing-dependencies-at-runtime)
+  - [Use with FastAPI](#use-with-fastapi)
 - [Q\&A](#qa)
-  - [Why separate registry and container? Why not use the container to register types?](#why-separate-registry-and-container-why-not-use-the-container-to-register-types)
-  - [Why providing a single `register` function to register various kind of providers instead of having many more explicit ones?](#why-providing-a-single-register-function-to-register-various-kind-of-providers-instead-of-having-many-more-explicit-ones)
+  - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
+  - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
+  - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
 - [Contributing](#contributing)
+
+## 🔧 What is Dependency Injection, and Why Should You Care?
+
+In modern software design, **dependency injection (DI)** is a technique where a component’s dependencies are **provided from the outside**, rather than hard-coded inside it. This leads to:
+
+- ✅ More modular and testable code
+- ✅ Easier substitution of dependencies (e.g., mocks, stubs, alternative implementations)
+- ✅ Clearer separation of concerns
+
+**Example without DI:**
+
+```python
+class Service:
+    def __init__(self):
+        self.db = Database()  # tightly coupled
+```
+
+**Example with DI:**
+
+```python
+class Service:
+    def __init__(self, db: Database):
+        self.db = db  # dependency injected
+```
+
+---
+
+## 🧱 What is a DI Container?
+
+As your project grows, wiring up dependencies manually becomes tedious and error-prone.
+
+A **DI container** automates this by:
+
+- 🔍 Scanning constructor signatures or factory functions
+- 🔗 Resolving and injecting required dependencies
+- ♻️ Managing object lifetimes (singleton, transient, scoped...)
+- 🧹 Handling cleanup for context-managed resources
+
+Instead of writing all the wiring logic yourself, the container does it for you — predictably and declaratively.
+
+---
+
+## 🚀 What This Library Solves
+
+This library provides a lightweight, flexible **dependency injection container for Python** that helps you:
+
+- ✅ **Register** services with factories, values or aliases
+- ✅ **Resolve** dependencies automatically (with type hints or custom logic)
+- ✅ **Manage lifecycles** — including context-aware caching and cleanup (singleton, transient, contextual)
+- ✅ **Control instantiation** via explicit contexts, ensuring predictability
+
+It’s designed to be **explicit, minimal, and intuitive** — avoiding magic while saving you boilerplate.
 
 ## Getting started
 
-Install through you preferred packages manager:
+Install it through you preferred packages manager:
 
 ```shell
 pip install handless
 ```
 
-Once installed, you can create a registry allowing you to specify how to resolve your types.
+Once installed, you can create a container allowing you to specify how to resolve your types and start resolving them. Here is an example showcasing most features of the container.
 
 ```python
-from handless import Registry
+import smtplib
+from dataclasses import dataclass
+from typing import Protocol
+
+from handless import Container, Contextual, ResolutionContext, Singleton, Transient
 
 
-class Cat:
-    def meow(self) -> None:
-        print("Meow!")
+@dataclass
+class User:
+    email: str
 
-registry = Registry().register(Cat, Cat())
 
-with registry.create_container() as c:
-    foo = c.resolve(Cat)
-    foo.meow()
-    # Meow!
+@dataclass
+class Config:
+    smtp_host: str
+
+
+class UserRepository(Protocol):
+    def add(self, cat: User) -> None: ...
+    def get(self, email: str) -> User | None: ...
+
+
+class InMemoryUserRepository(UserRepository):
+    def __init__(self) -> None:
+        self._users: list[User] = []
+
+    def add(self, user: User) -> None:
+        self._users.append(user)
+
+    def get(self, email: str) -> User | None:
+        for user in self._users:
+            if user.email == email:
+                return user
+        return None
+
+
+class NotificationManager(Protocol):
+    def send(self, user: User, message: str) -> None: ...
+
+
+class StdoutNotificationManager(NotificationManager):
+    def send(self, user: User, message: str) -> None:
+        print(f"{user.email} - {message}")  # noqa: T201
+
+
+class EmailNotificationManager(NotificationManager):
+    def __init__(self, smtp: smtplib.SMTP) -> None:
+        self.server = smtp
+        self.server.noop()
+
+    def send(self, user: User, message: str) -> None:
+        msg = f"Subject: My Service notification\n{message}"
+        self.server.sendmail(
+            from_addr="myservice@example.com", to_addrs=[user.email], msg=msg
+        )
+
+
+class UserService:
+    def __init__(
+        self, users: UserRepository, notifications: NotificationManager
+    ) -> None:
+        self.users = users
+        self.notifications = notifications
+
+    def create_user(self, email: str) -> None:
+        user = User(email)
+        self.users.add(user)
+        self.notifications.send(user, "Your account has been created")
+
+    def get_user(self, email: str) -> User:
+        user = self.users.get(email)
+        if not user:
+            msg = f"There is no user with email {email}"
+            raise ValueError(msg)
+        return user
+
+
+config = Config(smtp_host="stdout")
+
+container = Container()
+container.register(Config).value(config)
+
+# User repository
+container.register(InMemoryUserRepository).self(lifetime=Singleton())
+container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore[type-abstract]
+
+# Notification manager
+container.register(smtplib.SMTP).factory(
+    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host)),
+    lifetime=Singleton(),
+    enter=True,
+)
+container.register(StdoutNotificationManager).self(lifetime=Transient())
+container.register(EmailNotificationManager).self()
+
+
+@container.factory
+def create_notification_manager(
+    config: Config, ctx: ResolutionContext
+) -> NotificationManager:
+    if config.smtp_host == "stdout":
+        return ctx.resolve(StdoutNotificationManager)
+    return ctx.resolve(EmailNotificationManager)
+
+
+# Top level service
+container.register(UserService).self(lifetime=Contextual())
+
+
+with container.open_context() as ctx:
+    service = ctx.resolve(UserService)
+    service.create_user("hello.world@handless.io")
+    # hello.world@handless.io - Your account has been created
+    print(service.get_user("hello.world@handless.io"))  # noqa: T201
+    # User(email='hello.world@handless.io')  # noqa: ERA001
+
+
+container.release()
 ```
 
-## Naming
+## Core
 
-This part present the various components involved in this library.
+### Containers
 
-> :bulb: If you're already familiar with dependency injection you might skip this section.
+Containers allows to register types and specify how to resolve them (get an instance of this type). Each registered type get a factory function attached depending on how you registered it.
 
-> :warning: Dependency injection and its concepts are subject to interpretation. The following definitions apply to this library but may differ to other dependency injection frameworks which could opt for different naming conventions.
+There should be at most one container per entrypoint in your application (a CLI, a HTTP server, ...). You can share the same container for all your entrypoints. A test is considered as an entrypoint as well.
 
-### Registry
+> :bulb: The container should be placed on your application composition root. This can be as simple as a `bootstrap.py` file on your package root.
 
-A registry is an object holding bindings for containers to be able to resolve types. There should up to one registry per entrypoint in an application (if you have a HTTP API and a CLI you may have one registry for each). However, you can share the same registry for all your entrypoints if it makes sense.
+> :warning The container is the most "high level" component of your application. It can import anything from any sub modules. However, none of your code should depends on the container itself. Otherwise you're going to use the service locator anti-pattern. There can be exceptions to this rule, for example, when used in an HTTP API controllers (as suggested in `svcs`).
 
-### Binding
+#### Register a value
 
-A binding is a mapping between a type and a provider with additional metadata like lifetime, context manager handling and so on.
-
-### Provider
-
-A provider is an object responsible for producing instances of a given type.
-
-### Container
-
-A container is an object allowing to resolve types in order to get an instance of it. It holds a reference on a registry that he uses to know how to resolve requested types. There should be one container per application living for the same duration. The container keeps a cache of created objects depending on their lifetime and also retains entered context managers. When closed, the container exits all its entered context manager and clear its cache.
-
-### Scoped Container
-
-It is a container which lifetime is bound to a specific scope. There can be many scoped container during the whole application lifetime. As an example, scoped container are created per request, for a HTTP API, or per message for an event/message handler. It is up to you to define your scope(s) and create a scoped container when necessary.
-
-### Lifetime
-
-Lifetime are tied to bindings. It indicates to a container when it should call the binding provider in order to produce an instance of the registered type. There is three lifetimes at the moment:
-
-- _transient_ (default): Provide's factory is called on each resolve.
-- _scoped_: Provide's factory is called once per scoped container.
-- _singleton_: Provide's factory is called once per container.
-
-> :warning: Lifetimes only dictate to containers WHEN to call a binding's provider or use cached object. It means that if you specify a _transient_ lifetime with a provider which actually always returns the same object, you'll end up with a _singleton_. The container do not check in any way for returned objects are always uniques.
-
-## Usage
-
-There is several ways to register your types in the registry which are described in the following sections.
-
-### Register an object
-
-You can register a plain object directly for your type. When resolved, the container will give you back the original object.
+You can register a value directly for your type. When resolved, the provided value will be returned as-is.
 
 ```python
-from handless import Registry
+from handless import Container
 
 
 class Foo:
-  pass
+    pass
 
 foo = Foo()
-registry = Registry().register(Foo, foo)
-resolved_foo = registry.create_container().resolve(Foo)
-
+container = Container()
+container.register(Foo).value(foo)
+resolved_foo = container.open_context().resolve(Foo)
 assert resolved_foo is foo
 ```
 
-> :information_source: This is also known as a singleton.
+#### Register a factory
 
-#### Context managers
+If you want the container to create instances of your types for you you can instead register a factory. A factory is a callable taking no or several arguments and returning an instance of the type registered. The callable can be a lambda function, a regular function or even a type (a class). When resolved, the container will take care of calling the factory and return its return value. If your factory takes arguments, the container will first resolve its arguments using their type annotations and pass them to the factory.
 
-By default registered objects being context managers are not entered automatically by the registry. You can however, tells
-the registry to do so by passing the `enter=True` argument.
+> :warning: your callable arguments must have type annotation to be properly resolved. If missing, an error will be raised at registration time.
 
 ```python
-from handless import Registry
+from handless import Container
 
 
 class Foo:
-    def __enter__(self):
-      self.entered = True
-        return self
+    def __init__(self, bar: int) -> None:
+    self.bar = bar
 
-    def __exit__(self, *args):
-        self.exited = True
-        pass
-
-registry = Registry().register(Foo, Foo(), enter=True)
-
-with registry.create_container() as container:
-    foo = container.resolve(Foo)
-
-    assert foo.entered
-
-assert foo.exited
-```
-
-> :information_source: Context managers are exited automatically when the container is closed.
-
-> :warning: Additional arguments are ignored. If provided a warning will be raised.
-
-### Register a factory
-
-If you want your objects to be constructed dynamically you can pass either `None` or a function to the register method.
-
-#### Default factory
-
-When passing passing `None` (or omitting the argument) to the register function, the container will use the type itself to produces objects of that type.
-
-> :bulb: By default, you do not have to register your types this way. The registry will automatically use the given type as factory if not registered. This is known as _autobiding_. You can disable this behavior by setting the `autobind` argument to `False` on your registry: `Registry(autobind=False)`.
-
-```python
-from handless import Registry
-
-class Foo:
-    pass
-
-# With autobind
-foo = Registry().create_container().resolve(Foo)
-assert isinstance(foo, Foo)
-
-# Without autobinding
-container = Registry(autobind=False).register(Foo)
-container = registry.create_container()
-foo = container.resolve(Foo)
-assert isinstance(foo, Foo)
-```
-
-##### Autowiring
-
-When you register a type which has arguments, the container will resolve then inject them into the type constructor.
-This is also known as _autowiring_.
-
-```python
-from handless import Registry
-
-
-class Bar:
-    pass
-
-class Foo:
-    def __init__(self, bar: Bar) -> None:
-      self.bar = bar
-
-bar = Bar()
-registry = Registry()
-container = registry.create_container()
-foo = container.resolve(Foo)
-assert foo.bar is bar
-```
-
-> :warning: Type constructor arguments must all be typed in order to work properly. If not, a `TypeError` will be raised at registration.
-
-#### Manual factory
-
-If it's not possible to autowire your type or you want to introduce custom logic you can pass instead a function returning an instance of given type. This function can takes up to one argument, being the container itself, allowing you to resolve other types as well.
-
-> :bulb: This can be particularly useful for types taking primitive types as parameters like `str`, `int`, ...
-
-```python
-from handless import Registry
-
-
-class Bar:
-    def __init__(self, value: str) -> None:
-      self.value = value
-
-class Foo:
-    def __init__(self, bar: Bar) -> None:
-      self.bar = bar
-
-registry = (Registry()
-    .register(Bar, lambda: Bar("Hello World!"))
-    .register(Foo, lambda c: Foo(c.resolve(Bar)))
-)
-container = registry.create_container()
-foo = container.resolve(Foo)
-assert foo.bar.value == "Hello World!"
-```
-
-#### Decorator
-
-Lastly, you can register a function as factory for a type by decorating it. The decorated function can takes any resolvable parameters, including a `handless.Container`. Those parameters will be resolved and injected at runtime by the container when called. The return type annotation of the decorated function will be used as the registered type.
-
-> :warning: Omitting return type annotation will raise an `TypeError`.
-
-```python
-from handless import Registry
-
-
-class Bar:
-    def __init__(self, value: str) -> None:
-        self.value = value
-
-class Foo:
-    def __init__(self, bar: Bar)
-
-registry = Registry()
-
-
-@registry.binding
-def get_foo(bar: Bar) -> Foo:
+def create_foo(bar: int) -> Foo:
     return Foo(bar)
+
+container = Container()
+container.register(int).value(42)
+container.register(Foo).factory(create_foo)
+resolved_foo = container.open_context().resolve(Foo)
+
+assert isinstance(resolved_foo, Foo)
+assert resolved_foo.bar == 42
+```
+
+##### Use the given type as its own factory
+
+When you want to register a type and use it as its own factory, you can use the `self()` method instead. The previous example can be simplified as following:
+
+```python
+from handless import Container
+
+
+class Foo:
+    def __init__(self, bar: int) -> None:
+    self.bar = bar
+
+container = Container()
+container.register(int).value(42)
+container.register(Foo).self()
+resolved_foo = container.open_context().resolve(Foo)
+
+assert isinstance(resolved_foo, Foo)
+assert resolved_foo.bar == 42
 ```
 
 ### Register an alias
 
-Finally, you can register a type alias. It means that resolving your type will end up resolving the provided alias instead.
-This is particularly useful for registering implementation types against abstracts or protocols.
+> :construction: Under construction
+
+### Lifetimes
+
+> :construction: Under construction
+
+### Context managers and cleanups
+
+If your application has no shutdown mechanism you can register your container `release` method using `atexit` module to release on program exit.
 
 ```python
-from handless import Registry
+import atexit
 
-class IFoo(Protocol):
-    # Works as well with ABC
-    pass
+from handless import Container
 
+container = Container()
+container.register(str).value("hello world!")
 
-class Foo:
-    pass
-
-registry = Registry().register(IFoo, Foo)
-
-with registry.create_container() as container:
-    foo = container.resolve(IFoo)
-
-    assert isinstance(foo, Foo)
+# hello world!
+atexit.register(container.release)
 ```
 
-> :warning: When `autobind` is disabled the alias itself must be registered as well or the registry will raise exception when trying to resolve your type.
+Releasing the container is idempotent and can be used several times. Each time, all singletons will be cleared and then context manager exited, if any.
 
-> :warning: Additional arguments are ignored. If provided a warning will be raised.
+### Context local registry
+
+> :construction: Under construction
 
 ## Recipes
 
-> :construction: _Under construction_
+### Registering implementations for protocols and abstract classes
+
+> :construction: Under construction
+
+### Choosing dependencies at runtime
+
+> :construction: Under construction
+
+### Use with FastAPI
+
+> :construction: Under construction
 
 ## Q&A
 
-> :warning: The following answers are subjective.
+### Why requiring having a context object to resolve types instead of using the container directly?
 
-### Why separate registry and container? Why not use the container to register types?
+- Separation of concerns
+- Simpler API
+- Transient dependencies captivity
+- Everything is a context
+- Easier management and release of resolved values
 
-This better separate concerns. A registry is supposed to register how to resolve your types. A container is supposed to resolve your types. Once your registry is setup and your container created, you're not supposed to register types while your application is running. This can lead to harder debugging and weird behaviors. Instead of raising errors at runtime when trying to register types in a running container, I preferred to split into two distinct objects so you can not even register on the container.
+### Why using a fluent API to register types as a two step process?
 
-### Why providing a single `register` function to register various kind of providers instead of having many more explicit ones?
+- type hints limitations
 
-This one is mostly due to Python typing system. I wanted this library to be fully typed in order to prevent from registering wrong providers upfront.
-To better understand why I did not split registration into several functions, look at the following example
+### Why using objects for lifetimes? (Why not using enums or literals?)
 
-```python
-from typing import TypeVar
-
-
-_T = TypeVar("_T")
-
-def register_value(type: type[_T], value: _T) -> None:
-    ...
-
-register_value(str, 42) # No mypy issues
-```
-
-If you give this to mypy, you'll get no typing errors. This is because the `_T` variable is not bound to any particular type so this example is perfectly fine. Mypy will infer that `_T` as `str | int`.
-
-The other solution would have been to somehow prebind the `_T` type but this would have incurred a more complex API.
-
-> :bulb: This behavior is actually the same as in some other languages.
+- Allow creating its own lifetimes
+- Allows to add options in the future
+- Avoid if statements
 
 ## Contributing
 
-Running tests: `uv run pytest tests --cov=containers --cov-report=term-missing`
+Running tests: `uv run nox`
 
 [lagom]: https://lagom-di.readthedocs.io
 [svcs]: https://svcs.hynek.me/

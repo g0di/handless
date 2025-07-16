@@ -1,35 +1,15 @@
 from __future__ import annotations
 
 import inspect
-from contextlib import AbstractContextManager, contextmanager
+from functools import cache
 from inspect import Parameter, isgeneratorfunction
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    NewType,
-    ParamSpec,
-    TypeVar,
-    cast,
-    get_type_hints,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, NewType, TypeVar, cast, get_type_hints
+from unittest.mock import Mock
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable
 
 _T = TypeVar("_T")
-
-
-def count_func_params(value: Callable[..., Any]) -> int:
-    """Return the total number of parameters of given function."""
-    return len(inspect.signature(value).parameters)
-
-
-def get_untyped_parameters(params: dict[str, Parameter]) -> list[str]:
-    """List keys of given dict having `Parameter.empty` value."""
-    return [
-        pname for pname, param in params.items() if param.annotation is Parameter.empty
-    ]
 
 
 def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
@@ -37,15 +17,22 @@ def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
     return cast("type[_T]", get_type_hints(func).get("return"))
 
 
+@cache
 def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Parameter]:
     """Return non variadic parameters of given callable mapped to their name.
 
     Non variadic parameters are all parameters except *args and **kwargs
     """
-    signature = inspect.signature(
-        callable_.__supertype__ if isinstance(callable_, NewType) else callable_,
-        eval_str=True,
+    # NOTE: when receiving a mock or a new type we must inspect the signature of the
+    # wrapped object because inspect does not do it automatically
+    callable_to_inspect = (
+        callable_.__supertype__
+        if isinstance(callable_, NewType)
+        else callable_._mock_wraps  # noqa: SLF001
+        if isinstance(callable_, Mock)
+        else callable_
     )
+    signature = inspect.signature(callable_to_inspect, eval_str=True)
     return {
         name: param
         for name, param in signature.parameters.items()
@@ -62,42 +49,6 @@ def compare_functions(a: Callable[..., Any], b: Callable[..., Any]) -> bool:
     a_code = a.__code__.co_code if hasattr(a, "__code__") else a
     b_code = b.__code__.co_code if hasattr(b, "__code__") else b
     return a_code == b_code
-
-
-_P = ParamSpec("_P")
-
-
-@overload
-def autocontextmanager(
-    factory: Callable[_P, Iterator[_T]],
-) -> Callable[_P, AbstractContextManager[_T]]: ...
-
-
-@overload
-def autocontextmanager(factory: Callable[_P, _T]) -> Callable[_P, _T]: ...
-
-
-def autocontextmanager(factory: Callable[..., Any]) -> Callable[..., Any]:
-    if inspect.isgeneratorfunction(factory):
-        return contextmanager(factory)
-    return factory
-
-
-def get_injectable_params(
-    function: Callable[..., Any], overrides: dict[str, type[Any]] | None = None
-) -> tuple[inspect.Parameter, ...]:
-    # Merge given callable inspected params with provided ones.
-    # NOTE: we omit variadic params because we don't know how to autowire them yet
-    params = get_non_variadic_params(function)
-    for pname, override_type in (overrides or {}).items():
-        params[pname] = params[pname].replace(annotation=override_type)
-
-    if empty_params := get_untyped_parameters(params):
-        # NOTE: if some parameters are missing type annotation we cannot autowire
-        msg = f"Factory {function} is missing types for following parameters: {', '.join(empty_params)}"
-        raise TypeError(msg)
-
-    return tuple(params.values())
 
 
 def iscontextmanager(function: Callable[..., Any]) -> bool:

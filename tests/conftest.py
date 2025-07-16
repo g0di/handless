@@ -1,21 +1,19 @@
-from typing import cast
+from collections.abc import Iterator
 
 import pytest
 
-from handless import Container, Registry
+from handless import Container, ResolutionContext
+
+pytest.register_assert_rewrite("tests.helpers")
 
 
 @pytest.fixture
-def registry(request: pytest.FixtureRequest) -> Registry:
-    registry_options_mark = cast(
-        "pytest.Mark | None", request.node.get_closest_marker("registry_options")
-    )
-    registry_options = (
-        registry_options_mark.kwargs if registry_options_mark is not None else {}
-    )
-    return Registry(**registry_options)
+def container() -> Iterator[Container]:
+    with Container() as container:
+        yield container
 
 
 @pytest.fixture
-def container(registry: Registry) -> Container:
-    return Container(registry)
+def context(container: Container) -> Iterator[ResolutionContext]:
+    with container.open_context() as ctx:
+        yield ctx

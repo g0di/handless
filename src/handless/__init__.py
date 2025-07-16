@@ -1,6 +1,12 @@
-from handless._lifetimes import LifetimeLiteral
-from handless._registrations import Registration
-from handless.containers import Container, Scope
-from handless.registry import Registry
+from handless._registry import Registration
+from handless.container import Container, ResolutionContext
+from handless.lifetimes import Contextual, Singleton, Transient
 
-__all__ = ["Container", "LifetimeLiteral", "Registration", "Registry", "Scope"]
+__all__ = [
+    "Container",
+    "Contextual",
+    "Registration",
+    "ResolutionContext",
+    "Singleton",
+    "Transient",
+]

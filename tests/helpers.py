@@ -1,8 +1,8 @@
-from typing import NewType, Protocol, get_args
+from typing import Any, NewType, Protocol
 
 import pytest
 
-from handless import Container, LifetimeLiteral
+from handless.lifetimes import Contextual, Singleton, Transient
 
 
 class IFakeService(Protocol): ...
@@ -24,114 +24,46 @@ class FakeService(IFakeService):
         self.exited = True
 
 
-FakeServiceNewType = NewType("FakeServiceNewType", FakeService)
+def create_fake_service() -> FakeService:
+    return FakeService()
 
 
 class FakeServiceWithParams(IFakeService):
     def __init__(self, foo: str, bar: int) -> None:
-        self.foo = foo
-        self.bar = bar
+        pass
+
+
+class FakeServiceWithOneParam(IFakeService):
+    def __init__(self, foo: str) -> None:
+        pass
 
 
 class FakeServiceWithUntypedParams(IFakeService):
-    def __init__(self, foo, bar):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN204
-        self.foo = foo
-        self.bar = bar
+    def __init__(self, foo, bar) -> None:  # type: ignore  # noqa: ANN001, PGH003
+        pass
 
 
-class CallableFakeService(IFakeService):
-    def __call__(self) -> FakeService:
-        return FakeService()
-
-
-class CallableFakeServiceWithParams(IFakeService):
-    def __call__(self, foo: str, bar: int) -> FakeServiceWithParams:
-        return FakeServiceWithParams(foo, bar)
-
-
-class UntypedCallableFakeServiceWithParams(IFakeService):
-    def __call__(self, foo, bar):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN204
-        return FakeServiceWithParams(foo, bar)
-
-
-fake_service_lambda_factory = lambda: FakeService()  # noqa: E731
-fake_service_lambda_factory_with_param = lambda c: FakeServiceWithParams(  # noqa: E731
-    c.resolve(str), c.resolve(int)
-)
-fake_service_lambda_factory_with_many_params = lambda a, b, c: FakeService()  # noqa: ARG005, E731
-
-
-def fake_service_factory() -> FakeService:
-    return FakeService()
-
-
-def fake_service_factory_with_params(foo: str, bar: int) -> FakeServiceWithParams:
-    return FakeServiceWithParams(foo, bar)
-
-
-def fake_service_factory_with_container_param(
-    container: Container,
+def create_fake_service_with_params(
+    foo: str,
+    *args: Any,  # noqa: ANN401, ARG001
+    bar: int = 5,
+    **kwargs: Any,  # noqa: ANN401, ARG001
 ) -> FakeServiceWithParams:
-    return FakeServiceWithParams(container.resolve(str), container.resolve(int))
-
-
-def fake_service_factory_with_untyped_params(foo, bar) -> FakeServiceWithParams:  # type: ignore[no-untyped-def]  # noqa: ANN001
     return FakeServiceWithParams(foo, bar)
 
 
-use_invalid_provider = pytest.mark.parametrize(
-    "factory",
-    [
-        fake_service_lambda_factory_with_many_params,
-        FakeServiceWithUntypedParams,
-        UntypedCallableFakeServiceWithParams(),
-        fake_service_factory_with_untyped_params,
-    ],
-)
-"""All kind of invalid provider."""
+def create_fake_service_with_untyped_params(  # type: ignore  # noqa: PGH003
+    foo,  # noqa: ANN001
+    bar,  # noqa: ANN001
+) -> FakeServiceWithParams:
+    return FakeServiceWithParams(foo, bar)
 
-use_valid_provider = pytest.mark.parametrize(
-    "factory",
-    [
-        FakeService,
-        FakeServiceWithParams,
-        fake_service_factory,
-        fake_service_factory_with_params,
-        fake_service_lambda_factory,
-        pytest.param(
-            fake_service_lambda_factory_with_param,
-            marks=pytest.mark.xfail(reason="Not implemented"),
-        ),
-        CallableFakeService(),
-        CallableFakeServiceWithParams(),
-    ],
-)
-"""All kind of valid provider."""
 
-use_valid_factory_provider = pytest.mark.parametrize(
-    "function",
-    [
-        fake_service_lambda_factory,
-        pytest.param(
-            fake_service_lambda_factory_with_param,
-            marks=pytest.mark.xfail(reason="Not implemented"),
-        ),
-        fake_service_factory,
-        fake_service_factory_with_params,
-    ],
-)
-"""All kind of functions that can be registered as a provider."""
+FakeServiceNewType = NewType("FakeServiceNewType", IFakeService)  # type: ignore[misc]
 
-use_invalid_factory_provider = pytest.mark.parametrize(
-    "function",
-    [
-        fake_service_lambda_factory_with_many_params,
-        fake_service_factory_with_untyped_params,
-    ],
+use_lifetimes = pytest.mark.parametrize(
+    "lifetime", [Transient(), Contextual(), Singleton()]
 )
-"""All kind of functions that CANNOT be registered as a provider."""
-
-use_lifetimes = pytest.mark.parametrize("lifetime", get_args(LifetimeLiteral))
 use_enter = pytest.mark.parametrize(
     "enter", [True, False], ids=["Enter CM", "Not enter CM"]
 )
