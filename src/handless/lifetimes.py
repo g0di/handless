@@ -4,7 +4,6 @@ import warnings
 import weakref
 from collections.abc import Callable
 from contextlib import AbstractContextManager, ExitStack, suppress
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
 if TYPE_CHECKING:
@@ -23,7 +22,6 @@ class Lifetime(Protocol):
 # NOTE: We use dataclasses for lifetime to simplify equality comparisons.
 
 
-@dataclass(slots=True)
 class Transient(Lifetime):
     """Calls registration factory on each resolve."""
 
@@ -31,8 +29,10 @@ class Transient(Lifetime):
         ctx = get_context_for(scope)
         return ctx.get_instance(registration, scope)
 
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, Transient)
 
-@dataclass(slots=True)
+
 class Contextual(Lifetime):
     """Calls registration factory on resolve once per context."""
 
@@ -40,14 +40,19 @@ class Contextual(Lifetime):
         ctx = get_context_for(scope)
         return ctx.get_cached_instance(registration, scope)
 
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, Contextual)
 
-@dataclass(slots=True)
+
 class Singleton(Lifetime):
     """Calls registration factory on resolve once per container."""
 
     def resolve(self, scope: ResolutionContext, registration: Registration[_T]) -> _T:
         ctx = get_context_for(scope.container)
         return ctx.get_cached_instance(registration, scope)
+
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, Singleton)
 
 
 ReleaseCallback = Callable[[], Any]

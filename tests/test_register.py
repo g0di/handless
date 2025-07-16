@@ -130,7 +130,7 @@ class TestRegisterValue:
         container.register(FakeService).value(expected := FakeService())
 
         assert container.lookup(FakeService) == Registration(
-            FakeService, lambda _: expected, enter=False, lifetime=Singleton()
+            FakeService, lambda: expected, enter=False, lifetime=Singleton()
         )
 
     @use_enter
