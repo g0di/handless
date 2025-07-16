@@ -10,11 +10,12 @@ A Python dependency injection container that automatically resolves and injects 
 - [Getting started](#getting-started)
 - [Core](#core)
   - [Containers](#containers)
-  - [Register a value](#register-a-value)
-  - [Register a factory](#register-a-factory)
+    - [Register a value](#register-a-value)
+    - [Register a factory](#register-a-factory)
+      - [Use the given type as its own factory](#use-the-given-type-as-its-own-factory)
   - [Register an alias](#register-an-alias)
-  - [Context managers and cleanups](#context-managers-and-cleanups)
   - [Lifetimes](#lifetimes)
+  - [Context managers and cleanups](#context-managers-and-cleanups)
   - [Context local registry](#context-local-registry)
 - [Recipes](#recipes)
   - [Registering implementations for protocols and abstract classes](#registering-implementations-for-protocols-and-abstract-classes)
@@ -86,7 +87,7 @@ Install it through you preferred packages manager:
 pip install handless
 ```
 
-Once installed, you can create a container allowing you to specify how to resolve your types and start resolving them. Here is an example showcasing several features of the container.
+Once installed, you can create a container allowing you to specify how to resolve your types and start resolving them. Here is an example showcasing most features of the container.
 
 ```python
 import smtplib
@@ -177,7 +178,7 @@ container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore
 
 # Notification manager
 container.register(smtplib.SMTP).factory(
-    lambda ctx: smtplib.SMTP(ctx.resolve(Config.smtp_host)),
+    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host)),
     lifetime=Singleton(),
     enter=True,
 )
@@ -213,25 +214,15 @@ container.release()
 
 ### Containers
 
-Containers allows to register types and specify how to resolve them (get an instance of this type). Each registered type get a factory function attached depending on how you registered it. During registration, a lifetime can be passed to tell the container when to call this factory function or prefer using a cached value.
+Containers allows to register types and specify how to resolve them (get an instance of this type). Each registered type get a factory function attached depending on how you registered it.
 
 There should be at most one container per entrypoint in your application (a CLI, a HTTP server, ...). You can share the same container for all your entrypoints. A test is considered as an entrypoint as well.
 
 > :bulb: The container should be placed on your application composition root. This can be as simple as a `bootstrap.py` file on your package root.
 
-> :warning The container is the most "high level" component of your application. It can import anything from any sub modules. However, none of your code should depends on the container itself. Otherwise you're going to use the service locator anti-pattern. There can be exceptions to this rule, for example, when used in an HTTP API controllers (as suggested in `svcs`). The most important thing is that your services and objects should not use the container directly in order to pull its dependencies on the fly.
+> :warning The container is the most "high level" component of your application. It can import anything from any sub modules. However, none of your code should depends on the container itself. Otherwise you're going to use the service locator anti-pattern. There can be exceptions to this rule, for example, when used in an HTTP API controllers (as suggested in `svcs`).
 
-If your application has no shutdown mechanism you can register your container `release` method using `atexit` module to release on program exit.
-
-```python
-import atexit
-
-atexit.register(container.release)
-```
-
-Releasing the container is idempotent and can be used several times. Each time, all singletons will be cleared and then context manager exited, if any.
-
-### Register a value
+#### Register a value
 
 You can register a value directly for your type. When resolved, the provided value will be returned as-is.
 
@@ -245,27 +236,82 @@ class Foo:
 foo = Foo()
 container = Container()
 container.register(Foo).value(foo)
-
-with container.open_context() as ctx:
-    resolved_foo = ctx.resolve(Foo)
-    assert resolved_foo is foo
+resolved_foo = container.open_context().resolve(Foo)
+assert resolved_foo is foo
 ```
 
-### Register a factory
+#### Register a factory
 
-> :construction: Under construction
+If you want the container to create instances of your types for you you can instead register a factory. A factory is a callable taking no or several arguments and returning an instance of the type registered. The callable can be a lambda function, a regular function or even a type (a class). When resolved, the container will take care of calling the factory and return its return value. If your factory takes arguments, the container will first resolve its arguments using their type annotations and pass them to the factory.
+
+> :warning: your callable arguments must have type annotation to be properly resolved. If missing, an error will be raised at registration time.
+
+```python
+from handless import Container
+
+
+class Foo:
+    def __init__(self, bar: int) -> None:
+    self.bar = bar
+
+def create_foo(bar: int) -> Foo:
+    return Foo(bar)
+
+container = Container()
+container.register(int).value(42)
+container.register(Foo).factory(create_foo)
+resolved_foo = container.open_context().resolve(Foo)
+
+assert isinstance(resolved_foo, Foo)
+assert resolved_foo.bar == 42
+```
+
+##### Use the given type as its own factory
+
+When you want to register a type and use it as its own factory, you can use the `self()` method instead. The previous example can be simplified as following:
+
+```python
+from handless import Container
+
+
+class Foo:
+    def __init__(self, bar: int) -> None:
+    self.bar = bar
+
+container = Container()
+container.register(int).value(42)
+container.register(Foo).self()
+resolved_foo = container.open_context().resolve(Foo)
+
+assert isinstance(resolved_foo, Foo)
+assert resolved_foo.bar == 42
+```
 
 ### Register an alias
-
-> :construction: Under construction
-
-### Context managers and cleanups
 
 > :construction: Under construction
 
 ### Lifetimes
 
 > :construction: Under construction
+
+### Context managers and cleanups
+
+If your application has no shutdown mechanism you can register your container `release` method using `atexit` module to release on program exit.
+
+```python
+import atexit
+
+from handless import Container
+
+container = Container()
+container.register(str).value("hello world!")
+
+# hello world!
+atexit.register(container.release)
+```
+
+Releasing the container is idempotent and can be used several times. Each time, all singletons will be cleared and then context manager exited, if any.
 
 ### Context local registry
 
