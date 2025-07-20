@@ -12,8 +12,9 @@ A Python dependency injection container that automatically resolves and injects 
   - [Containers](#containers)
     - [Register a value](#register-a-value)
     - [Register a factory](#register-a-factory)
-      - [Use the given type as its own factory](#use-the-given-type-as-its-own-factory)
-  - [Register an alias](#register-an-alias)
+      - [Using lambda function](#using-lambda-function)
+    - [Register a type as its own factory](#register-a-type-as-its-own-factory)
+    - [Register an alias](#register-an-alias)
   - [Lifetimes](#lifetimes)
   - [Context managers and cleanups](#context-managers-and-cleanups)
   - [Context local registry](#context-local-registry)
@@ -242,7 +243,7 @@ assert resolved_foo is foo
 
 #### Register a factory
 
-If you want the container to create instances of your types for you you can instead register a factory. A factory is a callable taking no or several arguments and returning an instance of the type registered. The callable can be a lambda function, a regular function or even a type (a class). When resolved, the container will take care of calling the factory and return its return value. If your factory takes arguments, the container will first resolve its arguments using their type annotations and pass them to the factory.
+If you're looking for lazy instantiating your objects you can instead register a factory. A factory is a callable taking no or several arguments and returning an instance of the type registered. The callable can be a lambda function, a regular function or even a type (a class). During resolution, the container will take care of calling the factory and return its return value. If your factory takes arguments, the container will first resolve its arguments using their type annotations and pass them to the factory.
 
 > :warning: your callable arguments must have type annotation to be properly resolved. If missing, an error will be raised at registration time.
 
@@ -252,7 +253,7 @@ from handless import Container
 
 class Foo:
     def __init__(self, bar: int) -> None:
-    self.bar = bar
+        self.bar = bar
 
 def create_foo(bar: int) -> Foo:
     return Foo(bar)
@@ -266,9 +267,9 @@ assert isinstance(resolved_foo, Foo)
 assert resolved_foo.bar == 42
 ```
 
-##### Use the given type as its own factory
+##### Using lambda function
 
-When you want to register a type and use it as its own factory, you can use the `self()` method instead. The previous example can be simplified as following:
+When passing lambda function, you can not type your arguments. Lambda functions can takes up to one argument. If provided, the `ResolutionContext` will be passed as the only argument allowing to resolve nested types if required.
 
 ```python
 from handless import Container
@@ -276,7 +277,29 @@ from handless import Container
 
 class Foo:
     def __init__(self, bar: int) -> None:
-    self.bar = bar
+        self.bar = bar
+
+
+container = Container()
+container.register(int).value(42)
+container.register(Foo).factory(lambda ctx: Foo(ctx.resolve(int)))
+resolved_foo = container.open_context().resolve(Foo)
+
+assert isinstance(resolved_foo, Foo)
+assert resolved_foo.bar == 42
+```
+
+#### Register a type as its own factory
+
+When you want to register a type and use it as its own factory, you can use the `self()` method instead of using the `.factory(MyType)`.
+
+```python
+from handless import Container
+
+
+class Foo:
+    def __init__(self, bar: int) -> None:
+        self.bar = bar
 
 container = Container()
 container.register(int).value(42)
@@ -287,9 +310,33 @@ assert isinstance(resolved_foo, Foo)
 assert resolved_foo.bar == 42
 ```
 
-### Register an alias
+#### Register an alias
 
-> :construction: Under construction
+When you want a type to be resolved using resolution of another type you can define an alias.
+
+```python
+from typing import Protocol
+
+from handless import Container
+
+
+class IFoo(Protocol):
+    pass
+
+class Foo(IFoo):
+    def __init__(self) -> None:
+        pass
+
+foo = Foo()
+container = Container()
+container.register(Foo).value(foo)
+container.register(IFoo).alias(Foo)
+resolved_foo = container.open_context().resolve(IFoo)
+
+assert resolved_foo is foo
+```
+
+> :bulb: This is particulary useful to define implementation of a protocol or an abstract class
 
 ### Lifetimes
 
