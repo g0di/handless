@@ -217,6 +217,8 @@ container.release()
 
 Containers allows to register types and specify how to resolve them (get an instance of this type). Each registered type get a factory function attached depending on how you registered it.
 
+> :bulb: you can register any types including abstract classes `ABC`, protocols `Protocol` as well as type alias `MyType = Annotated[str, ...]` and new types `NewType("MyType", ...)`.
+
 There should be at most one container per entrypoint in your application (a CLI, a HTTP server, ...). You can share the same container for all your entrypoints. A test is considered as an entrypoint as well.
 
 > :bulb: The container should be placed on your application composition root. This can be as simple as a `bootstrap.py` file on your package root.
@@ -340,7 +342,28 @@ assert resolved_foo is foo
 
 ### Lifetimes
 
-> :construction: Under construction
+During registration of factories `.factory(...)` and `.self()` you can optionally pass a lifetime.
+
+```python
+from handless import Container, Singleton, Transient, Contextual
+
+
+container = Container()
+container.register(object).factories(lambda: object(), lifetime=Singleton())
+container.register(object).factories(lambda: object(), lifetime=Contextual())
+container.register(object).factories(lambda: object(), lifetime=Transient())
+resolved_foo = container.open_context().resolve(IFoo)
+
+assert resolved_foo is foo
+```
+
+Lifetimes affect the way container resolve types by defining when it should call the registered factory and when it should return a cached value instead.
+
+There is 3 lifetimes at the moment:
+
+- `Transient` (default) - The registered factory will be exectuted each time the type is resolved (no cached values)
+- `Contextual` - The registered factory will be executed once per context. additional resolution of the type will return the same cached value
+- `Singleton` - The registered factory will be executed once per container. First time the type is resolved, the factory will be called and its return value cached for the whole container lifetime.
 
 ### Context managers and cleanups
 
