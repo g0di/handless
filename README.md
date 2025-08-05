@@ -43,6 +43,7 @@ In particular it contains the following features:
   - [Cleanup your container between tests](#cleanup-your-container-between-tests)
   - [Override registrations during tests](#override-registrations-during-tests)
   - [Use with FastAPI](#use-with-fastapi)
+  - [Add its own lifetime(s)](#add-its-own-lifetimes)
 - [Q\&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
@@ -374,6 +375,8 @@ If you're looking for lazy instantiating your objects you can instead register a
 
 > :warning: your callable arguments must have type annotation to be properly resolved. If missing, an error will be raised at registration time.
 
+> :bulb: You do not need to create a dedicated factory function. There is nothing that prevents you from using an already existing function from standard library or any other library as long as it has typed parameters (or no parameters).
+
 ```python
 from handless import Container
 
@@ -588,6 +591,10 @@ Releasing the container is idempotent and can be used several times. Each time, 
 > :construction: Under construction
 
 ### Use with FastAPI
+
+> :construction: Under construction
+
+### Add its own lifetime(s)
 
 > :construction: Under construction
 
