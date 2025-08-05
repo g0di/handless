@@ -48,6 +48,7 @@ In particular it contains the following features:
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
+- [Alternatives](#alternatives)
 - [Contributing](#contributing)
 
 ## Explanations
@@ -618,9 +619,18 @@ Releasing the container is idempotent and can be used several times. Each time, 
 - Allows to add options in the future
 - Avoid if statements
 
+## Alternatives
+
+Other existing alternatives you might be interested in:
+
+- [lagom]
+- [svcs]
+- [dependency_injector]
+
 ## Contributing
 
 Running tests: `uv run nox`
 
 [lagom]: https://lagom-di.readthedocs.io
 [svcs]: https://svcs.hynek.me/
+[dependency_injector]: https://python-dependency-injector.ets-labs.org/
