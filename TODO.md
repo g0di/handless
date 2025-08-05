@@ -46,6 +46,7 @@ This document contains all the ideas I've got for new features or changes to be 
 - :bug: Registering a type with itself must ensure the given type is not abstract or protocol
 - :bulb: Suggest on additional kind of registry providing a different public API for registering (could be based on Castle Windsor or InversifyJS)
 - :new: add new lifetimes (threaded, pooled)
+- :new: add ability to choose default lifetime at container level
 
 ## Testing
 

@@ -51,7 +51,6 @@ test = ["pytest>=8.3.4", "pytest-cov>=6.0.0", "pytest-mock>=3.14.0"]
 files = ["src", "tests", "doc/examples"]
 strict = true
 
-
 [tool.ruff]
 src = ["src", "tests", "doc/examples"]
 
@@ -99,6 +98,7 @@ convention = "pep257"
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]
 addopts = ["--doctest-modules"]
+doctest_optionflags = ["ELLIPSIS"]
 
 [tool.coverage.run]
 branch = true

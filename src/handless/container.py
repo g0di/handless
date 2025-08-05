@@ -29,8 +29,7 @@ class Container(Releasable["Container"]):
 
     Containers hold registrations defining how to resolve registered types. It also cache
     all singleton lifetime types. To resolve a type from a container you must open a resolution
-    context. This is to prevent containers to keep transient lifetime types for its whole
-    duration and ensures proper release of any resolved resources.
+    context.
 
     You're free to use the container in a context manager or to manually call the release
     method, both does the same. The release function does not prevent to reuse the container
@@ -60,11 +59,29 @@ class Container(Releasable["Container"]):
 
         This function returns a builder providing function for choosing the provider to
         use for resolving given type as well as its lifetime.
+
+        >>> container = Container()
+        >>> container.register(str).value("handless")
+        >>> container.register(object).factory(lambda: object())
+        >>> container.register(Any).alias(object)
+        >>> container.register(list).self()
         """
         return RegistrationBuilder(self._registry, type_)
 
     def lookup(self, key: type[_T]) -> Registration[_T]:
         """Return registration for given type if any.
+
+        >>> container = Container()
+        >>> container.register(str).value("handless")
+        >>> container.lookup(str)
+        Registration(type_=<class 'str'>, ...)
+
+        If the given type is not registered
+        >>> container = Container()
+        >>> container.lookup(str)
+        Traceback (most recent call last):
+            ...
+        handless.exceptions.RegistrationNotFoundError: ...
 
         :raise RegistrationNotFoundError: If the given type is not registered
         """
@@ -90,8 +107,10 @@ class Container(Releasable["Container"]):
     ) -> Any:
         """Register decorated function as a factory for its return type annotation.
 
-        This is a shortand for `container.register(SomeType).use_factory(decorated_function)`
-        Where `SomeType` is the return type annotation of a function named `decorated_function`
+        This is a shortand for `container.register(SomeType).factory(decorated_function)`
+        Where `SomeType` is the return type annotation of `decorated_function`.
+
+        Decorated function is left untouched meaning that you can  safely call it manually.
 
         :param factory: The decorated factory function
         :param lifetime: The factory lifetime, defaults to `Transient`
@@ -115,7 +134,15 @@ class Container(Releasable["Container"]):
         return wrapper
 
     def release(self) -> None:
-        """Release all cached singletons and exits their context managers if entered."""
+        """Release all cached singletons and opened contexts.
+
+        This will also exits any entered context managers for singleton lifetime objects.
+        Note that opened contexts are weakly referenced meaning that only ones still
+        referenced will be released.
+
+        This method is safe to be called several times, it does not prevent from using
+        the container.
+        """
         # TODO: create a test that ensure scopes are properly closed on container close
         for ctx in self._contexts:
             ctx.release()
@@ -126,9 +153,6 @@ class Container(Releasable["Container"]):
 
         You better use this function with a context manager. Otherwise call its release
         method when you're done with it.
-
-        Note that the container automatically releases all opened context on release as
-        long as those context are still referenced (not garbage collected)
         """
         ctx = ResolutionContext(self)
         self._contexts.add(ctx)
@@ -141,6 +165,12 @@ class ResolutionContext(Releasable["ResolutionContext"]):
     It caches contextual types and enters context managers for both contextual and
     transient types. Cache is cleared on call to release method and all entered context
     managers are exited.
+
+    >>> container = Container()
+    >>> container.register(str).value("handless")
+    >>> with container.open_context() as ctx:
+    ...     ctx.resolve(str)
+    'handless'
     """
 
     def __init__(self, container: Container) -> None:
@@ -156,6 +186,7 @@ class ResolutionContext(Releasable["ResolutionContext"]):
 
     @property
     def container(self) -> Container:
+        """Return the parent container of this context."""
         return self._container
 
     def register_local(self, type_: type[_T]) -> RegistrationBuilder[_T]:
