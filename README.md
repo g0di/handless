@@ -515,9 +515,9 @@ from handless import Container, Singleton, Transient, Contextual
 
 
 container = Container()
-container.register(object).factories(lambda: object(), lifetime=Singleton())
-container.register(object).factories(lambda: object(), lifetime=Contextual())
-container.register(object).factories(lambda: object(), lifetime=Transient())
+container.register(object).factory(lambda: object(), lifetime=Singleton())
+container.register(object).factory(lambda: object(), lifetime=Contextual())
+container.register(object).factory(lambda: object(), lifetime=Transient())
 resolved_foo = container.open_context().resolve(IFoo)
 
 assert resolved_foo is foo
