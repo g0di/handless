@@ -27,6 +27,7 @@ In particular it contains the following features:
   - [Open a context](#open-a-context)
   - [Register a value](#register-a-value)
   - [Register a factory function](#register-a-factory-function)
+    - [Using `factory` decorator](#using-factory-decorator)
   - [Register a lambda function](#register-a-lambda-function)
   - [Register a type constructor](#register-a-type-constructor)
   - [Register an alias](#register-an-alias)
@@ -392,6 +393,36 @@ resolved_foo = container.open_context().resolve(Foo)
 assert isinstance(resolved_foo, Foo)
 assert resolved_foo.bar == 42
 ```
+
+#### Using `factory` decorator
+
+Having to write your factory function somewhere then register it on your container elsewhere tends to reduce readability. If you prefer you can opt for using the factory decorator instead.
+
+```python
+from handless import Container
+
+
+class Foo:
+    def __init__(self, bar: int) -> None:
+        self.bar = bar
+
+
+
+container = Container()
+container.register(int).value(42)
+
+@container.factory
+def create_foo(bar: int) -> Foo:
+    return Foo(bar)
+
+
+resolved_foo = container.open_context().resolve(Foo)
+
+assert isinstance(resolved_foo, Foo)
+assert resolved_foo.bar == 42
+```
+
+This is mostly a matter of preference as both ways do the exact same thing. You can also pass parameters to the factory decorator `@factory(lifetime=..., enter=...)`.
 
 ### Register a lambda function
 
