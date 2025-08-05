@@ -16,7 +16,6 @@ This document contains all the ideas I've got for new features or changes to be 
 - :books: Build a static documentation website using `sphinx` or `mkdocs` published on github pages
 - :books: Add badges on README file (coverage, tests, ...)
 - :books: add/enhance docstrings
-- :books: Add documentation for ussing the factory decorator
 - :books: Add documentation on ability to register local types on resolution context
 
 ## Async
