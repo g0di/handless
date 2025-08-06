@@ -44,11 +44,11 @@ def test_resolve_type_calls_registration_factory_with_dependencies_and_returns_i
     container: Container, context: ResolutionContext
 ) -> None:
     factory = Mock(wraps=FakeServiceWithParams)
-    container.register(FakeService).factory(factory)
+    container.register(FakeServiceWithParams).factory(factory)
     container.register(str).value("foo")
     container.register(int).value(42)
 
-    resolved = context.resolve(FakeService)
+    resolved = context.resolve(FakeServiceWithParams)
 
     assert isinstance(resolved, FakeServiceWithParams)
     factory.assert_called_once_with(foo="foo", bar=42)

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added documentation to README.md file
 - Added `container.override(...)` method to override registered types with different value or factory for testing purposes
 
+### Removed
+
+- `typing-extensions` is not required anymore
+
 ## [0.1.0] - 2025-07-16
 
 This version does a major change to the public API. Now `Container` is the main object to be used to register types in the container. To resolve, one must uses a `ResolutionContext` obtained by running `open_context()` function on the container. This produces a context allowing to resolves types and track entered context managers and cache objects.

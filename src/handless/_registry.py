@@ -8,8 +8,6 @@ from inspect import Parameter, isclass, isgeneratorfunction
 from types import EllipsisType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
-from typing_extensions import Self
-
 from handless._utils import are_functions_equal, get_non_variadic_params
 from handless.exceptions import RegistrationAlreadyExistError, RegistrationError
 from handless.lifetimes import Lifetime, Singleton, Transient
@@ -28,13 +26,12 @@ class Registry:
         self._registrations: dict[type[Any], Registration[Any]] = {}
         self.allow_override = allow_override
 
-    def register(self, registration: Registration[Any]) -> Self:
+    def register(self, registration: Registration[Any]) -> None:
         if not self.allow_override and registration.type_ in self._registrations:
             raise RegistrationAlreadyExistError(registration.type_)
 
         self._registrations[registration.type_] = registration
         self._logger.info("Registered %s: %s", registration.type_, registration)
-        return self
 
     def get_registration(self, type_: type[_T]) -> Registration[_T] | None:
         return self._registrations.get(type_)

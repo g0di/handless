@@ -21,7 +21,13 @@ def typecheck(session: nox.Session) -> None:
 )
 def test(session: nox.Session) -> None:
     session.run_install(
-        "uv", "sync", "--active", "--frozen", "--group=test", external=True
+        "uv",
+        "sync",
+        "--active",
+        "--frozen",
+        "--no-default-groups",
+        "--group=test",
+        external=True,
     )
     session.run("coverage", "run", "-m", "pytest", "-rN")
     session.notify("coverage")

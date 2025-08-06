@@ -148,11 +148,8 @@ wheels = [
 
 [[package]]
 name = "handless"
-version = "0.1.0"
+version = "0.2.0rc1"
 source = { editable = "." }
-dependencies = [
-    { name = "typing-extensions" },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -169,7 +166,6 @@ test = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "typing-extensions", specifier = ">=4.12.2" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "nox", specifier = ">=2025.5.1" }]

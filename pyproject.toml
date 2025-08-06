@@ -5,7 +5,7 @@ description = "A Python dependency injection container that automatically resolv
 readme = "README.md"
 authors = [{ name = "g0di", email = "benoit.godard.p@gmail.com" }]
 requires-python = ">=3.10"
-dependencies = ["typing-extensions>=4.12.2"]
+dependencies = []
 license = { file = "LICENSE" }
 keywords = [
     "dependency injection",
@@ -46,6 +46,9 @@ build-backend = "hatchling.build"
 dev = ["nox>=2025.5.1"]
 lint = ["mypy>=1.15.0", "ruff>=0.9.9"]
 test = ["pytest>=8.3.4", "pytest-cov>=6.0.0", "pytest-mock>=3.14.0"]
+
+[tool.uv]
+default-groups = "all"
 
 [tool.mypy]
 files = ["src", "tests", "doc/examples"]
