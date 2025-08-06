@@ -52,6 +52,7 @@ class Container(Releasable["Container"]):
     def __init__(self) -> None:
         super().__init__()
         self._registry = Registry()
+        self._overrides = Registry(allow_override=True)
         self._contexts = weakref.WeakSet[ResolutionContext]()
 
     def register(self, type_: type[_T]) -> RegistrationBuilder[_T]:
@@ -67,6 +68,9 @@ class Container(Releasable["Container"]):
         >>> container.register(list).self()
         """
         return RegistrationBuilder(self._registry, type_)
+
+    def override(self, type_: type[_T]) -> RegistrationBuilder[_T]:
+        return RegistrationBuilder(self._overrides, type_)
 
     def lookup(self, key: type[_T]) -> Registration[_T]:
         """Return registration for given type if any.
@@ -85,8 +89,10 @@ class Container(Releasable["Container"]):
 
         :raise RegistrationNotFoundError: If the given type is not registered
         """
-        registration = self._registry.get_registration(key)
-        if registration is None:
+        registration = self._overrides.get_registration(
+            key
+        ) or self._registry.get_registration(key)
+        if not registration:
             raise RegistrationNotFoundError(key)
         return registration
 
@@ -146,6 +152,7 @@ class Container(Releasable["Container"]):
         # TODO: create a test that ensure scopes are properly closed on container close
         for ctx in self._contexts:
             ctx.release()
+        self._overrides.clear()
         return super().release()
 
     def open_context(self) -> ResolutionContext:

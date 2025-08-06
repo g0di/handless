@@ -1,3 +1,4 @@
+import itertools
 from typing import TypedDict
 from unittest.mock import Mock, call
 
@@ -261,3 +262,85 @@ class TestResolveTypeBoundToContextdRegistration:
         received = context.resolve(FakeService)
 
         assert received is not resolved
+
+
+class TestOverrideTypes:
+    @pytest.fixture
+    def factory(self, container: Container) -> Mock:
+        factory = Mock(wraps=FakeService)
+        container.register(FakeService).factory(factory)
+        return factory
+
+    @pytest.fixture
+    def factory_override(self, container: Container) -> Mock:
+        factory_override = Mock(wraps=FakeService)
+        container.override(FakeService).factory(factory_override)
+        return factory_override
+
+    def test_resolve_type_calls_override_factory_and_returns_its_result_when_registered(
+        self, context: ResolutionContext, factory: Mock, factory_override: Mock
+    ) -> None:
+        resolved = context.resolve(FakeService)
+
+        assert isinstance(resolved, FakeService)
+        factory_override.assert_called_once_with()
+        factory.assert_not_called()
+
+    def test_release_container_clear_overrides(
+        self,
+        container: Container,
+        context: ResolutionContext,
+        factory: Mock,
+        factory_override: Mock,
+    ) -> None:
+        container.release()
+        context.resolve(FakeService)
+
+        factory.assert_called_once_with()
+        factory_override.assert_not_called()
+
+    def test_override_can_override_an_already_overridden_type(
+        self,
+        container: Container,
+        context: ResolutionContext,
+        factory: Mock,
+        factory_override: Mock,
+    ) -> None:
+        factory_override2 = Mock(wraps=FakeService)
+        container.override(FakeService).factory(factory_override2)
+
+        context.resolve(FakeService)
+
+        factory.assert_not_called()
+        factory_override.assert_not_called()
+        factory_override2.assert_called_once_with()
+
+    @pytest.mark.parametrize(
+        ("lifetime", "override_lifetime"),
+        [
+            # Ensure that whatever lifetimes are used, override always takes precedence
+            *itertools.permutations([Transient(), Contextual(), Singleton()], 2),
+            (Transient(), Transient()),
+            (Singleton(), Singleton()),
+            (Contextual(), Contextual()),
+        ],
+    )
+    def test_override_a_cached_type_returns_override_result(
+        self,
+        container: Container,
+        context: ResolutionContext,
+        lifetime: Lifetime,
+        override_lifetime: Lifetime,
+    ) -> None:
+        factory = Mock(wraps=FakeService)
+        factory_override2 = Mock(wraps=FakeService)
+
+        container.register(FakeService).factory(factory, lifetime=lifetime)
+        singleton = context.resolve(FakeService)
+        container.override(FakeService).factory(
+            factory_override2, lifetime=override_lifetime
+        )
+
+        override = context.resolve(FakeService)
+
+        assert override is not singleton

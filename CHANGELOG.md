@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added documentation to README.md file
+- Added `container.override(...)` method to override registered types with different value or factory for testing purposes
 
 ## [0.1.0] - 2025-07-16
 

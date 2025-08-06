@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
 from typing_extensions import Self
 
-from handless._utils import compare_functions, get_non_variadic_params
+from handless._utils import are_functions_equal, get_non_variadic_params
 from handless.exceptions import RegistrationAlreadyExistError, RegistrationError
 from handless.lifetimes import Lifetime, Singleton, Transient
 
@@ -23,12 +23,13 @@ if TYPE_CHECKING:
 class Registry:
     """Register object types and define how to resolve them."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, allow_override: bool = False) -> None:
         self._logger = logging.getLogger(__name__)
         self._registrations: dict[type[Any], Registration[Any]] = {}
+        self.allow_override = allow_override
 
     def register(self, registration: Registration[Any]) -> Self:
-        if registration.type_ in self._registrations:
+        if not self.allow_override and registration.type_ in self._registrations:
             raise RegistrationAlreadyExistError(registration.type_)
 
         self._registrations[registration.type_] = registration
@@ -37,6 +38,9 @@ class Registry:
 
     def get_registration(self, type_: type[_T]) -> Registration[_T] | None:
         return self._registrations.get(type_)
+
+    def clear(self) -> None:
+        self._registrations.clear()
 
 
 _T = TypeVar("_T")
@@ -59,7 +63,7 @@ class Registration(Generic[_T]):
         return (
             isinstance(value, Registration)
             and self.type_ == value.type_
-            and compare_functions(self.factory, value.factory)
+            and are_functions_equal(self.factory, value.factory)
             and self.enter == value.enter
             and self.lifetime == value.lifetime
             and self.dependencies == value.dependencies

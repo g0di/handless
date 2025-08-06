@@ -92,7 +92,7 @@ class LifetimeContext:
     """Holds cached resolved objects and their context managers."""
 
     def __init__(self) -> None:
-        self._cache: dict[type[Any], Any] = {}
+        self._cache: dict[int, Any] = {}
         self._exit_stack = ExitStack()
 
     def close(self) -> None:
@@ -103,9 +103,13 @@ class LifetimeContext:
     def get_cached_instance(
         self, registration: Registration[_T], ctx: ResolutionContext
     ) -> _T:
-        if registration.type_ not in self._cache:
-            self._cache[registration.type_] = self.get_instance(registration, ctx)
-        return cast("_T", self._cache[registration.type_])
+        # NOTE: use registration object ID allowing to not get previously cached value
+        # for a type already resolved but overriden afterwards (Override will register
+        # another registration object).
+        registration_hash = id(registration)
+        if registration_hash not in self._cache:
+            self._cache[registration_hash] = self.get_instance(registration, ctx)
+        return cast("_T", self._cache[registration_hash])
 
     def get_instance(
         self, registration: Registration[_T], ctx: ResolutionContext
@@ -121,8 +125,8 @@ class LifetimeContext:
                 warnings.warn(
                     f"Container resolved {registration.type_} with {instance} which is not an instance of this type. "
                     "This could lead to unexpected errors.",
-                    RuntimeWarning,
-                    stacklevel=2,
+                    Warning,
+                    stacklevel=4,
                 )
         # NOTE: Normally type annotations should prevent having enter=False with instance
         # not being an instance of resolved type. Still, at this point in code there

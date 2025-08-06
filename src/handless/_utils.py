@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
+@cache
 def get_return_type(func: Callable[..., _T]) -> type[_T] | None:
     """Get return type of given function if specified or None."""
     return cast("type[_T]", get_type_hints(func).get("return"))
@@ -40,11 +41,11 @@ def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Paramete
     }
 
 
-def compare_functions(a: Callable[..., Any], b: Callable[..., Any]) -> bool:
+def are_functions_equal(a: Callable[..., Any], b: Callable[..., Any]) -> bool:
     """Check if the two given functions are identicals.
 
     Return true even if both functions are not refering the same object in memory.
-    The funnction will try to compare the function compiled code itself if possible.
+    The function will try to compare the function compiled code itself if possible.
     """
     a_code = a.__code__.co_code if hasattr(a, "__code__") else a
     b_code = b.__code__.co_code if hasattr(b, "__code__") else b

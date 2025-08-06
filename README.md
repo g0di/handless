@@ -11,6 +11,16 @@ In particular it contains the following features:
 - 🧠 **Fully typed**: _Handless_ uses types for registrations. It makes sure that you register only things compatible with provided types and resolves objects with correct type
 - 🧰 **Flexible**: _Handless_ allows you to provide constant values, factories or lambda functions when registering your types
 
+The following features are **not available yet** but planned:
+
+- **Async support**: _Handless_ will support async functions and context managers
+- **Positional only argument**: _Handless_ for the moment can not autowire function or constructors using positional only arguments
+- **Default values**: _Handless_ will use default values of functions or types arguments when its missing type annotation or nothing is registered for this type
+- **Change default lifetime**: _Handless_ will allow you to specify the default lifetime to use any registered type to fit your needs and reduce boilerplate
+- **Partial binding**: _Handless_ will provide ability to partially bind a function to a container allowing to execute that function and have the container resolve and inject its arguments on the fly
+- **Pings**: _Handless_ will allow you to register callbacks for your types allowing you to implement pings/health checks for objects interacting with shared resources (api, databases, ...
+- **Captive dependencies detection**: _Handless_ will try to provide ability to detect captive dependencies due to lifetimes mismatches during registration (e.g: a singleton type depending on a transient one)
+
 **Table of Content**
 
 - [Explanations](#explanations)
@@ -31,18 +41,19 @@ In particular it contains the following features:
   - [Register a lambda function](#register-a-lambda-function)
   - [Register a type constructor](#register-a-type-constructor)
   - [Register an alias](#register-an-alias)
-  - [Set lifetime](#set-lifetime)
+  - [Manage lifetime](#manage-lifetime)
   - [Context managers and cleanup](#context-managers-and-cleanup)
     - [Factories](#factories)
     - [Values](#values)
   - [Context local registry](#context-local-registry)
+  - [Override container registrations](#override-container-registrations)
 - [Recipes](#recipes)
   - [Release container on application exits](#release-container-on-application-exits)
   - [Register implementations for protocols and abstract classes](#register-implementations-for-protocols-and-abstract-classes)
   - [Choose dependencies at runtime](#choose-dependencies-at-runtime)
-  - [Cleanup your container between tests](#cleanup-your-container-between-tests)
-  - [Override registrations during tests](#override-registrations-during-tests)
+  - [Testing](#testing)
   - [Use with FastAPI](#use-with-fastapi)
+  - [Use with Typer](#use-with-typer)
   - [Add its own lifetime(s)](#add-its-own-lifetimes)
 - [Q\&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
@@ -501,27 +512,25 @@ assert resolved_foo is foo
 
 When resolving `IFoo`, the container will actually resolve and returns `Foo`.
 
-### Set lifetime
+### Manage lifetime
 
-During registration of factories `.factory(...)` and `.self()` you can optionally pass a lifetime.
+During registration of factories `.factory(...)`, `@container.factory()` and `.self()` you can optionally pass a lifetime.
 
-> :warning: You can not change lifetimes for `.value(...)` and `.alias(...)` by design
+> :warning: You can not change lifetimes for `.value(...)` and `.alias(...)` by design.
 
 Lifetimes are actual objects and not enum constants nor literals.
-
-> :bulb: This design choice may allow us to customize lifetimes behavior in the future.
 
 ```python
 from handless import Container, Singleton, Transient, Contextual
 
 
 container = Container()
+# Singleton
 container.register(object).factory(lambda: object(), lifetime=Singleton())
+# Contextual
 container.register(object).factory(lambda: object(), lifetime=Contextual())
+# Transient (The default)
 container.register(object).factory(lambda: object(), lifetime=Transient())
-resolved_foo = container.open_context().resolve(IFoo)
-
-assert resolved_foo is foo
 ```
 
 [As described above](#lifetimes), lifetimes allow to determine when the container will execute types factory and cache their result. Generally speaking you may use:
@@ -529,7 +538,7 @@ assert resolved_foo is foo
 - `handless.Singleton` for any objects that should be a singleton for your whole application (one and only one instance per application). For example a HTTP connection pool
   > :warning: Singleton should be threadsafe in multi threaded application to avoid any issues
 - `handless.Contextual` for objects that should be unique per context. For example, a database session should be unique per HTTP request
-- `handless.Transient` for stateful objects which should not be shared because their use rely on their internal state. For example an opened file
+- `handless.Transient` (the default) for stateful objects which should not be shared because their use rely on their internal state. For example an opened file
 
 ### Context managers and cleanup
 
@@ -557,6 +566,43 @@ Objects registered with `.value(...)` are NOT entered by default. If you want th
 
 > :construction: Under construction
 
+### Override container registrations
+
+Containers does not allow to register the same type twice. The following code will raise an error.
+
+```python
+from handless import Container
+
+container = Container()
+container.register(str).value("Hello")
+container.register(str).value("This will raise an error!")
+```
+
+In order to override your container registered types you must use the `override(...)` function instead. This function works identically to `register(...)`.
+
+```python
+from handless import Container
+
+container = Container()
+container.register(str).value("Hello")
+
+def test_my_container():
+    container.override(str).value("Overriden!")
+    with container.open_context() as ctx:
+        resolved = ctx.resolve(str)
+        assert resolved == "Overriden!"
+
+```
+
+> :warning: Overriding is primarily made for testing purposes. You should not use overriding in your production code. If you have use cases where it could makes sense please open a ticket.
+
+Please also note the following:
+
+- Overrides can be overriden as well (each override erase the previous one)
+- Overrides always take precedence over registered type whatever his lifetime (even if the type was previously resolved and cached)
+- Overrides are automatically erased when the container is released
+- On container release, all overrides (even erased one) as well as any previously registered types are properly released as well
+
 ## Recipes
 
 ### Release container on application exits
@@ -583,15 +629,15 @@ Releasing the container is idempotent and can be used several times. Each time, 
 
 > :construction: Under construction
 
-### Cleanup your container between tests
-
-> :construction: Under construction
-
-### Override registrations during tests
+### Testing
 
 > :construction: Under construction
 
 ### Use with FastAPI
+
+> :construction: Under construction
+
+### Use with Typer
 
 > :construction: Under construction
 

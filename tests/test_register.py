@@ -6,6 +6,7 @@ import pytest
 
 from handless import Container
 from handless._registry import Dependency, Registration
+from handless._utils import are_functions_equal
 from handless.container import ResolutionContext
 from handless.exceptions import RegistrationAlreadyExistError, RegistrationError
 from handless.lifetimes import Lifetime, Singleton, Transient
@@ -276,3 +277,13 @@ def test_register_same_type_twice_raises_an_error(container: Container) -> None:
 
     with pytest.raises(RegistrationAlreadyExistError):
         container.register(FakeService).value(FakeService())
+
+
+def test_override_registered_type(container: Container) -> None:
+    service = FakeService()
+    container.register(FakeService).value(service)
+
+    container.override(FakeService).value(expected := FakeService())
+
+    registration = container.lookup(FakeService)
+    assert are_functions_equal(registration.factory, lambda: expected)

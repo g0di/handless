@@ -42,17 +42,15 @@ This document contains all the ideas I've got for new features or changes to be 
 ## Registration
 
 - :new: Add functions for copying a container
-- :new: Add ability to register local values on (scoped) container to inject, for example, HTTP request scoped objects or anything from other frameworks
+- :new: Add ability to register local values on contexts, for example, HTTP request scoped objects or anything from other frameworks
+  - We must find a way to allow container overrides to still override those local values
 - :bug: Registering a type with itself must ensure the given type is not abstract or protocol
-- :bulb: Suggest on additional kind of registry providing a different public API for registering (could be based on Castle Windsor or InversifyJS)
 - :new: add new lifetimes (threaded, pooled)
 - :new: add ability to choose default lifetime at container level
-
-## Testing
-
-- :wrench: Maybe merge resolving/registering tests to avoid having to rely on `Provider` internal class.
-- :wrench: Add ability to temporarily override container/registry for testing purposes
-- :wrench: Use nox for local testing on many python versions
+- :new: add ability to pass lifetime class instead of instances
+- :new: add auto_registration capabilities so container is able to resolve types not registered
+- :new: use magic attributes (**handless_lifetime**) for auto resolving lifetimes from types
+- :new: Allow to configure containers through yaml/toml files
 
 ## github
 
