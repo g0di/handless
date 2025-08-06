@@ -51,6 +51,11 @@ This document contains all the ideas I've got for new features or changes to be 
 - :new: add auto_registration capabilities so container is able to resolve types not registered
 - :new: use magic attributes (**handless_lifetime**) for auto resolving lifetimes from types
 - :new: Allow to configure containers through yaml/toml files
+- :new: Allow to register lambda factories with one or many arguments and pass each argument type and get proper type checking and autocompletion
+
+## Housekeeping
+
+- Split unit tests into smaller files (one per registration type, one per resolve lifetime, ...)
 
 ## github
 
