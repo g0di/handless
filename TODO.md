@@ -2,10 +2,6 @@
 
 This document contains all the ideas I've got for new features or changes to be made.
 
-## TOP PRIORITY
-
-- add tests for covering uncovered code
-
 > :bulb: The order does not reflect the priority.
 
 ## Documentation
@@ -17,6 +13,7 @@ This document contains all the ideas I've got for new features or changes to be 
 - :books: Add badges on README file (coverage, tests, ...)
 - :books: add/enhance docstrings
 - :books: Add documentation on ability to register local types on resolution context
+- :books: Document `on_release` callback
 
 ## Async
 
@@ -52,9 +49,11 @@ This document contains all the ideas I've got for new features or changes to be 
 - :new: use magic attributes (**handless_lifetime**) for auto resolving lifetimes from types
 - :new: Allow to configure containers through yaml/toml files
 - :new: Allow to register lambda factories with one or many arguments and pass each argument type and get proper type checking and autocompletion
+- :new: Add ability to register release callback per registration (for values for exemples)
 
-## Housekeeping
+## Tests
 
+- add tests for covering uncovered code
 - Split unit tests into smaller files (one per registration type, one per resolve lifetime, ...)
 
 ## github

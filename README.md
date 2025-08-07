@@ -55,7 +55,7 @@ The following features are **not available yet** but planned:
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
   - [Add its own lifetime(s)](#add-its-own-lifetimes)
-- [Q\&A](#qa)
+- [Q&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
@@ -279,7 +279,7 @@ container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore
 
 # Notification manager
 container.register(smtplib.SMTP).factory(
-    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host)),
+    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host),
     lifetime=Singleton(),
     enter=True,
 )
@@ -374,6 +374,7 @@ from handless import Container
 class Foo:
     pass
 
+
 foo = Foo()
 container = Container()
 container.register(Foo).value(foo)
@@ -397,8 +398,10 @@ class Foo:
     def __init__(self, bar: int) -> None:
         self.bar = bar
 
+
 def create_foo(bar: int) -> Foo:
     return Foo(bar)
+
 
 container = Container()
 container.register(int).value(42)
@@ -422,9 +425,9 @@ class Foo:
         self.bar = bar
 
 
-
 container = Container()
 container.register(int).value(42)
+
 
 @container.factory
 def create_foo(bar: int) -> Foo:
@@ -473,9 +476,10 @@ class Foo:
     def __init__(self, bar: int) -> None:
         self.bar = bar
 
+
 container = Container()
 container.register(int).value(42)
-container.register(Foo).self() # Same as: container.register(Foo).factory(Foo)
+container.register(Foo).self()  # Same as: container.register(Foo).factory(Foo)
 resolved_foo = container.open_context().resolve(Foo)
 
 assert isinstance(resolved_foo, Foo)
@@ -497,9 +501,11 @@ from handless import Container
 class IFoo(Protocol):
     pass
 
+
 class Foo(IFoo):
     def __init__(self) -> None:
         pass
+
 
 foo = Foo()
 container = Container()
@@ -586,12 +592,12 @@ from handless import Container
 container = Container()
 container.register(str).value("Hello")
 
+
 def test_my_container():
     container.override(str).value("Overriden!")
     with container.open_context() as ctx:
         resolved = ctx.resolve(str)
         assert resolved == "Overriden!"
-
 ```
 
 > :warning: Overriding is primarily made for testing purposes. You should not use overriding in your production code. If you have use cases where it could makes sense please open a ticket.
@@ -677,6 +683,6 @@ Other existing alternatives you might be interested in:
 
 Running tests: `uv run nox`
 
+[dependency_injector]: https://python-dependency-injector.ets-labs.org/
 [lagom]: https://lagom-di.readthedocs.io
 [svcs]: https://svcs.hynek.me/
-[dependency_injector]: https://python-dependency-injector.ets-labs.org/

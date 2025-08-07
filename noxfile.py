@@ -4,6 +4,7 @@ import nox
 @nox.session(python=False)
 def fmt(session: nox.Session) -> None:
     session.run("ruff", "format")
+    session.run("mdformat", ".")
 
 
 @nox.session(python=False)

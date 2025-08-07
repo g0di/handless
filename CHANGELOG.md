@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `typing-extensions` is not required anymore
 
+### Internals
+
+- Add `mdformat` and `mdformat-ruff` to properly format markdown files and Python code blocks using `ruff`
+
 ## [0.1.0] - 2025-07-16
 
 This version does a major change to the public API. Now `Container` is the main object to be used to register types in the container. To resolve, one must uses a `ResolutionContext` obtained by running `open_context()` function on the container. This produces a context allowing to resolves types and track entered context managers and cache objects.
@@ -76,6 +80,6 @@ This version does a major change to the public API. Now `Container` is the main 
 - `Container` - for resolving services from registry
 - `ScopedContainer` - using registry and parent container to resolve services for a scoped lifetime (http request for example)
 
-[unreleased]: https://github.com/g0di/handless/compare/0.1.0-alpha.2...HEAD
-[0.1.0-alpha.2]: https://github.com/g0di/handless/compare/0.1.0-alpha.1...0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/olivierlacan/keep-a-changelog/releases/tag/0.1.0-alpha.1
+[0.1.0-alpha.2]: https://github.com/g0di/handless/compare/0.1.0-alpha.1...0.1.0-alpha.2
+[unreleased]: https://github.com/g0di/handless/compare/0.1.0-alpha.2...HEAD
