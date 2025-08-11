@@ -54,11 +54,10 @@ The following features are **not available yet** but planned:
   - [Register implementations for protocols and abstract classes](#register-implementations-for-protocols-and-abstract-classes)
     - [Static registration](#static-registration)
     - [Runtime registration](#runtime-registration)
-  - [Choose dependencies at runtime](#choose-dependencies-at-runtime)
   - [Testing](#testing)
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
-  - [Add its own lifetime(s)](#add-its-own-lifetimes)
+  - [Add custom lifetime(s)](#add-custom-lifetimes)
 - [Q\&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
@@ -722,10 +721,6 @@ def get_todo_item_repository(ctx: ResolutionContext) -> TodoItemRepository:
 
 > :warning: Most of the time you should use a `Transient` lifetime (the default) for the factory resolving your abstract or protocol to avoid lifetimes mismatches. Indeed, if you use a `Singleton` lifetime on `get_todo_item_repository` while one of your implementation is `Transient` or `Contextual` you'll end up with a [captive dependency](https://blog.ploeh.dk/2014/06/02/captive-dependency/).
 
-### Choose dependencies at runtime
-
-> :construction: Under construction
-
 ### Testing
 
 > :construction: Under construction
@@ -738,7 +733,7 @@ def get_todo_item_repository(ctx: ResolutionContext) -> TodoItemRepository:
 
 > :construction: Under construction
 
-### Add its own lifetime(s)
+### Add custom lifetime(s)
 
 > :construction: Under construction
 

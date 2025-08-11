@@ -9,7 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added documentation to README.md file
+- Added documentation to README.md file including but not limited to:
+  - Registration API
+  - Context managers & cleanup
+  - Types resolving
+  - Registrations overrides
+  - Release container on application exits recipe
+  - Register implementations for protocols and abstract classes recipe
+  - Alternatives section
 - Added `container.override(...)` method to override registered types with different value or factory for testing purposes
 
 ### Removed
