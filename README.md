@@ -1,4 +1,15 @@
-![Handless](handless.logo.png)
+<!-- begin logo -->
+<p align="center">
+  <a href="https://github.com/hynek/svcs/">
+    <img src="handless.logo.png" width="35%" alt="handless logo showing a person doing bycicle without his hands" />
+  </a>
+</p>
+
+<p align="center">
+  <em>Dependency injection without hands in Python.</em>
+</p>
+
+<!-- end logo -->
 
 Handless is a Python dependency injection container which aims at facilitating creation of your objects and services without polluting your code with framework specific code.
 
