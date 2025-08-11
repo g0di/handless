@@ -1,4 +1,4 @@
-# handless <!-- omit in toc -->
+## ![Handless](./handless.png)
 
 Handless is a Python dependency injection container which aims at facilitating creation of your objects and services without polluting your code with framework specific code.
 
@@ -23,6 +23,7 @@ The following features are **not available yet** but planned:
 
 **Table of Content**
 
+- [](#)
 - [Explanations](#explanations)
   - [🔧 What is Dependency Injection, and Why Should You Care?](#-what-is-dependency-injection-and-why-should-you-care)
   - [🧱 What is a DI Container?](#-what-is-a-di-container)
@@ -58,7 +59,7 @@ The following features are **not available yet** but planned:
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
   - [Add custom lifetime(s)](#add-custom-lifetimes)
-- [Q&A](#qa)
+- [Q\&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
