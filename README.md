@@ -58,7 +58,7 @@ The following features are **not available yet** but planned:
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
   - [Add custom lifetime(s)](#add-custom-lifetimes)
-- [Q\&A](#qa)
+- [Q&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
@@ -653,22 +653,19 @@ from handless import Container
 
 
 class TodoItemRepository(Protocol):
-    def add(self, todo: dict) -> None:
-        ...
+    def add(self, todo: dict) -> None: ...
+
 
 class MongoTodoItemRepository(TodoItemRepository):
-    def __init__(self, mongo_url: str) -> None:
-        ...
+    def __init__(self, mongo_url: str) -> None: ...
 
-    def add(self, todo: dict) -> None:
-        ...
+    def add(self, todo: dict) -> None: ...
+
 
 class SqliteTodoItemRepository(TodoItemRepository):
-    def __init__(self) -> None:
-        ...
+    def __init__(self) -> None: ...
 
-    def add(self, todo: dict) -> None:
-        ...
+    def add(self, todo: dict) -> None: ...
 
 
 container = Container()
@@ -681,13 +678,15 @@ The most simple case is when you want to statically define which implementation 
 ```python
 # Individually register your implementations
 container.register(SqliteTodoItemRepository).self()
-container.register(MongoTodoItemRepository).factory(lambda ctx: MongoTodoItemRepository(os.getenv("DB_URL")))
+container.register(MongoTodoItemRepository).factory(
+    lambda ctx: MongoTodoItemRepository(os.getenv("DB_URL"))
+)
 
 # Register an alias of your protocol against your choice
-container.register(TodoItemRepository).alias(SqliteTodoItemRepository) # type: ignore[type-abstract]
+container.register(TodoItemRepository).alias(SqliteTodoItemRepository)  # type: ignore[type-abstract]
 
 with container.open_context() as ctx:
-    repo = ctx.resolve(TodoItemRepository) # type: ignore[type-abstract]
+    repo = ctx.resolve(TodoItemRepository)  # type: ignore[type-abstract]
     assert isinstance(repo, SqliteTodoItemRepository)
 ```
 
@@ -704,7 +703,9 @@ from handless import Singleton, Contextual, ResolutionContext
 
 
 container.register(SqliteTodoItemRepository).self()
-container.register(MongoTodoItemRepository).factory(lambda ctx: MongoTodoItemRepository(os.getenv("DB_URL")))
+container.register(MongoTodoItemRepository).factory(
+    lambda ctx: MongoTodoItemRepository(os.getenv("DB_URL"))
+)
 
 
 @container.factory

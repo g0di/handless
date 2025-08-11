@@ -7,7 +7,7 @@ This document contains all the ideas I've got for new features or changes to be 
 ## Documentation
 
 - :books: Find out how to verify code examples in the **documentation**
-- :books: Find out how to format code examples in the doc (readme)
+- :books: Find out how to format code examples in the doc (readme) and setup formatting on cicd pipeline and noxfile
 - :books: Build a static documentation website using `sphinx` or `mkdocs` published on github pages
 - :books: Add badges on README file (coverage, tests, ...)
 - :books: add/enhance docstrings
