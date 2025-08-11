@@ -49,13 +49,17 @@ The following features are **not available yet** but planned:
   - [Override container registrations](#override-container-registrations)
 - [Recipes](#recipes)
   - [Release container on application exits](#release-container-on-application-exits)
+  - [Register primitive types](#register-primitive-types)
+  - [Register same type for different purposes](#register-same-type-for-different-purposes)
   - [Register implementations for protocols and abstract classes](#register-implementations-for-protocols-and-abstract-classes)
+    - [Static registration](#static-registration)
+    - [Runtime registration](#runtime-registration)
   - [Choose dependencies at runtime](#choose-dependencies-at-runtime)
   - [Testing](#testing)
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
   - [Add its own lifetime(s)](#add-its-own-lifetimes)
-- [Q&A](#qa)
+- [Q\&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
@@ -627,9 +631,96 @@ atexit.register(container.release)
 
 Releasing the container is idempotent and can be used several times. Each time, all singletons will be cleared and then context manager exited, if any.
 
+### Register primitive types
+
+:construction: Under construction
+
+### Register same type for different purposes
+
+:construction: Under construction
+
 ### Register implementations for protocols and abstract classes
 
-> :construction: Under construction
+Dependency injection is a key enabler for inversion of control where your objects depends on abstractions or interfaces rather than actual implementation. This mechanism prevents tight coupling between your objects and allows you to swap dependencies with different implementations. This mechanism is mostly used for testing purposes to replace real implementations with fakes or mocks.
+
+`handless` allows you to do so through various mechanisms. Let's consider you defined an interface of a repository with two implementations, one fo mongoDB and another for SQLite.
+
+> :warning: Unrelevant details have been removed for readability.
+
+```python
+from typing import Protocol
+
+from handless import Container
+
+
+class TodoItemRepository(Protocol):
+    def add(self, todo: dict) -> None:
+        ...
+
+class MongoTodoItemRepository(TodoItemRepository):
+    def __init__(self, mongo_url: str) -> None:
+        ...
+
+    def add(self, todo: dict) -> None:
+        ...
+
+class SqliteTodoItemRepository(TodoItemRepository):
+    def __init__(self) -> None:
+        ...
+
+    def add(self, todo: dict) -> None:
+        ...
+
+
+container = Container()
+```
+
+#### Static registration
+
+The most simple case is when you want to statically define which implementation use. Then you'll eventually override this during your tests.
+
+```python
+# Individually register your implementations
+container.register(SqliteTodoItemRepository).self()
+container.register(MongoTodoItemRepository).factory(lambda ctx: MongoTodoItemRepository(os.getenv("DB_URL")))
+
+# Register an alias of your protocol against your choice
+container.register(TodoItemRepository).alias(SqliteTodoItemRepository) # type: ignore[type-abstract]
+
+with container.open_context() as ctx:
+    repo = ctx.resolve(TodoItemRepository) # type: ignore[type-abstract]
+    assert isinstance(repo, SqliteTodoItemRepository)
+```
+
+> :warning: Mypy does not like calling the `.register` and `.resolve` functions on `tyîng.Protocol` nor `abc.ABC` hence the type ignore magic comment.
+
+#### Runtime registration
+
+There can also be situations where you want to pick implementation at runtime depending on some conditions. For this, you can use a factory that will resolve the correct implementation.
+
+```python
+import os
+
+from handless import Singleton, Contextual, ResolutionContext
+
+
+container.register(SqliteTodoItemRepository).self()
+container.register(MongoTodoItemRepository).factory(lambda ctx: MongoTodoItemRepository(os.getenv("DB_URL")))
+
+
+@container.factory
+def get_todo_item_repository(ctx: ResolutionContext) -> TodoItemRepository:
+    db_type = os.getenv("DB_TYPE", "sqlite")
+    if db_type == "sqlite":
+        return ctx.resolve(SqliteTodoItemRepository)
+    if db_type == "mongo":
+        return ctx.resolve(MongoTodoItemRepository)
+    raise ValueError(f"Unknown database type: {db_type}")
+```
+
+> :bulb: Use of the factory decorator is not mandatory. You can achieve the same with the registration API (`container.register(...)`).
+
+> :warning: Most of the time you should use a `Transient` lifetime (the default) for the factory resolving your abstract or protocol to avoid lifetimes mismatches. Indeed, if you use a `Singleton` lifetime on `get_todo_item_repository` while one of your implementation is `Transient` or `Contextual` you'll end up with a [captive dependency](https://blog.ploeh.dk/2014/06/02/captive-dependency/).
 
 ### Choose dependencies at runtime
 
