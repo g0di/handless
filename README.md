@@ -11,6 +11,8 @@
 
 <!-- end logo -->
 
+---
+
 Handless is a Python dependency injection container which aims at facilitating creation of your objects and services without polluting your code with framework specific code.
 
 In particular it contains the following features:
