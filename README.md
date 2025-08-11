@@ -1,4 +1,4 @@
-## ![Handless](./handless.png)
+![Handless](handless.logo.png)
 
 Handless is a Python dependency injection container which aims at facilitating creation of your objects and services without polluting your code with framework specific code.
 
@@ -23,7 +23,6 @@ The following features are **not available yet** but planned:
 
 **Table of Content**
 
-- [](#)
 - [Explanations](#explanations)
   - [🔧 What is Dependency Injection, and Why Should You Care?](#-what-is-dependency-injection-and-why-should-you-care)
   - [🧱 What is a DI Container?](#-what-is-a-di-container)
