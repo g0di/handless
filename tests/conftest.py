@@ -1,10 +1,16 @@
 from collections.abc import Iterator
+from typing import Literal
 
 import pytest
 
 from handless import Container, ResolutionContext
 
 pytest.register_assert_rewrite("tests.helpers")
+
+
+@pytest.fixture(scope="session")
+def anyio_backend() -> Literal["asyncio"]:
+    return "asyncio"
 
 
 @pytest.fixture

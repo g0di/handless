@@ -6,7 +6,7 @@ This document contains all the ideas I've got for new features or changes to be 
 
 ## Documentation
 
-- :books: Find out how to verify code examples in the **documentation**
+- :books: Find out how to verify code examples in the **documentation** and automate it
 - :books: Build a static documentation website using `sphinx` or `mkdocs` published on github pages
 - :books: Add badges on README file (coverage, tests, ...)
 - :books: add/enhance docstrings
@@ -15,8 +15,8 @@ This document contains all the ideas I've got for new features or changes to be 
 
 ## Async
 
-- :new: add handling of async factories
-- :new: add handling of async context managers
+- :hourglass: add handling of async factories
+- :hourglass: add handling of async context managers
 
 ## Resolving
 

@@ -50,7 +50,12 @@ lint = [
     "mypy>=1.15.0",
     "ruff>=0.9.9",
 ]
-test = ["pytest>=8.3.4", "pytest-cov>=6.0.0", "pytest-mock>=3.14.0"]
+test = [
+    "anyio>=4.10.0",
+    "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+]
 
 [tool.uv]
 default-groups = "all"
@@ -105,7 +110,7 @@ convention = "pep257"
 
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]
-addopts = ["--doctest-modules"]
+addopts = ["--doctest-modules", "-rA"]
 doctest_optionflags = ["ELLIPSIS"]
 
 [tool.coverage.run]

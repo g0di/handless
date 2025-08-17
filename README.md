@@ -337,16 +337,14 @@ To create a container simply create an instance of it. You can use your containe
 > :bulb: `.release()` does not prevent from reusing your container afterwards.
 
 ```python
-from handless import Container
+>>> from handless import Container
+>>> container = Container()
+>>> # Use your container and release objects on exit
+>>> with container:
+...    pass
+>>> # Manually release
+>>> container.release()
 
-container = Container()
-
-# Use your container and release objects on exit
-with container:
-    ...
-
-# Manually release
-container.release()
 ```
 
 There should be at most one container per entrypoint in your application (a CLI, a HTTP server, ...). You can share the same container for all your entrypoints. A test is considered as an entrypoint as well.

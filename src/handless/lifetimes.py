@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import warnings
 import weakref
 from collections import defaultdict
 from collections.abc import Callable
-from contextlib import AbstractContextManager, ExitStack, suppress
+from contextlib import (
+    AbstractAsyncContextManager,
+    AbstractContextManager,
+    AsyncExitStack,
+    ExitStack,
+    suppress,
+)
+from inspect import isawaitable
 from threading import Lock, RLock
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
@@ -20,8 +28,10 @@ class Lifetime(Protocol):
     def resolve(self, scope: ResolutionContext, registration: Registration[_T]) -> _T:
         """Resolve given registration within given scope."""
 
-
-# NOTE: We use dataclasses for lifetime to simplify equality comparisons.
+    async def aresolve(
+        self, scope: ResolutionContext, registration: Registration[_T]
+    ) -> _T:
+        """Resolve given registration within given scope."""
 
 
 class Transient(Lifetime):
@@ -30,6 +40,12 @@ class Transient(Lifetime):
     def resolve(self, scope: ResolutionContext, registration: Registration[_T]) -> _T:
         ctx = get_context_for(scope)
         return ctx.get_instance(registration, scope)
+
+    async def aresolve(
+        self, scope: ResolutionContext, registration: Registration[_T]
+    ) -> _T:
+        ctx = get_context_for(scope)
+        return await ctx.aget_instance(registration, scope)
 
     def __eq__(self, value: object) -> bool:
         return isinstance(value, Transient)
@@ -42,6 +58,12 @@ class Contextual(Lifetime):
         ctx = get_context_for(scope)
         return ctx.get_cached_instance(registration, scope)
 
+    async def aresolve(
+        self, scope: ResolutionContext, registration: Registration[_T]
+    ) -> _T:
+        ctx = get_context_for(scope)
+        return await ctx.aget_cached_instance(registration, scope)
+
     def __eq__(self, value: object) -> bool:
         return isinstance(value, Contextual)
 
@@ -52,6 +74,12 @@ class Singleton(Lifetime):
     def resolve(self, scope: ResolutionContext, registration: Registration[_T]) -> _T:
         ctx = get_context_for(scope.container)
         return ctx.get_cached_instance(registration, scope)
+
+    async def aresolve(
+        self, scope: ResolutionContext, registration: Registration[_T]
+    ) -> _T:
+        ctx = get_context_for(scope.container)
+        return await ctx.aget_cached_instance(registration, scope)
 
     def __eq__(self, value: object) -> bool:
         return isinstance(value, Singleton)
@@ -95,9 +123,14 @@ class LifetimeContext:
 
     def __init__(self) -> None:
         self._cache: dict[int, Any] = {}
+        # Sync
         self._exit_stack = ExitStack()
         self._lock = Lock()
         self._registration_locks = defaultdict[int, RLock](RLock)
+        # Async
+        self._aexit_stack = AsyncExitStack()
+        self._alock = asyncio.Lock()
+        self._registration_alocks = defaultdict[int, asyncio.Lock](asyncio.Lock)
 
     def close(self) -> None:
         """Exit all entered context managers and clear cached values."""
@@ -126,6 +159,30 @@ class LifetimeContext:
                 self._cache[registration_hash] = self.get_instance(registration, ctx)
             return cast("_T", self._cache[registration_hash])
 
+    async def aget_cached_instance(
+        self, registration: Registration[_T], ctx: ResolutionContext
+    ) -> _T:
+        # NOTE: use registration object ID allowing to not get previously cached value
+        # for a type already resolved but overriden afterwards (Override will register
+        # another registration object).
+        registration_hash = id(registration)
+
+        async with self._alock:
+            # Use a context shared lock to ensure all threads use the same lock
+            # per registration
+            registration_lock = self._registration_alocks[registration_hash]
+
+        async with registration_lock:
+            # Use a context and registration shared lock to ensure a single thread
+            # can run the following code. This will ensure we can not end up with
+            # two instances of a singleton lifetime registration if two threads
+            # resolve it at the same time
+            if registration_hash not in self._cache:
+                self._cache[registration_hash] = await self.aget_instance(
+                    registration, ctx
+                )
+            return cast("_T", self._cache[registration_hash])
+
     def get_instance(
         self, registration: Registration[_T], ctx: ResolutionContext
     ) -> _T:
@@ -148,6 +205,32 @@ class LifetimeContext:
         # is not way to enforce this so we just return the value anyway
         return cast("_T", instance)
 
+    async def aget_instance(
+        self, registration: Registration[_T], ctx: ResolutionContext
+    ) -> _T:
+        args, kwargs = await self._aresolve_dependencies(registration, ctx)
+        instance = registration.factory(*args, **kwargs)
+
+        if isawaitable(instance):
+            instance = await instance
+        if isinstance(instance, AbstractAsyncContextManager) and registration.enter:
+            instance = await self._aexit_stack.enter_async_context(instance)
+        if isinstance(instance, AbstractContextManager) and registration.enter:
+            instance = self._aexit_stack.enter_context(instance)
+
+        with suppress(TypeError):
+            if not isinstance(instance, registration.type_):
+                warnings.warn(
+                    f"Container resolved {registration.type_} with {instance} which is not an instance of this type. "
+                    "This could lead to unexpected errors.",
+                    Warning,
+                    stacklevel=4,
+                )
+        # NOTE: Normally type annotations should prevent having enter=False with instance
+        # not being an instance of resolved type. Still, at this point in code there
+        # is not way to enforce this so we just return the value anyway
+        return cast("_T", instance)
+
     def _resolve_dependencies(
         self, registration: Registration[_T], ctx: ResolutionContext
     ) -> tuple[list[Any], dict[str, Any]]:
@@ -156,6 +239,21 @@ class LifetimeContext:
 
         for dep in registration.dependencies:
             resolved = ctx.resolve(dep.type_)
+            if dep.positional_only:
+                args.append(resolved)
+                continue
+            kwargs[dep.name] = resolved
+
+        return args, kwargs
+
+    async def _aresolve_dependencies(
+        self, registration: Registration[_T], ctx: ResolutionContext
+    ) -> tuple[list[Any], dict[str, Any]]:
+        args = []
+        kwargs: dict[str, Any] = {}
+
+        for dep in registration.dependencies:
+            resolved = await ctx.aresolve(dep.type_)
             if dep.positional_only:
                 args.append(resolved)
                 continue

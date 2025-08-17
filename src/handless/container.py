@@ -218,5 +218,19 @@ class ResolutionContext(Releasable["ResolutionContext"]):
         else:
             return value
 
+    async def aresolve(self, type_: type[_T]) -> _T:
+        if type_ is type(self):
+            return self
+
+        registration = self._lookup(type_)
+
+        try:
+            value = await registration.lifetime.aresolve(self, registration)
+            self._logger.info("Resolved %s: %s -> %s", type_, registration, type(value))
+        except Exception as error:
+            raise ResolutionError(type_) from error
+        else:
+            return value
+
     def _lookup(self, type_: type[_T]) -> Registration[_T]:
         return self._registry.get_registration(type_) or self._container.lookup(type_)
