@@ -43,7 +43,7 @@ class Registry:
 _T = TypeVar("_T")
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, eq=False)
 class Registration(Generic[_T]):
     type_: type[_T]
     """Registered type"""

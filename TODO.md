@@ -21,6 +21,7 @@ This document contains all the ideas I've got for new features or changes to be 
 
 ## Resolving
 
+- :new: Add a context manager only function at container level to resolve types as a shortcut with opening a context, resolving type then exits
 - :new: Handle factories/types positional only arguments
 - :new: Handle factories/types arguments with default values. If the container can not resolve one, leave the default value instead.
   - :new: Do not raise error if registering a function missing type annotations for argument having default value.
@@ -29,7 +30,6 @@ This document contains all the ideas I've got for new features or changes to be 
 ## Misc
 
 - :bug: When logging service type resolved, also display the full requiremnt chain (maybe under debug level)
-- :bug: Make resolving singletons threadsafe (add a lock)
 - :new: add function for resolving all services in the container for testing purposes
 - :new: add function for verifying lifetimes mistmatches on registry (e.g: singleton depending on transint)
 - :bug: Add a function for printing the whole dependency tree with lifetimes

@@ -1,4 +1,6 @@
 import itertools
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import TypedDict
 from unittest.mock import Mock, call
 
@@ -151,7 +153,7 @@ class TestResolveTypeBoundToSingletonRegistration:
     def factory(self) -> Mock:
         return Mock(wraps=lambda _: FakeService())
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def resolved(
         self, container: Container, context: ResolutionContext, factory: Mock
     ) -> FakeService:
@@ -167,7 +169,7 @@ class TestResolveTypeBoundToSingletonRegistration:
         assert received is resolved
         factory.assert_called_once_with(_=context)
 
-    def test_calls_and_returns_registration_factory_result_once_accross_contexts(
+    def test_calls_and_returns_registration_factory_result_once_per_container(
         self,
         resolved: FakeService,
         container: Container,
@@ -179,6 +181,25 @@ class TestResolveTypeBoundToSingletonRegistration:
 
         assert received is resolved
         factory.assert_called_once_with(_=context)
+
+    def test_resolve_singleton_is_threadsafe(self, container: Container) -> None:
+        def _factory(ctx: ResolutionContext) -> FakeServiceWithParams:
+            # Small sleep to force threads context switch
+            time.sleep(0.01)
+            return FakeServiceWithParams(ctx.resolve(str), ctx.resolve(int))
+
+        mock = Mock(wraps=_factory)
+        container.register(str).value("foo")
+        container.register(int).value(42)
+        container.register(FakeService).factory(mock, lifetime=Singleton())
+
+        with ThreadPoolExecutor(100) as pool:
+            results = pool.map(
+                lambda _: container.open_context().resolve(FakeService), range(100)
+            )
+
+        mock.assert_called_once()
+        assert len(set(results)) == 1
 
     def test_release_context_not_exit_entered_context_manager(
         self, context: ResolutionContext, resolved: FakeService

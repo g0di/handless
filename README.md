@@ -1,4 +1,5 @@
 <!-- begin logo -->
+
 <p align="center">
   <a href="https://github.com/hynek/svcs/">
     <img src="handless.logo.png" width="35%" alt="handless logo showing a person doing bycicle without his hands" />
@@ -11,7 +12,7 @@
 
 <!-- end logo -->
 
----
+______________________________________________________________________
 
 Handless is a Python dependency injection container which aims at facilitating creation of your objects and services without polluting your code with framework specific code.
 
@@ -71,7 +72,7 @@ The following features are **not available yet** but planned:
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
   - [Add custom lifetime(s)](#add-custom-lifetimes)
-- [Q\&A](#qa)
+- [Q&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)

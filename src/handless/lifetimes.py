@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import warnings
 import weakref
+from collections import defaultdict
 from collections.abc import Callable
 from contextlib import AbstractContextManager, ExitStack, suppress
+from threading import Lock, RLock
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
 if TYPE_CHECKING:
@@ -94,6 +96,8 @@ class LifetimeContext:
     def __init__(self) -> None:
         self._cache: dict[int, Any] = {}
         self._exit_stack = ExitStack()
+        self._lock = Lock()
+        self._registration_locks = defaultdict[int, RLock](RLock)
 
     def close(self) -> None:
         """Exit all entered context managers and clear cached values."""
@@ -107,9 +111,20 @@ class LifetimeContext:
         # for a type already resolved but overriden afterwards (Override will register
         # another registration object).
         registration_hash = id(registration)
-        if registration_hash not in self._cache:
-            self._cache[registration_hash] = self.get_instance(registration, ctx)
-        return cast("_T", self._cache[registration_hash])
+
+        with self._lock:
+            # Use a context shared lock to ensure all threads use the same lock
+            # per registration
+            registration_lock = self._registration_locks[registration_hash]
+
+        with registration_lock:
+            # Use a context and registration shared lock to ensure a single thread
+            # can run the following code. This will ensure we can not end up with
+            # two instances of a singleton lifetime registration if two threads
+            # resolve it at the same time
+            if registration_hash not in self._cache:
+                self._cache[registration_hash] = self.get_instance(registration, ctx)
+            return cast("_T", self._cache[registration_hash])
 
     def get_instance(
         self, registration: Registration[_T], ctx: ResolutionContext

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-08-17
+
+### Fixed
+
+- Resolution of registrations with singleton lifetime is now threadsafe. Two context trying to resolve a same singleton at the same time will end up with the exact same value
+
 ## [0.2.0] - 2025-08-11
 
 ### Added
@@ -87,8 +93,8 @@ This version does a major change to the public API. Now `Container` is the main 
 - `Container` - for resolving services from registry
 - `ScopedContainer` - using registry and parent container to resolve services for a scoped lifetime (http request for example)
 
+[0.1.0]: https://github.com/g0di/handless/releases/tag/0.1.0
 [0.1.0-alpha.1]: https://github.com/g0di/handless/releases/tag/0.1.0-alpha.1
 [0.1.0-alpha.2]: https://github.com/g0di/handless/releases/tag/0.1.0-alpha.2
-[0.1.0]: https://github.com/g0di/handless/releases/tag/0.1.0
 [0.2.0]: https://github.com/g0di/handless/releases/tag/0.2.0
-[unreleased]: https://github.com/g0di/handless/compare/0.2.0...HEAD
+[0.2.1]: https://github.com/g0di/handless/releases/tag/0.2.1
