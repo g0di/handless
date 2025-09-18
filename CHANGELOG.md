@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added async support allowing to register and resolve async factories and context managers. Not fully tested yet. Also, typings not yet allow to register async stuff
+
+### Changed
+
+- Module `handless.container` is now private. Its main content is now importable from `handless` directly
+
+### Removed
+
+- The `handless.lifetimes.get_context_for` function to attach lifetime contexts to objects has been moved in `handless.lifetimes.LifetimeContext` as `get()` class method
+
 ## [0.2.1] - 2025-08-17
 
 ### Fixed

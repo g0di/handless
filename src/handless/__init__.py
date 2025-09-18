@@ -1,5 +1,5 @@
+from handless._container import Container, ResolutionContext
 from handless._registry import Registration
-from handless.container import Container, ResolutionContext
 from handless.lifetimes import Contextual, Singleton, Transient
 
 __all__ = [

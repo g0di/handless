@@ -15,7 +15,7 @@ from handless.lifetimes import Lifetime, Singleton, Transient
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-    from handless.container import ResolutionContext
+    from handless._container import ResolutionContext
 
 
 class Registry:
@@ -202,7 +202,7 @@ def _collect_dependencies(
 ) -> tuple[Dependency, ...]:
     # Merge given callable inspected params with provided ones.
     # NOTE: we omit variadic params because we don't know how to autowire them yet
-    from handless.container import ResolutionContext
+    from handless._container import ResolutionContext
 
     params = get_non_variadic_params(function)
     overrides = overrides or {}

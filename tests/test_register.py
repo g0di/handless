@@ -4,10 +4,9 @@ from typing import Any
 
 import pytest
 
-from handless import Container
-from handless._registry import Dependency, Registration
+from handless import Container, Registration, ResolutionContext
+from handless._registry import Dependency
 from handless._utils import are_functions_equal
-from handless.container import ResolutionContext
 from handless.exceptions import RegistrationAlreadyExistError, RegistrationError
 from handless.lifetimes import Lifetime, Singleton, Transient
 from tests.helpers import (
