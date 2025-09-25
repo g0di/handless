@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 import weakref
 from collections.abc import Callable
-from inspect import isgeneratorfunction
+from inspect import isasyncgenfunction, isgeneratorfunction
 from typing import TYPE_CHECKING, Any, TypeVar, get_args, overload
 
 from handless._registry import RegistrationBuilder, Registry
-from handless._utils import get_return_type, iscontextmanager
+from handless._utils import get_return_type, isasynccontextmanager, iscontextmanager
 from handless.exceptions import (
     RegistrationError,
     RegistrationNotFoundError,
@@ -125,7 +125,12 @@ class Container(Releasable["Container"]):
 
         def wrapper(factory: _U) -> _U:
             rettype = get_return_type(factory)
-            if isgeneratorfunction(factory) or iscontextmanager(factory):
+            if (
+                isgeneratorfunction(factory)
+                or isasyncgenfunction(factory)
+                or iscontextmanager(factory)
+                or isasynccontextmanager(factory)
+            ):
                 rettype = get_args(rettype)[0]
             if not rettype:
                 msg = f"{factory} has no return type annotation"

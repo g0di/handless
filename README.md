@@ -12,7 +12,7 @@
 
 <!-- end logo -->
 
-______________________________________________________________________
+---
 
 Handless is a Python dependency injection container which aims at facilitating creation of your objects and services without polluting your code with framework specific code.
 
@@ -72,7 +72,7 @@ The following features are **not available yet** but planned:
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
   - [Add custom lifetime(s)](#add-custom-lifetimes)
-- [Q&A](#qa)
+- [Q\&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
@@ -781,6 +781,8 @@ Other existing alternatives you might be interested in:
 ## Contributing
 
 Running tests: `uv run nox`
+
+> :warning: As this library support both sync and async functions, tests have been duplicated for simplicity. Whenever you add, remove or change an existing test in `test_resolve.py` or `test_resolve_async.py` don't forget to update each others.
 
 [dependency_injector]: https://python-dependency-injector.ets-labs.org/
 [lagom]: https://lagom-di.readthedocs.io

@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import (
+    AbstractAsyncContextManager,
+    AbstractContextManager,
+    asynccontextmanager,
+    contextmanager,
+)
 from dataclasses import dataclass, field
-from inspect import Parameter, isclass, isgeneratorfunction
+from inspect import Parameter, isasyncgenfunction, isclass, isgeneratorfunction
 from types import EllipsisType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
@@ -13,7 +18,7 @@ from handless.exceptions import RegistrationAlreadyExistError, RegistrationError
 from handless.lifetimes import Lifetime, Singleton, Transient
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 
     from handless._container import ResolutionContext
 
@@ -47,7 +52,13 @@ _T = TypeVar("_T")
 class Registration(Generic[_T]):
     type_: type[_T]
     """Registered type"""
-    factory: Callable[..., _T | AbstractContextManager[_T]]
+    factory: Callable[
+        ...,
+        _T
+        | Awaitable[_T]
+        | AbstractContextManager[_T]
+        | AbstractAsyncContextManager[_T],
+    ]
     """Factory returning instances of the registered type"""
     enter: bool
     """Whether or not enters context managers returned by factory function"""
@@ -127,7 +138,7 @@ class RegistrationBuilder(Generic[_T]):
     @overload
     def factory(
         self,
-        factory: Callable[[ResolutionContext], _T],
+        factory: Callable[[ResolutionContext], _T | Awaitable[_T]],
         *,
         lifetime: Lifetime | None = ...,
         enter: bool = ...,
@@ -137,7 +148,11 @@ class RegistrationBuilder(Generic[_T]):
     def factory(
         self,
         factory: Callable[
-            [ResolutionContext], Iterator[_T] | AbstractContextManager[_T]
+            [ResolutionContext],
+            Iterator[_T]
+            | AsyncIterator[_T]
+            | AbstractContextManager[_T]
+            | AbstractAsyncContextManager[_T],
         ],
         *,
         lifetime: Lifetime | None = ...,
@@ -147,7 +162,7 @@ class RegistrationBuilder(Generic[_T]):
     @overload
     def factory(
         self,
-        factory: Callable[..., _T],
+        factory: Callable[..., _T | Awaitable[_T]],
         *,
         lifetime: Lifetime | None = ...,
         enter: bool = ...,
@@ -156,7 +171,13 @@ class RegistrationBuilder(Generic[_T]):
     @overload
     def factory(
         self,
-        factory: Callable[..., Iterator[_T] | AbstractContextManager[_T]],
+        factory: Callable[
+            ...,
+            Iterator[_T]
+            | AsyncIterator[_T]
+            | AbstractContextManager[_T]
+            | AbstractAsyncContextManager[_T],
+        ],
         *,
         lifetime: Lifetime | None = ...,
         enter: Literal[True] = ...,
@@ -179,6 +200,8 @@ class RegistrationBuilder(Generic[_T]):
 
         Note that variadic arguments (*args, **kwargs) are ignored.
         """
+        if isasyncgenfunction(factory):
+            factory = asynccontextmanager(factory)
         if isgeneratorfunction(factory):
             factory = contextmanager(factory)
 
@@ -194,7 +217,7 @@ class RegistrationBuilder(Generic[_T]):
             )
         except TypeError as error:
             msg = f"Cannot register {self._type} using {factory}: {error}"
-            raise RegistrationError(msg) from None
+            raise RegistrationError(msg) from error
 
 
 def _collect_dependencies(

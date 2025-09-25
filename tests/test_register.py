@@ -1,5 +1,5 @@
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from typing import Any
 
 import pytest
@@ -113,11 +113,37 @@ class TestRegisterFactory:
             lifetime=Transient(),
         )
 
+    def test_register_factory_with_async_generator_function_wraps_it_as_an_async_context_manager(
+        self, container: Container
+    ) -> None:
+        async def fake_service_generator() -> AsyncIterator[FakeService]:
+            yield FakeService()
+
+        container.register(FakeService).factory(fake_service_generator)
+
+        assert container.lookup(FakeService) == Registration(
+            FakeService,
+            asynccontextmanager(fake_service_generator),
+            enter=True,
+            lifetime=Transient(),
+        )
+
     def test_register_factory_with_contextmanager_decorated_function_registers_it_as_is(
         self, container: Container
     ) -> None:
         @contextmanager
         def fake_service_context_manager() -> Iterator[FakeService]:
+            yield FakeService()
+
+        container.register(FakeService).factory(fake_service_context_manager)
+
+        assert container.lookup(FakeService).factory == fake_service_context_manager
+
+    def test_register_factory_with_asynccontextmanager_decorated_function_registers_it_as_is(
+        self, container: Container
+    ) -> None:
+        @asynccontextmanager
+        async def fake_service_context_manager() -> AsyncIterator[FakeService]:
             yield FakeService()
 
         container.register(FakeService).factory(fake_service_context_manager)
@@ -244,12 +270,38 @@ class TestRegisterFactoryUsingDecorator:
             lifetime=Transient(),
         )
 
+    def test_factory_decorator_wraps_decorated_async_generators_as_async_context_manager(
+        self, container: Container
+    ) -> None:
+        @container.factory
+        async def get_fake_service() -> AsyncIterator[FakeService]:
+            yield FakeService()
+
+        assert container.lookup(FakeService) == Registration(
+            FakeService,
+            asynccontextmanager(get_fake_service),
+            enter=True,
+            lifetime=Transient(),
+        )
+
     def test_factory_decorator_register_context_manager_as_is(
         self, container: Container
     ) -> None:
         @container.factory
         @contextmanager
         def get_fake_service() -> Iterator[FakeService]:
+            yield FakeService()
+
+        assert container.lookup(FakeService) == Registration(
+            FakeService, get_fake_service, enter=True, lifetime=Transient()
+        )
+
+    def test_factory_decorator_register_async_context_manager_as_is(
+        self, container: Container
+    ) -> None:
+        @container.factory
+        @asynccontextmanager
+        async def get_fake_service() -> AsyncIterator[FakeService]:
             yield FakeService()
 
         assert container.lookup(FakeService) == Registration(

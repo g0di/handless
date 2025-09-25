@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Literal
 
 import pytest
@@ -22,4 +22,16 @@ def container() -> Iterator[Container]:
 @pytest.fixture
 def context(container: Container) -> Iterator[ResolutionContext]:
     with container.open_context() as ctx:
+        yield ctx
+
+
+@pytest.fixture
+async def acontainer() -> AsyncIterator[Container]:
+    async with Container() as container:
+        yield container
+
+
+@pytest.fixture
+async def acontext(acontainer: Container) -> AsyncIterator[ResolutionContext]:
+    async with acontainer.open_context() as ctx:
         yield ctx

@@ -20,43 +20,10 @@ def test_resolve_type_calls_registration_factory_and_returns_its_result(
     container: Container, context: ResolutionContext
 ) -> None:
     expected = FakeService()
-    factory = Mock(wraps=lambda: expected)
+    factory = Mock(return_value=expected)
     container.register(FakeService).factory(factory)
 
     resolved = context.resolve(FakeService)
-
-    assert resolved is expected
-    factory.assert_called_once()
-
-
-@pytest.mark.anyio
-async def test_resolve_type_async_calls_registration_factory_and_returns_its_result(
-    container: Container, context: ResolutionContext
-) -> None:
-    """Call aresolve type registered with factory calls factory and returns its result."""
-    expected = FakeService()
-    factory = Mock(wraps=lambda: expected)
-    container.register(FakeService).factory(factory)
-
-    resolved = await context.aresolve(FakeService)
-
-    assert resolved is expected
-    factory.assert_called_once()
-
-
-@pytest.mark.anyio
-async def test_resolve_type_async_await_registration_async_factory_and_returns_its_result(
-    container: Container, context: ResolutionContext
-) -> None:
-    expected = FakeService()
-
-    async def service_factory() -> FakeService:
-        return expected
-
-    factory = Mock(wraps=service_factory)
-    container.register(FakeService).factory(factory)
-
-    resolved = await context.aresolve(FakeService)
 
     assert resolved is expected
     factory.assert_called_once()
@@ -209,7 +176,7 @@ class TestResolveTypeBoundToSingletonRegistration:
         context: Container,
         factory: Mock,
     ) -> None:
-        with ResolutionContext(container) as context2:
+        with container.open_context() as context2:
             received = context2.resolve(FakeService)
 
         assert received is resolved
@@ -267,7 +234,7 @@ class TestResolveTypeBoundToSingletonRegistration:
         assert received is resolved
 
 
-class TestResolveTypeBoundToContextdRegistration:
+class TestResolveTypeBoundToContextRegistration:
     @pytest.fixture
     def factory(self) -> Mock:
         return Mock(wraps=lambda _: FakeService())
@@ -295,7 +262,7 @@ class TestResolveTypeBoundToContextdRegistration:
         context: ResolutionContext,
         factory: Mock,
     ) -> None:
-        with ResolutionContext(container) as context2:
+        with container.open_context() as context2:
             received = context2.resolve(FakeService)
 
         assert received is not resolved
@@ -387,14 +354,13 @@ class TestOverrideTypes:
         override_lifetime: Lifetime,
     ) -> None:
         factory = Mock(wraps=FakeService)
-        factory_override2 = Mock(wraps=FakeService)
-
+        factory_override = Mock(wraps=FakeService)
         container.register(FakeService).factory(factory, lifetime=lifetime)
         singleton = context.resolve(FakeService)
+
         container.override(FakeService).factory(
-            factory_override2, lifetime=override_lifetime
+            factory_override, lifetime=override_lifetime
         )
 
         override = context.resolve(FakeService)
-
         assert override is not singleton

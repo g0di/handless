@@ -1,3 +1,4 @@
+from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from typing import Any, NewType, Protocol
 
 import pytest
@@ -8,7 +9,7 @@ from handless.lifetimes import Contextual, Singleton, Transient
 class IFakeService(Protocol): ...
 
 
-class FakeService(IFakeService):
+class FakeService(IFakeService, AbstractContextManager["FakeService"]):
     def __init__(self) -> None:
         self.entered = False
         self.reentered = False
@@ -21,6 +22,22 @@ class FakeService(IFakeService):
         return self
 
     def __exit__(self, *args: object) -> None:
+        self.exited = True
+
+
+class AsyncFakeService(IFakeService, AbstractAsyncContextManager["AsyncFakeService"]):
+    def __init__(self) -> None:
+        self.entered = False
+        self.reentered = False
+        self.exited = False
+
+    async def __aenter__(self) -> "AsyncFakeService":
+        if self.entered:
+            self.reentered = True
+        self.entered = True
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
         self.exited = True
 
 

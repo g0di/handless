@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from functools import cache
-from inspect import Parameter, isgeneratorfunction
+from inspect import Parameter, isasyncgenfunction, isgeneratorfunction
 from typing import TYPE_CHECKING, Any, NewType, TypeVar, cast, get_type_hints
 from unittest.mock import Mock
 
@@ -60,3 +60,7 @@ def iscontextmanager(function: Callable[..., Any]) -> bool:
     return hasattr(function, "__wrapped__") and isgeneratorfunction(
         function.__wrapped__
     )
+
+
+def isasynccontextmanager(function: Callable[..., Any]) -> bool:
+    return hasattr(function, "__wrapped__") and isasyncgenfunction(function.__wrapped__)
