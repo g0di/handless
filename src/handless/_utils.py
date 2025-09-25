@@ -24,6 +24,10 @@ def get_non_variadic_params(callable_: Callable[..., Any]) -> dict[str, Paramete
 
     Non variadic parameters are all parameters except *args and **kwargs
     """
+    # Mock objects without a "wraps" must be considered as function with no arguments
+    if isinstance(callable_, Mock) and not callable_._mock_wraps:  # noqa: SLF001
+        return {}
+
     # NOTE: when receiving a mock or a new type we must inspect the signature of the
     # wrapped object because inspect does not do it automatically
     callable_to_inspect = (
