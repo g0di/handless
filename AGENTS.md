@@ -2,6 +2,10 @@
 
 Handless is a python library providing a dependency injection container to facilitates building and composing object graphs for Python applications.
 It is designed to simplify the burden of manually wiring dependencies and managing various object lifetimes (singleton, scoped, transient).
+The main motivation behind this library is mostly to fill gaps found on existing ones. There is several existing libraries already (lagom, svcs, dependency_injector, ...) but they all have some caveats:
+- Type checking: they don't verify that values, functions or types registered are of the right type
+- Singleton management: some library does not allows to have singleton to keep same values for an application lifetime
+- Hard to replace for testing purposes: no easy mechanism is provided to temporarily override a dependency in a container for tests duration
 
 Current implementation provides an imperative API for building a container and resolving objects from it.
 This library tries to follow dependency injection best practices and patterns:
