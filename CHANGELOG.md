@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `RegistrationBuilder.self(...)` and `RegistrationBuilder.factory(...)` now accept `lifetime` as positional argument in addition to keyword argument.
+- **Breaking:** renamed registration option `enter` to `managed` across `RegistrationBuilder.self(...)`, `RegistrationBuilder.value(...)`, `RegistrationBuilder.factory(...)`, `Container.factory(...)` and `Registration` (`enter` field is now `managed`).
 
 ## [0.3.0] - 2025-09-25
 

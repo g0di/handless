@@ -3,7 +3,7 @@
 This document contains all the ideas I've got for new features or changes to be made.
 
 > :bulb: The order does not reflect the priority.
->
+
 ## Agent
 
 - Fix README capability drift:
@@ -19,7 +19,6 @@ This document contains all the ideas I've got for new features or changes to be 
   - Keep one-arg untyped fallback only for lambda factories.
   - For non-lambda callables, require explicit ResolutionContext annotation and fail fast otherwise.
   - Document this as an intentional ergonomic exception for concise registrations.
-- Use the the name `managed` as keyword argument instead of `enter` during registration
 - Use the term "Scope" instead of context for our container to avoid misunderstanding
   - Use `create_scope` instead of `open_context`
   - Use `Scoped` instead of `Contextual` lifetime

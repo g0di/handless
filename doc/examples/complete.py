@@ -86,7 +86,7 @@ container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore
 
 # Notification manager
 container.register(smtplib.SMTP).factory(
-    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host), Singleton(), enter=True
+    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host), Singleton(), managed=True
 )
 container.register(StdoutNotificationManager).self(Transient())
 container.register(EmailNotificationManager).self()

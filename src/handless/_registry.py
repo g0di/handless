@@ -60,8 +60,8 @@ class Registration(Generic[_T]):
         | AbstractAsyncContextManager[_T],
     ]
     """Factory returning instances of the registered type"""
-    enter: bool
-    """Whether or not enters context managers returned by factory function"""
+    managed: bool
+    """Whether context managers returned by factory should be managed."""
     lifetime: Lifetime
     """Lifetime of the factory returned objects"""
     dependencies: tuple[Dependency, ...] = field(default_factory=tuple)
@@ -72,7 +72,7 @@ class Registration(Generic[_T]):
             isinstance(value, Registration)
             and self.type_ == value.type_
             and are_functions_equal(self.factory, value.factory)
-            and self.enter == value.enter
+            and self.managed == value.managed
             and self.lifetime == value.lifetime
             and self.dependencies == value.dependencies
         )
@@ -114,26 +114,28 @@ class RegistrationBuilder(Generic[_T]):
         self._registry = registry
         self._type = type_
 
-    def self(self, lifetime: Lifetime | None = None, *, enter: bool = True) -> None:
-        self.factory(self._type, lifetime=lifetime, enter=enter)
+    def self(self, lifetime: Lifetime | None = None, *, managed: bool = True) -> None:
+        self.factory(self._type, lifetime=lifetime, managed=managed)
 
     def alias(self, alias_type: type[_T]) -> None:
         """Resolve the given type when resolving the registered one."""
-        self.factory(lambda c: c.resolve(alias_type), lifetime=Transient(), enter=False)
+        self.factory(
+            lambda c: c.resolve(alias_type), lifetime=Transient(), managed=False
+        )
 
     @overload
-    def value(self, value: _T, *, enter: bool = ...) -> None: ...
+    def value(self, value: _T, *, managed: bool = ...) -> None: ...
 
-    # NOTE: following overload ensure enter is True when passing a context manager not being
+    # NOTE: following overload ensure managed is True when passing a context manager not being
     # an instance of _T
     @overload
     def value(
-        self, value: AbstractContextManager[_T], *, enter: Literal[True]
+        self, value: AbstractContextManager[_T], *, managed: Literal[True]
     ) -> None: ...
 
-    def value(self, value: Any, *, enter: bool = False) -> None:
+    def value(self, value: Any, *, managed: bool = False) -> None:
         """Use given value when resolving the registered type."""
-        self.factory(lambda: value, lifetime=Singleton(), enter=enter)
+        self.factory(lambda: value, lifetime=Singleton(), managed=managed)
 
     @overload
     def factory(
@@ -141,7 +143,7 @@ class RegistrationBuilder(Generic[_T]):
         factory: Callable[[ResolutionContext], _T | Awaitable[_T]],
         lifetime: Lifetime | None = ...,
         *,
-        enter: bool = ...,
+        managed: bool = ...,
     ) -> None: ...
 
     @overload
@@ -156,7 +158,7 @@ class RegistrationBuilder(Generic[_T]):
         ],
         lifetime: Lifetime | None = ...,
         *,
-        enter: Literal[True] = ...,
+        managed: Literal[True] = ...,
     ) -> None: ...
 
     @overload
@@ -165,7 +167,7 @@ class RegistrationBuilder(Generic[_T]):
         factory: Callable[..., _T | Awaitable[_T]],
         lifetime: Lifetime | None = ...,
         *,
-        enter: bool = ...,
+        managed: bool = ...,
     ) -> None: ...
 
     @overload
@@ -180,7 +182,7 @@ class RegistrationBuilder(Generic[_T]):
         ],
         lifetime: Lifetime | None = ...,
         *,
-        enter: Literal[True] = ...,
+        managed: Literal[True] = ...,
     ) -> None: ...
 
     def factory(
@@ -188,7 +190,7 @@ class RegistrationBuilder(Generic[_T]):
         factory: Callable[..., Any],
         lifetime: Lifetime | None = None,
         *,
-        enter: bool = True,
+        managed: bool = True,
     ) -> None:
         """Use a function or type to produce an instance of registered type when resolved.
 
@@ -211,7 +213,7 @@ class RegistrationBuilder(Generic[_T]):
                     self._type,
                     factory,
                     lifetime=lifetime or Transient(),
-                    enter=enter,
+                    managed=managed,
                     dependencies=_collect_dependencies(factory),
                 )
             )

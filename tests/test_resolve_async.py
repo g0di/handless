@@ -14,7 +14,7 @@ use_sync_and_async_mock = pytest.mark.parametrize("create_factory", [Mock, Async
 
 
 class FactoryRegistrationOptions(TypedDict, total=False):
-    enter: bool
+    managed: bool
     lifetime: Lifetime
 
 
@@ -68,7 +68,7 @@ async def test_resolve_type_calls_registration_factory_with_dependencies_and_ret
 
 
 @pytest.mark.parametrize(
-    "options", [FactoryRegistrationOptions(), FactoryRegistrationOptions(enter=True)]
+    "options", [FactoryRegistrationOptions(), FactoryRegistrationOptions(managed=True)]
 )
 async def test_resolve_type_enters_context_manager_returned_by_registration_factory(
     acontainer: Container,
@@ -83,10 +83,10 @@ async def test_resolve_type_enters_context_manager_returned_by_registration_fact
     assert not resolved.exited
 
 
-async def test_resolve_type_not_enter_context_manager_returned_by_registration_factory_when_enter_is_false(
+async def test_resolve_type_not_enter_context_manager_returned_by_registration_factory_when_managed_is_false(
     acontainer: Container, acontext: ResolutionContext
 ) -> None:
-    acontainer.register(AsyncFakeService).self(enter=False)
+    acontainer.register(AsyncFakeService).self(managed=False)
 
     resolved = await acontext.aresolve(AsyncFakeService)
 
@@ -96,7 +96,7 @@ async def test_resolve_type_not_enter_context_manager_returned_by_registration_f
 async def test_resolve_type_not_enter_non_context_manager_object_returned_by_registration_factory(
     container: Container, context: ResolutionContext
 ) -> None:
-    container.register(object).self(enter=True)
+    container.register(object).self(managed=True)
 
     try:
         await context.aresolve(object)

@@ -12,7 +12,7 @@ from tests.helpers import FakeService, FakeServiceWithParams
 
 
 class FactoryRegistrationOptions(TypedDict, total=False):
-    enter: bool
+    managed: bool
     lifetime: Lifetime
 
 
@@ -57,7 +57,7 @@ def test_resolve_type_calls_registration_factory_with_dependencies_and_returns_i
 
 
 @pytest.mark.parametrize(
-    "options", [FactoryRegistrationOptions(), FactoryRegistrationOptions(enter=True)]
+    "options", [FactoryRegistrationOptions(), FactoryRegistrationOptions(managed=True)]
 )
 def test_resolve_type_enters_context_manager_returned_by_registration_factory(
     container: Container,
@@ -72,10 +72,10 @@ def test_resolve_type_enters_context_manager_returned_by_registration_factory(
     assert not resolved.exited
 
 
-def test_resolve_type_not_enter_context_manager_returned_by_registration_factory_when_enter_is_false(
+def test_resolve_type_not_enter_context_manager_returned_by_registration_factory_when_managed_is_false(
     container: Container, context: ResolutionContext
 ) -> None:
-    container.register(FakeService).self(enter=False)
+    container.register(FakeService).self(managed=False)
 
     resolved = context.resolve(FakeService)
 
@@ -85,7 +85,7 @@ def test_resolve_type_not_enter_context_manager_returned_by_registration_factory
 def test_resolve_type_not_enter_non_context_manager_object_returned_by_registration_factory(
     container: Container, context: ResolutionContext
 ) -> None:
-    container.register(object).self(enter=True)
+    container.register(object).self(managed=True)
 
     try:
         context.resolve(object)

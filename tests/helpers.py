@@ -81,6 +81,6 @@ FakeServiceNewType = NewType("FakeServiceNewType", IFakeService)  # type: ignore
 use_lifetimes = pytest.mark.parametrize(
     "lifetime", [Transient(), Contextual(), Singleton()]
 )
-use_enter = pytest.mark.parametrize(
-    "enter", [True, False], ids=["Enter CM", "Not enter CM"]
+use_managed = pytest.mark.parametrize(
+    "managed", [True, False], ids=["Managed CM", "Not managed CM"]
 )

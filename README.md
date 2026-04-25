@@ -72,7 +72,7 @@ The following features are **not available yet** but planned:
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
   - [Add custom lifetime(s)](#add-custom-lifetimes)
-- [Q\&A](#qa)
+- [Q&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
@@ -296,9 +296,7 @@ container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore
 
 # Notification manager
 container.register(smtplib.SMTP).factory(
-    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host),
-    Singleton(),
-    enter=True,
+    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host), Singleton(), managed=True
 )
 container.register(StdoutNotificationManager).self(Transient())
 container.register(EmailNotificationManager).self()
@@ -455,7 +453,7 @@ assert isinstance(resolved_foo, Foo)
 assert resolved_foo.bar == 42
 ```
 
-This is mostly a matter of preference as both ways do the exact same thing. You can also pass parameters to the factory decorator `@factory(lifetime=..., enter=...)`.
+This is mostly a matter of preference as both ways do the exact same thing. You can also pass parameters to the factory decorator `@factory(lifetime=..., managed=...)`.
 
 ### Register a lambda function
 
@@ -569,7 +567,7 @@ Containers and contexts can take care of entering and exiting objects with conte
 
 Object returned by functions registered with `.factory(...)` or `.self()` are automatically entered on resolve and exited on release if it is context managers.
 
-> :bulb: You can disable this default behavior by passing `enter=False`. However, passing `False` is disallowed if the object return is NOT an instance of the given type.
+> :bulb: You can disable this default behavior by passing `managed=False`. However, passing `False` is disallowed if the object return is NOT an instance of the given type.
 
 > :warning: Objects are only entered when resolved. Cached values are NOT re-entered afterwards.
 
@@ -579,7 +577,7 @@ If you pass a function which is a generator it will be automatically wrapped as 
 
 #### Values
 
-Objects registered with `.value(...)` are NOT entered by default. If you want their context manager to be handled for you you must pass `.value(..., enter=True)`.
+Objects registered with `.value(...)` are NOT entered by default. If you want their context manager to be handled for you you must pass `.value(..., managed=True)`.
 
 > :question: Passing a value means that this value has been created outside of the container and then its lifetime should not container's responsibility.
 

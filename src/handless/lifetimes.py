@@ -248,7 +248,7 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         if isinstance(instance, AbstractAsyncContextManager):
             msg = f"Cannot resolve async context manager {instance}. Use `aresolve()` instead."
             raise TypeError(msg)
-        if isinstance(instance, AbstractContextManager) and registration.enter:
+        if isinstance(instance, AbstractContextManager) and registration.managed:
             self._entered_context_managers.append(instance)
             instance = instance.__enter__()
 
@@ -260,7 +260,7 @@ class LifetimeContext(Releasable["LifetimeContext"]):
                     UserWarning,
                     stacklevel=4,
                 )
-        # NOTE: Normally type annotations should prevent having enter=False with instance
+        # NOTE: Normally type annotations should prevent having managed=False with instance
         # not being an instance of resolved type. Still, at this point in code there
         # is not way to enforce this so we just return the value anyway
         return cast("_T", instance)
@@ -273,10 +273,10 @@ class LifetimeContext(Releasable["LifetimeContext"]):
 
         if asyncio.iscoroutine(instance):
             instance = await instance
-        if isinstance(instance, AbstractAsyncContextManager) and registration.enter:
+        if isinstance(instance, AbstractAsyncContextManager) and registration.managed:
             self._entered_context_managers.append(instance)
             instance = await instance.__aenter__()
-        if isinstance(instance, AbstractContextManager) and registration.enter:
+        if isinstance(instance, AbstractContextManager) and registration.managed:
             self._entered_context_managers.append(instance)
             instance = instance.__enter__()
 
@@ -288,7 +288,7 @@ class LifetimeContext(Releasable["LifetimeContext"]):
                     UserWarning,
                     stacklevel=4,
                 )
-        # NOTE: Normally type annotations should prevent having enter=False with instance
+        # NOTE: Normally type annotations should prevent having managed=False with instance
         # not being an instance of resolved type. Still, at this point in code there
         # is no way to enforce this so we just return the value anyway
         return cast("_T", instance)

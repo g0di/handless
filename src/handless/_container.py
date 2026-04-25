@@ -101,14 +101,14 @@ class Container(Releasable["Container"]):
 
     @overload
     def factory(
-        self, *, enter: bool = ..., lifetime: Lifetime = ...
+        self, *, managed: bool = ..., lifetime: Lifetime = ...
     ) -> Callable[[_U], _U]: ...
 
     def factory(
         self,
         factory: _U | None = None,
         *,
-        enter: bool = True,
+        managed: bool = True,
         lifetime: Lifetime | None = None,
     ) -> Any:
         """Register decorated function as a factory for its return type annotation.
@@ -136,7 +136,7 @@ class Container(Releasable["Container"]):
                 msg = f"{factory} has no return type annotation"
                 raise RegistrationError(msg)
 
-            self.register(rettype).factory(factory, lifetime=lifetime, enter=enter)
+            self.register(rettype).factory(factory, lifetime=lifetime, managed=managed)
             # NOTE: return decorated func untouched to ease reuse
             return factory
 
