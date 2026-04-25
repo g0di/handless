@@ -81,16 +81,14 @@ container = Container()
 container.register(Config).value(config)
 
 # User repository
-container.register(InMemoryUserRepository).self(lifetime=Singleton())
+container.register(InMemoryUserRepository).self(Singleton())
 container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore[type-abstract]
 
 # Notification manager
 container.register(smtplib.SMTP).factory(
-    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host),
-    lifetime=Singleton(),
-    enter=True,
+    lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host), Singleton(), enter=True
 )
-container.register(StdoutNotificationManager).self(lifetime=Transient())
+container.register(StdoutNotificationManager).self(Transient())
 container.register(EmailNotificationManager).self()
 
 
@@ -104,7 +102,7 @@ def create_notification_manager(
 
 
 # Top level service
-container.register(UserService).self(lifetime=Contextual())
+container.register(UserService).self(Contextual())
 
 
 with container.open_context() as ctx:

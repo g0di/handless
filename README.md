@@ -291,16 +291,16 @@ container = Container()
 container.register(Config).value(config)
 
 # User repository
-container.register(InMemoryUserRepository).self(lifetime=Singleton())
+container.register(InMemoryUserRepository).self(Singleton())
 container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore[type-abstract]
 
 # Notification manager
 container.register(smtplib.SMTP).factory(
     lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host),
-    lifetime=Singleton(),
+    Singleton(),
     enter=True,
 )
-container.register(StdoutNotificationManager).self(lifetime=Transient())
+container.register(StdoutNotificationManager).self(Transient())
 container.register(EmailNotificationManager).self()
 
 
@@ -314,7 +314,7 @@ def create_notification_manager(
 
 
 # Top level service
-container.register(UserService).self(lifetime=Contextual())
+container.register(UserService).self(Contextual())
 
 
 with container.open_context() as ctx:
@@ -539,7 +539,7 @@ During registration of factories `.factory(...)`, `@container.factory()` and `.s
 
 > :warning: You can not change lifetimes for `.value(...)` and `.alias(...)` by design.
 
-Lifetimes are actual objects and not enum constants nor literals.
+Lifetimes are actual objects and not enum constants nor literals. You can pass them either as positional argument (for `.factory(...)` and `.self()`) or keyword argument.
 
 ```python
 from handless import Container, Singleton, Transient, Contextual
@@ -547,11 +547,11 @@ from handless import Container, Singleton, Transient, Contextual
 
 container = Container()
 # Singleton
-container.register(object).factory(lambda: object(), lifetime=Singleton())
+container.register(object).factory(lambda: object(), Singleton())
 # Contextual
-container.register(object).factory(lambda: object(), lifetime=Contextual())
+container.register(object).factory(lambda: object(), Contextual())
 # Transient (The default)
-container.register(object).factory(lambda: object(), lifetime=Transient())
+container.register(object).factory(lambda: object(), Transient())
 ```
 
 [As described above](#lifetimes), lifetimes allow to determine when the container will execute types factory and cache their result. Generally speaking you may use:

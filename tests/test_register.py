@@ -90,9 +90,7 @@ class TestRegisterFactory:
     def test_register_factory_with_options(
         self, container: Container, enter: bool, lifetime: Lifetime
     ) -> None:
-        container.register(FakeService).factory(
-            FakeService, enter=enter, lifetime=lifetime
-        )
+        container.register(FakeService).factory(FakeService, lifetime, enter=enter)
 
         assert container.lookup(FakeService) == Registration(
             FakeService, FakeService, enter=enter, lifetime=lifetime
@@ -194,7 +192,7 @@ class TestRegisterSelf:
     def test_register_self_with_options(
         self, container: Container, enter: bool, lifetime: Lifetime
     ) -> None:
-        container.register(FakeService).self(lifetime=lifetime, enter=enter)
+        container.register(FakeService).self(lifetime, enter=enter)
 
         assert container.lookup(FakeService) == Registration(
             FakeService, FakeService, lifetime=lifetime, enter=enter

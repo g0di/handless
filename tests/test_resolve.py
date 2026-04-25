@@ -157,7 +157,7 @@ class TestResolveTypeBoundToSingletonRegistration:
     def resolved(
         self, container: Container, context: ResolutionContext, factory: Mock
     ) -> FakeService:
-        container.register(FakeService).factory(factory, lifetime=Singleton())
+        container.register(FakeService).factory(factory, Singleton())
 
         return context.resolve(FakeService)
 
@@ -191,7 +191,7 @@ class TestResolveTypeBoundToSingletonRegistration:
         mock = Mock(wraps=_factory)
         container.register(str).value("foo")
         container.register(int).value(42)
-        container.register(FakeService).factory(mock, lifetime=Singleton())
+        container.register(FakeService).factory(mock, Singleton())
 
         with ThreadPoolExecutor(100) as pool:
             results = pool.map(
@@ -243,7 +243,7 @@ class TestResolveTypeBoundToContextRegistration:
     def resolved(
         self, container: Container, context: ResolutionContext, factory: Mock
     ) -> FakeService:
-        container.register(FakeService).factory(factory, lifetime=Contextual())
+        container.register(FakeService).factory(factory, Contextual())
 
         return context.resolve(FakeService)
 
@@ -355,7 +355,7 @@ class TestOverrideTypes:
     ) -> None:
         factory = Mock(wraps=FakeService)
         factory_override = Mock(wraps=FakeService)
-        container.register(FakeService).factory(factory, lifetime=lifetime)
+        container.register(FakeService).factory(factory, lifetime)
         singleton = context.resolve(FakeService)
 
         container.override(FakeService).factory(

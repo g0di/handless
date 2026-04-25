@@ -3,6 +3,52 @@
 This document contains all the ideas I've got for new features or changes to be made.
 
 > :bulb: The order does not reflect the priority.
+>
+## Agent
+
+- Fix README capability drift:
+  - Remove or update outdated "not available yet" items that are already shipped.
+  - In particular, README currently says async support and positional-only autowiring are missing, but code/tests/changelog show they are implemented.
+  - Keep README, changelog, and tested behavior aligned before next release.
+- Align cleanup failure semantics with ExitStack behavior:
+  - Do not silently swallow teardown exceptions in release and arelease.
+  - Aggregate/propagate teardown failures after attempting all exits.
+  - Add tests for exception propagation in sync and async cleanup paths.
+- Add this to the Agent section in TODO.md for the lambda recommendation:
+  - Narrow implicit context injection rule:
+  - Keep one-arg untyped fallback only for lambda factories.
+  - For non-lambda callables, require explicit ResolutionContext annotation and fail fast otherwise.
+  - Document this as an intentional ergonomic exception for concise registrations.
+- Use the the name `managed` as keyword argument instead of `enter` during registration
+- Use the term "Scope" instead of context for our container to avoid misunderstanding
+  - Use `create_scope` instead of `open_context`
+  - Use `Scoped` instead of `Contextual` lifetime
+  - Use `scope` instead of `ctx`
+  - Use `Scope` instead of `ResolutionContext`
+- Improve resolution error diagnostics:
+  - When resolution fails, include the full resolution chain (requested type plus dependency path).
+  - Preserve and expose the root cause exception that actually broke resolution.
+  - Apply this consistently to sync resolve and async resolve.
+  - Add tests covering nested failure chains and verify message/metadata content.
+- Define precedence contract for overrides vs scope-local registrations:
+  - Container overrides must take precedence over everything, including scope-local registrations.
+  - Update lookup order and behavior docs to reflect this rule.
+  - Add tests for all combinations: registered vs override vs scope-local, including cached instances.
+- Make sync/async resolution behavior deterministic without splitting caches:
+  - Keep a single cache to preserve singleton/contextual identity.
+  - Classify registrations by execution mode (sync-only vs async-capable).
+  - Enforce mode before cache access so resolve and aresolve behavior does not depend on cold/warm cache state.
+  - Add tests covering both cold and cached paths for sync and async APIs.
+- Activate dependency default fallback behavior:
+  - During resolution, if a dependency cannot be resolved and the parameter has a default value, use that default instead of failing.
+  - Keep strict failure for missing dependencies without defaults.
+  - Add sync and async tests for mixed required/defaulted dependency signatures.
+  - Document clearly that defaults are runtime fallback only when dependency lookup fails.
+- Add runtime container validation API:
+  - Introduce a container.validate() method to analyze the full registration graph after bootstrap.
+  - Detect and report captive dependencies (lifetime mismatches), unresolved required dependencies, and sync/async incompatibilities.
+  - Support both non-raising report mode and strict fail-fast mode.
+  - Keep validation side-effect free and runnable in tests/CI/startup.
 
 ## Documentation
 
@@ -49,7 +95,6 @@ This document contains all the ideas I've got for new features or changes to be 
 - :new: add auto_registration capabilities so container is able to resolve types not registered
 - :new: use magic attributes (**handless_lifetime**) for auto resolving lifetimes from types
 - :new: Allow to configure containers through yaml/toml files
-- :new: Allow to register lambda factories with one or many arguments and pass each argument type and get proper type checking and autocompletion
 - :new: Add ability to register release callback per registration (for values for exemples)
 
 ## Tests

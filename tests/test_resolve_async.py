@@ -170,7 +170,7 @@ class TestResolveTypeBoundToSingletonRegistration:
     async def resolved(
         self, acontainer: Container, acontext: ResolutionContext, factory: Mock
     ) -> AsyncFakeService:
-        acontainer.register(AsyncFakeService).factory(factory, lifetime=Singleton())
+        acontainer.register(AsyncFakeService).factory(factory, Singleton())
 
         return await acontext.aresolve(AsyncFakeService)
 
@@ -204,7 +204,7 @@ class TestResolveTypeBoundToSingletonRegistration:
         mock = AsyncMock(wraps=_factory)
         acontainer.register(str).value("foo")
         acontainer.register(int).value(42)
-        acontainer.register(FakeServiceWithParams).factory(mock, lifetime=Singleton())
+        acontainer.register(FakeServiceWithParams).factory(mock, Singleton())
 
         results = await asyncio.gather(
             *[
@@ -262,7 +262,7 @@ class TestResolveTypeBoundToContextRegistration:
     async def resolved(
         self, acontainer: Container, acontext: ResolutionContext, factory: Mock
     ) -> AsyncFakeService:
-        acontainer.register(AsyncFakeService).factory(factory, lifetime=Contextual())
+        acontainer.register(AsyncFakeService).factory(factory, Contextual())
 
         return await acontext.aresolve(AsyncFakeService)
 

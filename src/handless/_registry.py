@@ -114,7 +114,7 @@ class RegistrationBuilder(Generic[_T]):
         self._registry = registry
         self._type = type_
 
-    def self(self, *, lifetime: Lifetime | None = None, enter: bool = True) -> None:
+    def self(self, lifetime: Lifetime | None = None, *, enter: bool = True) -> None:
         self.factory(self._type, lifetime=lifetime, enter=enter)
 
     def alias(self, alias_type: type[_T]) -> None:
@@ -139,8 +139,8 @@ class RegistrationBuilder(Generic[_T]):
     def factory(
         self,
         factory: Callable[[ResolutionContext], _T | Awaitable[_T]],
-        *,
         lifetime: Lifetime | None = ...,
+        *,
         enter: bool = ...,
     ) -> None: ...
 
@@ -154,8 +154,8 @@ class RegistrationBuilder(Generic[_T]):
             | AbstractContextManager[_T]
             | AbstractAsyncContextManager[_T],
         ],
-        *,
         lifetime: Lifetime | None = ...,
+        *,
         enter: Literal[True] = ...,
     ) -> None: ...
 
@@ -163,8 +163,8 @@ class RegistrationBuilder(Generic[_T]):
     def factory(
         self,
         factory: Callable[..., _T | Awaitable[_T]],
-        *,
         lifetime: Lifetime | None = ...,
+        *,
         enter: bool = ...,
     ) -> None: ...
 
@@ -178,16 +178,16 @@ class RegistrationBuilder(Generic[_T]):
             | AbstractContextManager[_T]
             | AbstractAsyncContextManager[_T],
         ],
-        *,
         lifetime: Lifetime | None = ...,
+        *,
         enter: Literal[True] = ...,
     ) -> None: ...
 
     def factory(
         self,
         factory: Callable[..., Any],
-        *,
         lifetime: Lifetime | None = None,
+        *,
         enter: bool = True,
     ) -> None:
         """Use a function or type to produce an instance of registered type when resolved.
