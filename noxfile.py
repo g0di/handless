@@ -9,7 +9,7 @@ def fmt(session: nox.Session) -> None:
 
 @nox.session(python=False)
 def lint(session: nox.Session) -> None:
-    session.run("ruff", "check")
+    session.run("ruff", "check", "--fix", "--show-fixes")
 
 
 @nox.session(python=False)
