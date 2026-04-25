@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import logging
 import weakref
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import (
+    AbstractAsyncContextManager,
+    AbstractContextManager,
+    asynccontextmanager,
+    contextmanager,
+)
 from inspect import isasyncgenfunction, isgeneratorfunction
 from typing import TYPE_CHECKING, Any, TypeVar, get_args, overload
 
@@ -21,6 +27,10 @@ if TYPE_CHECKING:
 
 
 _T = TypeVar("_T")
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2")
+_T3 = TypeVar("_T3")
+_T4 = TypeVar("_T4")
 _U = TypeVar("_U", bound=Callable[..., Any])
 
 
@@ -168,6 +178,88 @@ class Container(Releasable["Container"]):
         scope = Scope(self)
         self._scopes.add(scope)
         return scope
+
+    @overload
+    def resolve(self, type_: type[_T1], /) -> AbstractContextManager[_T1]: ...
+
+    @overload
+    def resolve(
+        self, type_: type[_T1], type2: type[_T2], /
+    ) -> AbstractContextManager[tuple[_T1, _T2]]: ...
+
+    @overload
+    def resolve(
+        self, type_: type[_T1], type2: type[_T2], type3: type[_T3], /
+    ) -> AbstractContextManager[tuple[_T1, _T2, _T3]]: ...
+
+    @overload
+    def resolve(
+        self, type_: type[_T1], type2: type[_T2], type3: type[_T3], type4: type[_T4], /
+    ) -> AbstractContextManager[tuple[_T1, _T2, _T3, _T4]]: ...
+
+    @contextmanager
+    def resolve(self, type_: type[Any], /, *types: type[Any]) -> Iterator[Any]:
+        """Resolve one or several types using a temporary scope.
+
+        This is a shorthand for opening a scope, resolving type(s), yielding
+        result(s), then releasing that scope on context exit.
+
+        When resolving a single type, the yielded value is the resolved object.
+        When resolving several types, the yielded value is a tuple preserving the
+        order of requested types.
+
+        >>> container = Container()
+        >>> container.register(str).value("handless")
+        >>> with container.resolve(str) as value:
+        ...     print(value)
+        handless
+        """
+        requested_types = (type_, *types)
+        with self.create_scope() as scope:
+            values = tuple(
+                scope.resolve(requested_type) for requested_type in requested_types
+            )
+            if not types:
+                yield values[0]
+                return
+            yield values
+
+    @overload
+    def aresolve(self, type_: type[_T1], /) -> AbstractAsyncContextManager[_T1]: ...
+
+    @overload
+    def aresolve(
+        self, type_: type[_T1], type2: type[_T2], /
+    ) -> AbstractAsyncContextManager[tuple[_T1, _T2]]: ...
+
+    @overload
+    def aresolve(
+        self, type_: type[_T1], type2: type[_T2], type3: type[_T3], /
+    ) -> AbstractAsyncContextManager[tuple[_T1, _T2, _T3]]: ...
+
+    @overload
+    def aresolve(
+        self, type_: type[_T1], type2: type[_T2], type3: type[_T3], type4: type[_T4], /
+    ) -> AbstractAsyncContextManager[tuple[_T1, _T2, _T3, _T4]]: ...
+
+    @asynccontextmanager
+    async def aresolve(
+        self, type_: type[Any], /, *types: type[Any]
+    ) -> AsyncIterator[Any]:
+        """Asynchronously resolve one or several types using a temporary scope.
+
+        This is the async counterpart of :meth:`resolve`.
+        """
+        requested_types = (type_, *types)
+        async with self.create_scope() as scope:
+            values = [
+                await scope.aresolve(requested_type)
+                for requested_type in requested_types
+            ]
+            if not types:
+                yield values[0]
+                return
+            yield tuple(values)
 
 
 class Scope(Releasable["Scope"]):

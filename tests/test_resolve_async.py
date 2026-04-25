@@ -96,6 +96,62 @@ async def test_resolve_type_not_enter_non_context_manager_object_returned_by_reg
         pytest.fail(reason="Should not try to enter non context manager object")
 
 
+class TestContainerAresolveShortcut:
+    async def test_resolves_type_without_manual_scope(
+        self, acontainer: Container
+    ) -> None:
+        expected = object()
+        acontainer.register(object).value(expected)
+
+        async with acontainer.aresolve(object) as resolved:
+            assert resolved is expected
+
+    async def test_uses_new_scope_for_each_call(self, acontainer: Container) -> None:
+        acontainer.register(AsyncFakeService).self(Scoped())
+
+        async with acontainer.aresolve(AsyncFakeService) as first:
+            pass
+
+        async with acontainer.aresolve(AsyncFakeService) as second:
+            pass
+
+        assert first is not second
+
+    async def test_releases_temporary_scope(self, acontainer: Container) -> None:
+        acontainer.register(AsyncFakeService).self(Scoped())
+
+        async with acontainer.aresolve(AsyncFakeService) as resolved:
+            assert resolved.entered
+            assert not resolved.exited
+
+        assert resolved.exited
+
+    async def test_resolves_several_types_in_single_call(
+        self, acontainer: Container
+    ) -> None:
+        expected_number = 42
+        acontainer.register(str).value("foo")
+        acontainer.register(int).value(expected_number)
+
+        async with acontainer.aresolve(str, int) as (text, number):
+            assert text == "foo"
+            assert number == expected_number
+
+    async def test_aresolve_several_types_keeps_temporary_scope_alive(
+        self, acontainer: Container
+    ) -> None:
+        expected_number = 42
+        acontainer.register(AsyncFakeService).self(Scoped())
+        acontainer.register(int).value(expected_number)
+
+        async with acontainer.aresolve(AsyncFakeService, int) as (service, number):
+            assert number == expected_number
+            assert service.entered
+            assert not service.exited
+
+        assert service.exited
+
+
 class TestResolveTypeUsingTransientLifetime:
     @pytest.fixture(params=[Mock, AsyncMock])
     def factory(self, request: pytest.FixtureRequest) -> Mock:

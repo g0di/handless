@@ -76,7 +76,6 @@ This document contains all the ideas I've got for new features or changes to be 
 
 ## Resolving
 
-- :new: Add a context manager only function at container level to resolve types as a shortcut with opening a scope, resolving type then exits
 - :new: Handle factories/types arguments with default values. If the container can not resolve one, leave the default value instead.
   - :new: Do not raise error if registering a function missing type annotations for argument having default value.
 - :new: add a decorator to container for resolving and injecting function parameters when executed.

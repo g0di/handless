@@ -91,6 +91,58 @@ def test_resolve_type_not_enter_non_context_manager_object_returned_by_registrat
         pytest.fail(reason="Should not try to enter non context manager object")
 
 
+class TestContainerResolveShortcut:
+    def test_resolves_type_without_manual_scope(self, container: Container) -> None:
+        expected = object()
+        container.register(object).value(expected)
+
+        with container.resolve(object) as resolved:
+            assert resolved is expected
+
+    def test_uses_new_scope_for_each_call(self, container: Container) -> None:
+        container.register(FakeService).self(Scoped())
+
+        with container.resolve(FakeService) as first:
+            pass
+
+        with container.resolve(FakeService) as second:
+            pass
+
+        assert first is not second
+
+    def test_releases_temporary_scope(self, container: Container) -> None:
+        container.register(FakeService).self(Scoped())
+
+        with container.resolve(FakeService) as resolved:
+            assert resolved.entered
+            assert not resolved.exited
+
+        assert resolved.exited
+
+    def test_resolves_several_types_in_single_call(self, container: Container) -> None:
+        expected_number = 42
+        container.register(str).value("foo")
+        container.register(int).value(expected_number)
+
+        with container.resolve(str, int) as (text, number):
+            assert text == "foo"
+            assert number == expected_number
+
+    def test_resolve_several_types_keeps_temporary_scope_alive(
+        self, container: Container
+    ) -> None:
+        expected_number = 42
+        container.register(FakeService).self(Scoped())
+        container.register(int).value(expected_number)
+
+        with container.resolve(FakeService, int) as (service, number):
+            assert number == expected_number
+            assert service.entered
+            assert not service.exited
+
+        assert service.exited
+
+
 class TestResolveTypeUsingTransientLifetime:
     @pytest.fixture
     def factory(self) -> Mock:

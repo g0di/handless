@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `Container.resolve(...)` and `Container.aresolve(...)` context-manager shortcuts to resolve one or several types using a temporary scope and keep them alive until context exit.
+
 ### Changed
 
 - `RegistrationBuilder.self(...)` and `RegistrationBuilder.factory(...)` now accept `lifetime` as positional argument in addition to keyword argument.

@@ -45,6 +45,10 @@ This library currently support the following injection method:
 ## Code style guidelines
 
 - Ensure everything is properly typed and have type annotations
+- Public functions and classes are documented using docstrings
+  - It starts with a summary line
+  - Provide more details and information in the docstring body
+  - Include doctest examples
 - Limit library public API to only what we want to provide to users. Internals should be marked as private:
   - Private packages are prefixed with an underscore
   - Private objects in public packages are prefixed with underscore
@@ -58,6 +62,7 @@ This library currently support the following injection method:
 - Tests must cover both sync and async code. The library supports both so earch tests must be duplicated and synced.
 - Tests should focus on the public facing API rather than testing internals
 - Any new feature or bug fixes must be covered by a test beforehand
+  - The test is written first to validate the behavior then the code is implemented (test-first)
 
 ## Security considerations
 
@@ -70,3 +75,5 @@ This library currently support the following injection method:
 - Each notable changes made must be added in the unreleased section [CHANGELOG.md](./CHANGELOG.md) file following [keepachangelog](https://keepachangelog.com/en/1.1.0/) recommendations
   - Purely internal changes must be kept concise on a dedicated internal section
 - Documentation wether on code docstring or [README.md](./README.md) must be kept synced with the code.
+  - New features must be added to the documentation
+- After changes, update the [TODO.md](./TODO.md) to remove occurences of the change

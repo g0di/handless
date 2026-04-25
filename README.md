@@ -164,17 +164,26 @@ _Handless_ provides a `handless.Container` dependency injection container. This 
 
 In dependency injection container terminology, a scope is often referred as a kind of unique "sub container" for a short(er) duration of time. For example, in a HTTP API, you can have one scope per HTTP request. This allows to introduce a scoped lifetime to have the container create one instance of a type per scope (and then per request).
 
-In order to resolve any types from a container, a `handless.Scope` must always be opened and used.
+In order to resolve any types from a container, a `handless.Scope` must be used.
+Most applications should open and manage scopes explicitly. For convenience,
+`Container.resolve(...)` and `Container.aresolve(...)` are available as
+context-manager shortcuts that open a temporary scope, resolve, yield the value,
+then release it on context exit.
+When called with several types, they yield a tuple of resolved values in the same
+order as requested.
 
 > :warning: You're free to manage your scopes the way you want but using a single scope for the whole application duration could be a code smell.
 
-You can not resolve types from the container directly. This design choice has been made for two reasons:
+While you can use container-level resolve shortcuts, explicit scopes remain
+the recommended way for application flows where several resolutions should share the
+same scope lifecycle. This design choice has been made for two reasons:
 
 - Avoid keeping transient values for the whole duration of a container and as a consequence, an application.
   > :question: This is because there is no reliable and easy way in Python to automatically cleanup object before garbage collection. Explicit cleanup is required or at least strongly encouraged.
-- Avoid to raise errors when trying to resolve a scoped type from a container instead of a scope
-  > :question: For types registered with a lifetime of a `Scope` (i.e: a scope) the question is "what should we do when resolving this from a container? Should we raise an error? Should we resolve it and consider the container as a scope as well?"
-  > Our design completly get rid of this choice by forcing usage of a scope, always
+- Keep scoped lifetime semantics explicit and predictable
+    > :question: For types registered with a lifetime of a `Scope`, reusing a dedicated
+    > scope keeps behavior obvious and avoids accidental resolve patterns where each call
+    > silently creates an independent scope.
 
 #### Lifetimes
 
@@ -351,7 +360,11 @@ There should be at most one container per entrypoint in your application (a CLI,
 
 ### Open a context
 
-To resolve any type from your container you must open a context first. The context should be released when not necessary anymore.
+To resolve any type from your container, you should usually open a context first. The
+context should be released when not necessary anymore.
+
+If you only need a one-off resolution, you can use `container.resolve(...)` (or
+`container.aresolve(...)`) as a shorthand context manager.
 
 > :bulb: Opened context are automatically released on container release if the context still has a strong reference to it.
 
@@ -389,8 +402,8 @@ class Foo:
 foo = Foo()
 container = Container()
 container.register(Foo).value(foo)
-resolved_foo = container.create_scope().resolve(Foo)
-assert resolved_foo is foo
+with container.resolve(Foo) as resolved_foo:
+    assert resolved_foo is foo
 ```
 
 ### Register a factory function
@@ -417,10 +430,9 @@ def create_foo(bar: int) -> Foo:
 container = Container()
 container.register(int).value(42)
 container.register(Foo).factory(create_foo)
-resolved_foo = container.create_scope().resolve(Foo)
-
-assert isinstance(resolved_foo, Foo)
-assert resolved_foo.bar == 42
+with container.resolve(Foo) as resolved_foo:
+    assert isinstance(resolved_foo, Foo)
+    assert resolved_foo.bar == 42
 ```
 
 #### Using `factory` decorator
@@ -445,10 +457,9 @@ def create_foo(bar: int) -> Foo:
     return Foo(bar)
 
 
-resolved_foo = container.create_scope().resolve(Foo)
-
-assert isinstance(resolved_foo, Foo)
-assert resolved_foo.bar == 42
+with container.resolve(Foo) as resolved_foo:
+    assert isinstance(resolved_foo, Foo)
+    assert resolved_foo.bar == 42
 ```
 
 This is mostly a matter of preference as both ways do the exact same thing. You can also pass parameters to the factory decorator `@factory(lifetime=..., managed=...)`.
@@ -469,10 +480,9 @@ class Foo:
 container = Container()
 container.register(int).value(42)
 container.register(Foo).factory(lambda ctx: Foo(ctx.resolve(int)))
-resolved_foo = container.create_scope().resolve(Foo)
-
-assert isinstance(resolved_foo, Foo)
-assert resolved_foo.bar == 42
+with container.resolve(Foo) as resolved_foo:
+    assert isinstance(resolved_foo, Foo)
+    assert resolved_foo.bar == 42
 ```
 
 ### Register a type constructor
@@ -491,10 +501,9 @@ class Foo:
 container = Container()
 container.register(int).value(42)
 container.register(Foo).self()  # Same as: container.register(Foo).factory(Foo)
-resolved_foo = container.create_scope().resolve(Foo)
-
-assert isinstance(resolved_foo, Foo)
-assert resolved_foo.bar == 42
+with container.resolve(Foo) as resolved_foo:
+    assert isinstance(resolved_foo, Foo)
+    assert resolved_foo.bar == 42
 ```
 
 ### Register an alias
