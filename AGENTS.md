@@ -3,12 +3,14 @@
 Handless is a python library providing a dependency injection container to facilitates building and composing object graphs for Python applications.
 It is designed to simplify the burden of manually wiring dependencies and managing various object lifetimes (singleton, scoped, transient).
 
-Current implementation provides an imperative API for building a container and resolving objects from it. 
+Current implementation provides an imperative API for building a container and resolving objects from it.
 This library tries to follow dependency injection best practices and patterns:
+
 - **Composition root**: the mapping between concrete classes and interface must be composed as close as possible to the application entry point. The Composition root should be an unique location in the application;
 - **Register, Resolve, Release**: The Register, Resolve and Release pattern describes how to use a DI container. The Register Resolve Release pattern states that a DI Container’s methods must be invoked in this strict sequence. The Register method register components with container. The Resolve method resolves the concrete class basing on an interface. Finally, Release method destroys the instances when they are no longer needed;
 
 This library currently support the following injection method:
+
 - **Constructor injection**
 - **Method injection**
 
@@ -44,7 +46,6 @@ This library currently support the following injection method:
   - Private methods or attributes part of public objects are prefixed with an underscore
   - In case of doubts default to private visibility for new code if it is not clear that this is part of the public API
 
-
 ## Testing instructions
 
 - Code coverage must be as close as possible to 100%. If not try to fill the gap with new tests
@@ -56,5 +57,5 @@ This library currently support the following injection method:
 ## Security considerations
 
 - Particular care must be taken to avoid memory leak when managing dependencies and their lifetime with containers and contexts
-  - Closing a container context/scope must always close all objects entered 
+  - Closing a container context/scope must always close all objects entered
   - Closing a container must always close all objects entered
