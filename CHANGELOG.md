@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `RegistrationBuilder.self(...)` and `RegistrationBuilder.factory(...)` now accept `lifetime` as positional argument in addition to keyword argument.
 - **Breaking:** renamed registration option `enter` to `managed` across `RegistrationBuilder.self(...)`, `RegistrationBuilder.value(...)`, `RegistrationBuilder.factory(...)`, `Container.factory(...)` and `Registration` (`enter` field is now `managed`).
+- **Breaking:** replaced resolution context terminology with scope terminology across the public API:
+  - `ResolutionContext` has been renamed to `Scope`
+  - `Contextual` lifetime has been renamed to `Scoped`
+  - `Container.open_context()` has been renamed to `Container.create_scope()`
 
 ## [0.3.0] - 2025-09-25
 

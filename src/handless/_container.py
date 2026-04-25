@@ -28,22 +28,21 @@ class Container(Releasable["Container"]):
     """Create a new container.
 
     Containers hold registrations defining how to resolve registered types. It also cache
-    all singleton lifetime types. To resolve a type from a container you must open a resolution
-    context.
+    all singleton lifetime types. To resolve a type from a container you must open a scope.
 
     You're free to use the container in a context manager or to manually call the release
     method, both does the same. The release function does not prevent to reuse the container
     it just clears all cached singleton and exits their context manager if entered.
 
     You should release your container when your application stops.
-    You should open context anytime you need to resolve types and release it as soon as possible.
-    For example, in a HTTP API, you may open one context per request. For a message listener
-    you may open one per message handling. For a CLI you open a context per command received.
+    You should create a scope anytime you need to resolve types and release it as soon as possible.
+    For example, in a HTTP API, you may open one scope per request. For a message listener
+    you may open one per message handling. For a CLI you open a scope per command received.
 
     >>> container = Container()
     >>> container.register(str).value("Hello Container!")
-    >>> with container.open_context() as ctx:
-    ...     value = ctx.resolve(str)
+    >>> with container.create_scope() as scope:
+    ...     value = scope.resolve(str)
     ...     print(value)
     Hello Container!
     >>> container.release()
@@ -53,7 +52,7 @@ class Container(Releasable["Container"]):
         super().__init__()
         self._registry = Registry()
         self._overrides = Registry(allow_override=True)
-        self._contexts = weakref.WeakSet[ResolutionContext]()
+        self._scopes = weakref.WeakSet[Scope]()
 
     def register(self, type_: type[_T]) -> RegistrationBuilder[_T]:
         """Register given type and define its resolution at runtime.
@@ -145,51 +144,51 @@ class Container(Releasable["Container"]):
         return wrapper
 
     def release(self) -> None:
-        """Release all cached singletons and opened contexts.
+        """Release all cached singletons and opened scopes.
 
         This will also exits any entered context managers for singleton lifetime objects.
-        Note that opened contexts are weakly referenced meaning that only ones still
+        Note that opened scopes are weakly referenced meaning that only ones still
         referenced will be released.
 
         This method is safe to be called several times, it does not prevent from using
         the container.
         """
         # TODO: create a test that ensure scopes are properly closed on container close
-        for ctx in self._contexts:
-            ctx.release()
+        for scope in self._scopes:
+            scope.release()
         self._overrides.clear()
         return super().release()
 
-    def open_context(self) -> ResolutionContext:
-        """Create and open a new resolution context for resolving types.
+    def create_scope(self) -> Scope:
+        """Create and open a new scope for resolving types.
 
         You better use this function with a context manager. Otherwise call its release
         method when you're done with it.
         """
-        ctx = ResolutionContext(self)
-        self._contexts.add(ctx)
-        return ctx
+        scope = Scope(self)
+        self._scopes.add(scope)
+        return scope
 
 
-class ResolutionContext(Releasable["ResolutionContext"]):
+class Scope(Releasable["Scope"]):
     """Allow to resolve types from a container.
 
-    It caches contextual types and enters context managers for both contextual and
+    It caches scoped types and enters context managers for both scoped and
     transient types. Cache is cleared on call to release method and all entered context
     managers are exited.
 
     >>> container = Container()
     >>> container.register(str).value("handless")
-    >>> with container.open_context() as ctx:
-    ...     ctx.resolve(str)
+    >>> with container.create_scope() as scope:
+    ...     scope.resolve(str)
     'handless'
     """
 
     def __init__(self, container: Container) -> None:
-        """Create a new resolution context for the given container.
+        """Create a new scope for the given container.
 
         Note that this constructor is not intended to be used directly.
-        Prefer using `container.open_context()` instead.
+        Prefer using `container.create_scope()` instead.
         """
         super().__init__()
         self._container = container
@@ -198,7 +197,7 @@ class ResolutionContext(Releasable["ResolutionContext"]):
 
     @property
     def container(self) -> Container:
-        """Return the parent container of this context."""
+        """Return the parent container of this scope."""
         return self._container
 
     def register_local(self, type_: type[_T]) -> RegistrationBuilder[_T]:
@@ -207,7 +206,7 @@ class ResolutionContext(Releasable["ResolutionContext"]):
     def resolve(self, type_: type[_T]) -> _T:
         """Resolve given type by returning an instance of it using the provider registered.
 
-        The provider is looked up from this context local registry first then from its
+        The provider is looked up from this scope local registry first then from its
         parent container if not found.
         """
         if type_ is type(self):

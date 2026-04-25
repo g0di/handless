@@ -64,3 +64,9 @@ This library currently support the following injection method:
 - Particular care must be taken to avoid memory leak when managing dependencies and their lifetime with containers and contexts
   - Closing a container context/scope must always close all objects entered
   - Closing a container must always close all objects entered
+
+## Contributing
+
+- Each notable changes made must be added in the unreleased section [CHANGELOG.md](./CHANGELOG.md) file following [keepachangelog](https://keepachangelog.com/en/1.1.0/) recommendations
+  - Purely internal changes must be kept concise on a dedicated internal section
+- Documentation wether on code docstring or [README.md](./README.md) must be kept synced with the code.

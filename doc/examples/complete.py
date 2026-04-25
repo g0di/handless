@@ -2,7 +2,7 @@ import smtplib
 from dataclasses import dataclass
 from typing import Protocol
 
-from handless import Container, Contextual, ResolutionContext, Singleton, Transient
+from handless import Container, Scope, Scoped, Singleton, Transient
 
 
 @dataclass
@@ -93,19 +93,17 @@ container.register(EmailNotificationManager).self()
 
 
 @container.factory
-def create_notification_manager(
-    config: Config, ctx: ResolutionContext
-) -> NotificationManager:
+def create_notification_manager(config: Config, ctx: Scope) -> NotificationManager:
     if config.smtp_host == "stdout":
         return ctx.resolve(StdoutNotificationManager)
     return ctx.resolve(EmailNotificationManager)
 
 
 # Top level service
-container.register(UserService).self(Contextual())
+container.register(UserService).self(Scoped())
 
 
-with container.open_context() as ctx:
+with container.create_scope() as ctx:
     service = ctx.resolve(UserService)
     service.create_user("hello.world@handless.io")
     # hello.world@handless.io - Your account has been created

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from handless._container import ResolutionContext
+    from handless._container import Scope
     from handless._registry import Registration
 
 
@@ -20,61 +20,53 @@ _T = TypeVar("_T")
 
 
 class Lifetime(Protocol):
-    def resolve(self, context: ResolutionContext, registration: Registration[_T]) -> _T:
-        """Resolve given registration within given context."""
+    def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+        """Resolve given registration within given scope."""
 
-    async def aresolve(
-        self, context: ResolutionContext, registration: Registration[_T]
-    ) -> _T:
-        """Asynchrnously resolve given registration within given context."""
+    async def aresolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+        """Asynchrnously resolve given registration within given scope."""
 
 
 class Transient(Lifetime):
     """Calls registration factory on each resolve."""
 
-    def resolve(self, context: ResolutionContext, registration: Registration[_T]) -> _T:
-        ctx = LifetimeContext.get(context)
-        return ctx.get_instance(context, registration)
+    def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+        ctx = LifetimeContext.get(scope)
+        return ctx.get_instance(scope, registration)
 
-    async def aresolve(
-        self, context: ResolutionContext, registration: Registration[_T]
-    ) -> _T:
-        ctx = LifetimeContext.get(context)
-        return await ctx.aget_instance(context, registration)
+    async def aresolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+        ctx = LifetimeContext.get(scope)
+        return await ctx.aget_instance(scope, registration)
 
     def __eq__(self, value: object) -> bool:
         return isinstance(value, Transient)
 
 
-class Contextual(Lifetime):
-    """Calls registration factory on resolve once per context."""
+class Scoped(Lifetime):
+    """Calls registration factory on resolve once per scope."""
 
-    def resolve(self, context: ResolutionContext, registration: Registration[_T]) -> _T:
-        ctx = LifetimeContext.get(context)
-        return ctx.get_cached_instance(context, registration)
+    def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+        ctx = LifetimeContext.get(scope)
+        return ctx.get_cached_instance(scope, registration)
 
-    async def aresolve(
-        self, context: ResolutionContext, registration: Registration[_T]
-    ) -> _T:
-        ctx = LifetimeContext.get(context)
-        return await ctx.aget_cached_instance(context, registration)
+    async def aresolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+        ctx = LifetimeContext.get(scope)
+        return await ctx.aget_cached_instance(scope, registration)
 
     def __eq__(self, value: object) -> bool:
-        return isinstance(value, Contextual)
+        return isinstance(value, Scoped)
 
 
 class Singleton(Lifetime):
     """Calls registration factory on resolve once per container."""
 
-    def resolve(self, context: ResolutionContext, registration: Registration[_T]) -> _T:
-        ctx = LifetimeContext.get(context.container)
-        return ctx.get_cached_instance(context, registration)
+    def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+        ctx = LifetimeContext.get(scope.container)
+        return ctx.get_cached_instance(scope, registration)
 
-    async def aresolve(
-        self, context: ResolutionContext, registration: Registration[_T]
-    ) -> _T:
-        ctx = LifetimeContext.get(context.container)
-        return await ctx.aget_cached_instance(context, registration)
+    async def aresolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+        ctx = LifetimeContext.get(scope.container)
+        return await ctx.aget_cached_instance(scope, registration)
 
     def __eq__(self, value: object) -> bool:
         return isinstance(value, Singleton)
@@ -189,9 +181,7 @@ class LifetimeContext(Releasable["LifetimeContext"]):
     async def arelease(self) -> None:
         await self.__aexit__(None, None, None)
 
-    def get_cached_instance(
-        self, ctx: ResolutionContext, registration: Registration[_T]
-    ) -> _T:
+    def get_cached_instance(self, scope: Scope, registration: Registration[_T]) -> _T:
         # NOTE: use registration object ID allowing to not get previously cached value
         # for a type already resolved but overriden afterwards (Override will register
         # another registration object).
@@ -208,11 +198,11 @@ class LifetimeContext(Releasable["LifetimeContext"]):
             # two instances of a singleton lifetime registration if two threads
             # resolve it at the same time
             if registration_hash not in self._cache:
-                self._cache[registration_hash] = self.get_instance(ctx, registration)
+                self._cache[registration_hash] = self.get_instance(scope, registration)
             return cast("_T", self._cache[registration_hash])
 
     async def aget_cached_instance(
-        self, ctx: ResolutionContext, registration: Registration[_T]
+        self, scope: Scope, registration: Registration[_T]
     ) -> _T:
         # NOTE: use registration object ID allowing to not get previously cached value
         # for a type already resolved but overriden afterwards (Override will register
@@ -231,14 +221,12 @@ class LifetimeContext(Releasable["LifetimeContext"]):
             # resolve it at the same time
             if registration_hash not in self._cache:
                 self._cache[registration_hash] = await self.aget_instance(
-                    ctx, registration
+                    scope, registration
                 )
             return cast("_T", self._cache[registration_hash])
 
-    def get_instance(
-        self, ctx: ResolutionContext, registration: Registration[_T]
-    ) -> _T:
-        args, kwargs = self._resolve_dependencies(registration, ctx)
+    def get_instance(self, scope: Scope, registration: Registration[_T]) -> _T:
+        args, kwargs = self._resolve_dependencies(registration, scope)
         instance = registration.factory(*args, **kwargs)
 
         if asyncio.iscoroutine(instance):
@@ -265,10 +253,8 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         # is not way to enforce this so we just return the value anyway
         return cast("_T", instance)
 
-    async def aget_instance(
-        self, ctx: ResolutionContext, registration: Registration[_T]
-    ) -> _T:
-        args, kwargs = await self._aresolve_dependencies(registration, ctx)
+    async def aget_instance(self, scope: Scope, registration: Registration[_T]) -> _T:
+        args, kwargs = await self._aresolve_dependencies(registration, scope)
         instance = registration.factory(*args, **kwargs)
 
         if asyncio.iscoroutine(instance):
@@ -294,13 +280,13 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         return cast("_T", instance)
 
     def _resolve_dependencies(
-        self, registration: Registration[_T], ctx: ResolutionContext
+        self, registration: Registration[_T], scope: Scope
     ) -> tuple[list[Any], dict[str, Any]]:
         args = []
         kwargs: dict[str, Any] = {}
 
         for dep in registration.dependencies:
-            resolved = ctx.resolve(dep.type_)
+            resolved = scope.resolve(dep.type_)
             if dep.positional_only:
                 args.append(resolved)
                 continue
@@ -309,13 +295,13 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         return args, kwargs
 
     async def _aresolve_dependencies(
-        self, registration: Registration[_T], ctx: ResolutionContext
+        self, registration: Registration[_T], scope: Scope
     ) -> tuple[list[Any], dict[str, Any]]:
         args = []
         kwargs: dict[str, Any] = {}
 
         for dep in registration.dependencies:
-            resolved = await ctx.aresolve(dep.type_)
+            resolved = await scope.aresolve(dep.type_)
             if dep.positional_only:
                 args.append(resolved)
                 continue
@@ -326,7 +312,7 @@ class LifetimeContext(Releasable["LifetimeContext"]):
     def __del__(self) -> None:
         if self._entered_context_managers:
             warnings.warn(
-                "A Container or ResolutionContext has been garbage-collected with pending resources."
+                "A Container or Scope has been garbage-collected with pending resources."
                 " Did you forget to call `release()` or `arelease()`?",
                 UserWarning,
                 stacklevel=1,

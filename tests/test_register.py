@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from handless import Container, Registration, ResolutionContext
+from handless import Container, Registration, Scope
 from handless._registry import Dependency
 from handless._utils import are_functions_equal
 from handless.exceptions import RegistrationAlreadyExistError, RegistrationError
@@ -43,7 +43,7 @@ class TestRegisterFactory:
             ),
             pytest.param(
                 lambda ctx: FakeServiceWithParams(ctx.resolve(str), ctx.resolve(int)),
-                (Dependency("ctx", ResolutionContext),),
+                (Dependency("ctx", Scope),),
                 id="Lambda with single argument",
             ),
             pytest.param(
@@ -179,7 +179,7 @@ class TestRegisterAlias:
             lambda c: c.resolve(alias),
             lifetime=Transient(),
             managed=False,
-            dependencies=(Dependency("c", ResolutionContext),),
+            dependencies=(Dependency("c", Scope),),
         )
 
 
@@ -221,7 +221,7 @@ class TestRegisterFactoryUsingDecorator:
         @container.factory
         def get_fake_service(
             foo: str,  # noqa: ARG001
-            ctx: ResolutionContext,  # noqa: ARG001
+            ctx: Scope,  # noqa: ARG001
             *args: Any,  # noqa: ANN401, ARG001
             bar: int = 5,  # noqa: ARG001
             **kwargs: Any,  # noqa: ANN401, ARG001
@@ -235,7 +235,7 @@ class TestRegisterFactoryUsingDecorator:
             lifetime=Transient(),
             dependencies=(
                 Dependency("foo", str),
-                Dependency("ctx", ResolutionContext),
+                Dependency("ctx", Scope),
                 Dependency("bar", int, default=5),
             ),
         )

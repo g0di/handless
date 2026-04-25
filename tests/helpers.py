@@ -3,7 +3,7 @@ from typing import Any, NewType, Protocol
 
 import pytest
 
-from handless.lifetimes import Contextual, Singleton, Transient
+from handless.lifetimes import Scoped, Singleton, Transient
 
 
 class IFakeService(Protocol): ...
@@ -79,7 +79,7 @@ def create_fake_service_with_untyped_params(  # type: ignore  # noqa: PGH003
 FakeServiceNewType = NewType("FakeServiceNewType", IFakeService)  # type: ignore[misc]
 
 use_lifetimes = pytest.mark.parametrize(
-    "lifetime", [Transient(), Contextual(), Singleton()]
+    "lifetime", [Transient(), Scoped(), Singleton()]
 )
 use_managed = pytest.mark.parametrize(
     "managed", [True, False], ids=["Managed CM", "Not managed CM"]

@@ -3,7 +3,7 @@ from typing import Literal
 
 import pytest
 
-from handless import Container, ResolutionContext
+from handless import Container, Scope
 
 pytest.register_assert_rewrite("tests.helpers")
 
@@ -20,8 +20,8 @@ def container() -> Iterator[Container]:
 
 
 @pytest.fixture
-def context(container: Container) -> Iterator[ResolutionContext]:
-    with container.open_context() as ctx:
+def context(container: Container) -> Iterator[Scope]:
+    with container.create_scope() as ctx:
         yield ctx
 
 
@@ -32,6 +32,6 @@ async def acontainer() -> AsyncIterator[Container]:
 
 
 @pytest.fixture
-async def acontext(acontainer: Container) -> AsyncIterator[ResolutionContext]:
-    async with acontainer.open_context() as ctx:
+async def acontext(acontainer: Container) -> AsyncIterator[Scope]:
+    async with acontainer.create_scope() as ctx:
         yield ctx

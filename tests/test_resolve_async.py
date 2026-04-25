@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 
-from handless import Container, Contextual, ResolutionContext, Singleton, Transient
+from handless import Container, Scope, Scoped, Singleton, Transient
 from handless.lifetimes import Lifetime
 from tests.helpers import AsyncFakeService, FakeService, FakeServiceWithParams
 
@@ -20,9 +20,7 @@ class FactoryRegistrationOptions(TypedDict, total=False):
 
 @use_sync_and_async_mock
 async def test_resolve_type_calls_registration_factory_and_returns_its_result(
-    acontainer: Container,
-    acontext: ResolutionContext,
-    create_factory: type[Mock | AsyncMock],
+    acontainer: Container, acontext: Scope, create_factory: type[Mock | AsyncMock]
 ) -> None:
     expected = FakeService()
     factory = create_factory(return_value=expected)
@@ -36,9 +34,7 @@ async def test_resolve_type_calls_registration_factory_and_returns_its_result(
 
 @use_sync_and_async_mock
 async def test_resolve_type_calls_registration_factory_with_ctx_and_returns_its_result(
-    acontainer: Container,
-    acontext: ResolutionContext,
-    create_factory: type[Mock | AsyncMock],
+    acontainer: Container, acontext: Scope, create_factory: type[Mock | AsyncMock]
 ) -> None:
     expected = FakeService()
     factory = create_factory(wraps=lambda ctx: expected)  # noqa: ARG005
@@ -52,9 +48,7 @@ async def test_resolve_type_calls_registration_factory_with_ctx_and_returns_its_
 
 @use_sync_and_async_mock
 async def test_resolve_type_calls_registration_factory_with_dependencies_and_returns_its_result(
-    acontainer: Container,
-    acontext: ResolutionContext,
-    create_factory: type[Mock | AsyncMock],
+    acontainer: Container, acontext: Scope, create_factory: type[Mock | AsyncMock]
 ) -> None:
     factory = create_factory(wraps=FakeServiceWithParams)
     acontainer.register(FakeServiceWithParams).factory(factory)
@@ -71,9 +65,7 @@ async def test_resolve_type_calls_registration_factory_with_dependencies_and_ret
     "options", [FactoryRegistrationOptions(), FactoryRegistrationOptions(managed=True)]
 )
 async def test_resolve_type_enters_context_manager_returned_by_registration_factory(
-    acontainer: Container,
-    acontext: ResolutionContext,
-    options: FactoryRegistrationOptions,
+    acontainer: Container, acontext: Scope, options: FactoryRegistrationOptions
 ) -> None:
     acontainer.register(AsyncFakeService).self(**options)
 
@@ -84,7 +76,7 @@ async def test_resolve_type_enters_context_manager_returned_by_registration_fact
 
 
 async def test_resolve_type_not_enter_context_manager_returned_by_registration_factory_when_managed_is_false(
-    acontainer: Container, acontext: ResolutionContext
+    acontainer: Container, acontext: Scope
 ) -> None:
     acontainer.register(AsyncFakeService).self(managed=False)
 
@@ -94,7 +86,7 @@ async def test_resolve_type_not_enter_context_manager_returned_by_registration_f
 
 
 async def test_resolve_type_not_enter_non_context_manager_object_returned_by_registration_factory(
-    container: Container, context: ResolutionContext
+    container: Container, context: Scope
 ) -> None:
     container.register(object).self(managed=True)
 
@@ -121,7 +113,7 @@ class TestResolveTypeUsingTransientLifetime:
         self,
         request: pytest.FixtureRequest,
         acontainer: Container,
-        acontext: ResolutionContext,
+        acontext: Scope,
         factory: Mock,
     ) -> AsyncFakeService:
         acontainer.register(AsyncFakeService).factory(factory, **request.param)
@@ -129,7 +121,7 @@ class TestResolveTypeUsingTransientLifetime:
         return await acontext.aresolve(AsyncFakeService)
 
     async def test_calls_and_returns_registration_factory_result_on_each_resolve(
-        self, resolved: AsyncFakeService, acontext: ResolutionContext, factory: Mock
+        self, resolved: AsyncFakeService, acontext: Scope, factory: Mock
     ) -> None:
         received = await acontext.aresolve(AsyncFakeService)
 
@@ -140,17 +132,17 @@ class TestResolveTypeUsingTransientLifetime:
         self,
         resolved: AsyncFakeService,
         acontainer: Container,
-        acontext: ResolutionContext,
+        acontext: Scope,
         factory: Mock,
     ) -> None:
-        async with acontainer.open_context() as context2:
+        async with acontainer.create_scope() as context2:
             received = await context2.aresolve(AsyncFakeService)
 
         assert received is not resolved
         factory.assert_has_calls([call(_=acontext), call(_=context2)])
 
     async def test_release_context_exit_entered_context_manager(
-        self, acontext: ResolutionContext, resolved: AsyncFakeService
+        self, acontext: Scope, resolved: AsyncFakeService
     ) -> None:
         another = await acontext.aresolve(AsyncFakeService)
 
@@ -168,14 +160,14 @@ class TestResolveTypeBoundToSingletonRegistration:
 
     @pytest.fixture
     async def resolved(
-        self, acontainer: Container, acontext: ResolutionContext, factory: Mock
+        self, acontainer: Container, acontext: Scope, factory: Mock
     ) -> AsyncFakeService:
         acontainer.register(AsyncFakeService).factory(factory, Singleton())
 
         return await acontext.aresolve(AsyncFakeService)
 
     async def test_calls_and_returns_registration_factory_result_once_per_context(
-        self, resolved: AsyncFakeService, acontext: ResolutionContext, factory: Mock
+        self, resolved: AsyncFakeService, acontext: Scope, factory: Mock
     ) -> None:
         received = await acontext.aresolve(AsyncFakeService)
 
@@ -189,14 +181,14 @@ class TestResolveTypeBoundToSingletonRegistration:
         acontext: Container,
         factory: Mock,
     ) -> None:
-        async with acontainer.open_context() as context2:
+        async with acontainer.create_scope() as context2:
             received = await context2.aresolve(AsyncFakeService)
 
         assert received is resolved
         factory.assert_called_once_with(_=acontext)
 
     async def test_resolve_singleton_is_threadsafe(self, acontainer: Container) -> None:
-        async def _factory(ctx: ResolutionContext) -> FakeServiceWithParams:
+        async def _factory(ctx: Scope) -> FakeServiceWithParams:
             # Small sleep to force tasks context switch
             await asyncio.sleep(0.01)
             return FakeServiceWithParams(ctx.resolve(str), ctx.resolve(int))
@@ -208,7 +200,7 @@ class TestResolveTypeBoundToSingletonRegistration:
 
         results = await asyncio.gather(
             *[
-                acontainer.open_context().aresolve(FakeServiceWithParams)
+                acontainer.create_scope().aresolve(FakeServiceWithParams)
                 for _ in range(10)
             ]
         )
@@ -217,7 +209,7 @@ class TestResolveTypeBoundToSingletonRegistration:
         assert len(set(results)) == 1
 
     async def test_release_context_not_exit_entered_context_manager(
-        self, acontext: ResolutionContext, resolved: AsyncFakeService
+        self, acontext: Scope, resolved: AsyncFakeService
     ) -> None:
         await acontext.arelease()
 
@@ -231,10 +223,7 @@ class TestResolveTypeBoundToSingletonRegistration:
         assert resolved.exited
 
     async def test_release_container_clear_cached_value(
-        self,
-        acontainer: Container,
-        acontext: ResolutionContext,
-        resolved: AsyncFakeService,
+        self, acontainer: Container, acontext: Scope, resolved: AsyncFakeService
     ) -> None:
         await acontainer.arelease()
 
@@ -243,7 +232,7 @@ class TestResolveTypeBoundToSingletonRegistration:
         assert received is not resolved
 
     async def test_release_context_not_clear_cached_value(
-        self, acontext: ResolutionContext, resolved: AsyncFakeService
+        self, acontext: Scope, resolved: AsyncFakeService
     ) -> None:
         await acontext.arelease()
 
@@ -260,14 +249,14 @@ class TestResolveTypeBoundToContextRegistration:
 
     @pytest.fixture(autouse=True)
     async def resolved(
-        self, acontainer: Container, acontext: ResolutionContext, factory: Mock
+        self, acontainer: Container, acontext: Scope, factory: Mock
     ) -> AsyncFakeService:
-        acontainer.register(AsyncFakeService).factory(factory, Contextual())
+        acontainer.register(AsyncFakeService).factory(factory, Scoped())
 
         return await acontext.aresolve(AsyncFakeService)
 
     async def test_calls_and_returns_registration_factory_result_once_per_context(
-        self, resolved: AsyncFakeService, acontext: ResolutionContext, factory: Mock
+        self, resolved: AsyncFakeService, acontext: Scope, factory: Mock
     ) -> None:
         received = await acontext.aresolve(AsyncFakeService)
 
@@ -278,24 +267,24 @@ class TestResolveTypeBoundToContextRegistration:
         self,
         resolved: AsyncFakeService,
         acontainer: Container,
-        acontext: ResolutionContext,
+        acontext: Scope,
         factory: Mock,
     ) -> None:
-        async with acontainer.open_context() as context2:
+        async with acontainer.create_scope() as context2:
             received = await context2.aresolve(AsyncFakeService)
 
         assert received is not resolved
         factory.assert_has_calls([call(_=acontext), call(_=context2)])
 
     async def test_release_context_exit_entered_context_manager(
-        self, acontext: ResolutionContext, resolved: AsyncFakeService
+        self, acontext: Scope, resolved: AsyncFakeService
     ) -> None:
         await acontext.arelease()
 
         assert resolved.exited
 
     async def test_release_context_clear_cached_value(
-        self, acontext: ResolutionContext, resolved: AsyncFakeService
+        self, acontext: Scope, resolved: AsyncFakeService
     ) -> None:
         await acontext.arelease()
 

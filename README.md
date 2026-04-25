@@ -19,7 +19,7 @@ Handless is a Python dependency injection container which aims at facilitating c
 In particular it contains the following features:
 
 - 🔌 **Autowiring**: _Handless_ reads your objects constructor to determines its dependencies and resolve them automatically for you without explicit registration
-- ♻️ **Lifetimes**: _Handless_ allows you to pick between singleton, contextual, and transient lifetimes to determines when to reuse cached object or get new ones
+- ♻️ **Lifetimes**: _Handless_ allows you to pick between singleton, scoped, and transient lifetimes to determines when to reuse cached object or get new ones
 - 🧹 **Context managers**: _Handless_ automatically enter and exit context managers of your objects without having you to manage them
 - 🔁 **Inversion of control**: _Handless_ allows you to alias protocols or abstract classes to concrete implementations
 - 🧠 **Fully typed**: _Handless_ uses types for registrations. It makes sure that you register only things compatible with provided types and resolves objects with correct type
@@ -43,7 +43,7 @@ The following features are **not available yet** but planned:
   - [🚀 What This Library Solves](#-what-this-library-solves)
   - [🧩 Design](#-design)
     - [Container](#container)
-    - [Resolution Context](#resolution-context)
+    - [Scope](#scope)
     - [Lifetimes](#lifetimes)
 - [Getting started](#getting-started)
 - [Core](#core)
@@ -144,7 +144,7 @@ This library provides a lightweight, flexible **dependency injection container f
 
 - ✅ **Register** services with factories, values, aliases or constructors
 - ✅ **Resolve** dependencies automatically (with type hints or custom logic)
-- ✅ **Manage lifecycles** — including context-aware caching and cleanup (singleton, transient, contextual)
+- ✅ **Manage lifecycles** — including scope-aware caching and cleanup (singleton, transient, scoped)
 - ✅ **Handle context managers** by entering and exiting created objects context managers automatically
 - And more...
 
@@ -160,38 +160,38 @@ _Handless_ provides a `handless.Container` dependency injection container. This 
 
 > :bulb: In the end, a registration is a type attached to function. This function is responsible to get an instance of the specified type based on the provided factory, value, alias or constructor.
 
-#### Resolution Context
+#### Scope
 
-In dependency injection container terminology, a _Handless_ resolution context corresponds to a scope. A scope is often referred as a kind of unique "sub container" for a short(er) duration of time. For example, in a HTTP API, you can have one scope per HTTP request. This allows to introduce a "scoped" lifetime to have the container create one instance of a type per scope (and then per request).
+In dependency injection container terminology, a scope is often referred as a kind of unique "sub container" for a short(er) duration of time. For example, in a HTTP API, you can have one scope per HTTP request. This allows to introduce a scoped lifetime to have the container create one instance of a type per scope (and then per request).
 
-In order to resolve any types from a container, a `handless.ResolutionContext` must always be opened and used.
+In order to resolve any types from a container, a `handless.Scope` must always be opened and used.
 
-> :warning: You're free to manage your contexts the way you want but using a single context for the whole application duration could be a code smell.
+> :warning: You're free to manage your scopes the way you want but using a single scope for the whole application duration could be a code smell.
 
 You can not resolve types from the container directly. This design choice has been made for two reasons:
 
 - Avoid keeping transient values for the whole duration of a container and as a consequence, an application.
   > :question: This is because there is no reliable and easy way in Python to automatically cleanup object before garbage collection. Explicit cleanup is required or at least strongly encouraged.
-- Avoid to raise errors when trying to resolve a soped type from a container instead of a scope
-  > :question: For types registered with a lifetime of a `ResolutionContext` (i.e: a scope) the question is "what should we do when resolving this from a container? Should we raise an error? Should we resolve it and consider the container as a scope as well?"
-  > Our design completly get rid of this choice by forcing usage of a context (scope), always
+- Avoid to raise errors when trying to resolve a scoped type from a container instead of a scope
+  > :question: For types registered with a lifetime of a `Scope` (i.e: a scope) the question is "what should we do when resolving this from a container? Should we raise an error? Should we resolve it and consider the container as a scope as well?"
+  > Our design completly get rid of this choice by forcing usage of a scope, always
 
 #### Lifetimes
 
 When registering your types you can specify a lifetime. The lifetime determines when the container will execute or get a cached value of the function attached to the type to resolve:
 
 - ##### `handless.Singleton`
-  - On first resolve, the type function is called and its return value is cached for the whole duration of the container and for contexts
+  - On first resolve, the type function is called and its return value is cached for the whole duration of the container and for scopes
   - Singletons are cached in the container itself
   - Singletons context managers (if any) are entered on first resolve and exited on container end (release)
-- ##### `handless.Contextual`
-  - The type function is called and cached once per context. Additional resolve on the same context always return the same cached value
-  - Contextuals are cached per resolution context
-  - Contextuals context managers (if any) are entered on first resolve and exited on context end (release)
+- ##### `handless.Scoped`
+  - The type function is called and cached once per scope. Additional resolve on the same scope always return the same cached value
+  - Scoped instances are cached per scope
+  - Scoped context managers (if any) are entered on first resolve and exited on scope end (release)
 - ##### `handless.Transient`
   - The type function is called on each resolve.
   - Transient values are never cached
-  - Transient context managers (if any) are entered on resolve and exited on context end (release)
+    - Transient context managers (if any) are entered on resolve and exited on scope end (release)
 
 > :warning: You must understand that whichever lifetime you choose the container does not actually check returned object identity. The lifetime only determines **when** the container should execute registered functions or return a previously cached value. In other words, it means that you could register a transient type with a function returning always the same constant. You'll then end up with a singleton anyway.
 
@@ -212,7 +212,7 @@ import smtplib
 from dataclasses import dataclass
 from typing import Protocol
 
-from handless import Container, Contextual, ResolutionContext, Singleton, Transient
+from handless import Container, Scoped, Scope, Singleton, Transient
 
 
 @dataclass
@@ -303,19 +303,17 @@ container.register(EmailNotificationManager).self()
 
 
 @container.factory
-def create_notification_manager(
-    config: Config, ctx: ResolutionContext
-) -> NotificationManager:
+def create_notification_manager(config: Config, ctx: Scope) -> NotificationManager:
     if config.smtp_host == "stdout":
         return ctx.resolve(StdoutNotificationManager)
     return ctx.resolve(EmailNotificationManager)
 
 
 # Top level service
-container.register(UserService).self(Contextual())
+container.register(UserService).self(Scoped())
 
 
-with container.open_context() as ctx:
+with container.create_scope() as ctx:
     service = ctx.resolve(UserService)
     service.create_user("hello.world@handless.io")
     # hello.world@handless.io - Your account has been created
@@ -363,16 +361,16 @@ from handless import Container
 container = Container()
 
 # You can manually open and release your context
-ctx = container.open_context()
+ctx = container.create_scope()
 ctx.resolve(...)
 ctx.release()
 
 # Or do it with a context manager
-with container.open_context():
+with container.create_scope():
     ctx.resolve(...)
 ```
 
-Context are of type `handless.ResolutionContext`.
+Context are of type `handless.Scope`.
 
 > :bulb: We did not chose `handless.Context` to avoid confusion with other contexts objects from other libraries.
 
@@ -391,7 +389,7 @@ class Foo:
 foo = Foo()
 container = Container()
 container.register(Foo).value(foo)
-resolved_foo = container.open_context().resolve(Foo)
+resolved_foo = container.create_scope().resolve(Foo)
 assert resolved_foo is foo
 ```
 
@@ -419,7 +417,7 @@ def create_foo(bar: int) -> Foo:
 container = Container()
 container.register(int).value(42)
 container.register(Foo).factory(create_foo)
-resolved_foo = container.open_context().resolve(Foo)
+resolved_foo = container.create_scope().resolve(Foo)
 
 assert isinstance(resolved_foo, Foo)
 assert resolved_foo.bar == 42
@@ -447,7 +445,7 @@ def create_foo(bar: int) -> Foo:
     return Foo(bar)
 
 
-resolved_foo = container.open_context().resolve(Foo)
+resolved_foo = container.create_scope().resolve(Foo)
 
 assert isinstance(resolved_foo, Foo)
 assert resolved_foo.bar == 42
@@ -457,7 +455,7 @@ This is mostly a matter of preference as both ways do the exact same thing. You 
 
 ### Register a lambda function
 
-When registering a factory, you can also pass a lambda function. However, as lambdas arguments can not have type annotation it is handled differently. Lambdas can take 0 or 1 argument. If one is given, a `ResolutionContext` object will be passed, when called at resolution, as the only argument. This allows you to resolve nested types if required.
+When registering a factory, you can also pass a lambda function. However, as lambdas arguments can not have type annotation it is handled differently. Lambdas can take 0 or 1 argument. If one is given, a `Scope` object will be passed, when called at resolution, as the only argument. This allows you to resolve nested types if required.
 
 ```python
 from handless import Container
@@ -471,7 +469,7 @@ class Foo:
 container = Container()
 container.register(int).value(42)
 container.register(Foo).factory(lambda ctx: Foo(ctx.resolve(int)))
-resolved_foo = container.open_context().resolve(Foo)
+resolved_foo = container.create_scope().resolve(Foo)
 
 assert isinstance(resolved_foo, Foo)
 assert resolved_foo.bar == 42
@@ -493,7 +491,7 @@ class Foo:
 container = Container()
 container.register(int).value(42)
 container.register(Foo).self()  # Same as: container.register(Foo).factory(Foo)
-resolved_foo = container.open_context().resolve(Foo)
+resolved_foo = container.create_scope().resolve(Foo)
 
 assert isinstance(resolved_foo, Foo)
 assert resolved_foo.bar == 42
@@ -524,7 +522,7 @@ foo = Foo()
 container = Container()
 container.register(Foo).value(foo)
 container.register(IFoo).alias(Foo)
-resolved_foo = container.open_context().resolve(IFoo)
+resolved_foo = container.create_scope().resolve(IFoo)
 
 assert resolved_foo is foo
 ```
@@ -540,14 +538,14 @@ During registration of factories `.factory(...)`, `@container.factory()` and `.s
 Lifetimes are actual objects and not enum constants nor literals. You can pass them either as positional argument (for `.factory(...)` and `.self()`) or keyword argument.
 
 ```python
-from handless import Container, Singleton, Transient, Contextual
+from handless import Container, Singleton, Transient, Scoped
 
 
 container = Container()
 # Singleton
 container.register(object).factory(lambda: object(), Singleton())
-# Contextual
-container.register(object).factory(lambda: object(), Contextual())
+# Scoped
+container.register(object).factory(lambda: object(), Scoped())
 # Transient (The default)
 container.register(object).factory(lambda: object(), Transient())
 ```
@@ -556,7 +554,7 @@ container.register(object).factory(lambda: object(), Transient())
 
 - `handless.Singleton` for any objects that should be a singleton for your whole application (one and only one instance per application). For example a HTTP connection pool
   > :warning: Singleton should be threadsafe in multi threaded application to avoid any issues
-- `handless.Contextual` for objects that should be unique per context. For example, a database session should be unique per HTTP request
+- `handless.Scoped` for objects that should be unique per context. For example, a database session should be unique per HTTP request
 - `handless.Transient` (the default) for stateful objects which should not be shared because their use rely on their internal state. For example an opened file
 
 ### Context managers and cleanup
@@ -608,7 +606,7 @@ container.register(str).value("Hello")
 
 def test_my_container():
     container.override(str).value("Overriden!")
-    with container.open_context() as ctx:
+    with container.create_scope() as ctx:
         resolved = ctx.resolve(str)
         assert resolved == "Overriden!"
 ```
@@ -695,7 +693,7 @@ container.register(MongoTodoItemRepository).factory(
 # Register an alias of your protocol against your choice
 container.register(TodoItemRepository).alias(SqliteTodoItemRepository)  # type: ignore[type-abstract]
 
-with container.open_context() as ctx:
+with container.create_scope() as ctx:
     repo = ctx.resolve(TodoItemRepository)  # type: ignore[type-abstract]
     assert isinstance(repo, SqliteTodoItemRepository)
 ```
@@ -709,7 +707,7 @@ There can also be situations where you want to pick implementation at runtime de
 ```python
 import os
 
-from handless import Singleton, Contextual, ResolutionContext
+from handless import Singleton, Scoped, Scope
 
 
 container.register(SqliteTodoItemRepository).self()
@@ -719,7 +717,7 @@ container.register(MongoTodoItemRepository).factory(
 
 
 @container.factory
-def get_todo_item_repository(ctx: ResolutionContext) -> TodoItemRepository:
+def get_todo_item_repository(ctx: Scope) -> TodoItemRepository:
     db_type = os.getenv("DB_TYPE", "sqlite")
     if db_type == "sqlite":
         return ctx.resolve(SqliteTodoItemRepository)
@@ -730,7 +728,7 @@ def get_todo_item_repository(ctx: ResolutionContext) -> TodoItemRepository:
 
 > :bulb: Use of the factory decorator is not mandatory. You can achieve the same with the registration API (`container.register(...)`).
 
-> :warning: Most of the time you should use a `Transient` lifetime (the default) for the factory resolving your abstract or protocol to avoid lifetimes mismatches. Indeed, if you use a `Singleton` lifetime on `get_todo_item_repository` while one of your implementation is `Transient` or `Contextual` you'll end up with a [captive dependency](https://blog.ploeh.dk/2014/06/02/captive-dependency/).
+> :warning: Most of the time you should use a `Transient` lifetime (the default) for the factory resolving your abstract or protocol to avoid lifetimes mismatches. Indeed, if you use a `Singleton` lifetime on `get_todo_item_repository` while one of your implementation is `Transient` or `Scoped` you'll end up with a [captive dependency](https://blog.ploeh.dk/2014/06/02/captive-dependency/).
 
 ### Testing
 

@@ -20,7 +20,7 @@ from handless.lifetimes import Lifetime, Singleton, Transient
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 
-    from handless._container import ResolutionContext
+    from handless._container import Scope
 
 
 class Registry:
@@ -140,7 +140,7 @@ class RegistrationBuilder(Generic[_T]):
     @overload
     def factory(
         self,
-        factory: Callable[[ResolutionContext], _T | Awaitable[_T]],
+        factory: Callable[[Scope], _T | Awaitable[_T]],
         lifetime: Lifetime | None = ...,
         *,
         managed: bool = ...,
@@ -150,7 +150,7 @@ class RegistrationBuilder(Generic[_T]):
     def factory(
         self,
         factory: Callable[
-            [ResolutionContext],
+            [Scope],
             Iterator[_T]
             | AsyncIterator[_T]
             | AbstractContextManager[_T]
@@ -197,7 +197,7 @@ class RegistrationBuilder(Generic[_T]):
         If the factory has parameters, it will be automatically resolved and injected on
         call. Parameters MUST have type annotation in order to be properly ressolved or a
         TypeError will be raised. An exception is made for single parameter function
-        which will receive a `ResolutionContext` automatically if no type annotation is
+        which will receive a `Scope` automatically if no type annotation is
         given.
 
         Note that variadic arguments (*args, **kwargs) are ignored.
@@ -227,16 +227,16 @@ def _collect_dependencies(
 ) -> tuple[Dependency, ...]:
     # Merge given callable inspected params with provided ones.
     # NOTE: we omit variadic params because we don't know how to autowire them yet
-    from handless._container import ResolutionContext
+    from handless._container import Scope
 
     params = get_non_variadic_params(function)
     overrides = overrides or {}
-    # Use a defaultdict that returns a ResolutionContext type if there is no override
+    # Use a defaultdict that returns a Scope type if there is no override
     # for the given parameter name and the function has actually only one parameter.
     # This is to handle lambda expressions taking a single untyped parameter which is
-    # expected to be a ResolutionContext.
+    # expected to be a Scope.
     overrides_ = defaultdict[str, type[Any] | EllipsisType](
-        lambda: ResolutionContext
+        lambda: Scope
         if len(params) == 1
         and next(iter(params.values())).annotation is Parameter.empty
         else ...,
