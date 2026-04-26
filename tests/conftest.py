@@ -20,9 +20,9 @@ def container() -> Iterator[Container]:
 
 
 @pytest.fixture
-def context(container: Container) -> Iterator[Scope]:
-    with container.create_scope() as ctx:
-        yield ctx
+def scope(container: Container) -> Iterator[Scope]:
+    with container.create_scope() as scope:
+        yield scope
 
 
 @pytest.fixture
@@ -32,6 +32,6 @@ async def acontainer() -> AsyncIterator[Container]:
 
 
 @pytest.fixture
-async def acontext(acontainer: Container) -> AsyncIterator[Scope]:
-    async with acontainer.create_scope() as ctx:
-        yield ctx
+async def ascope(acontainer: Container) -> AsyncIterator[Scope]:
+    async with acontainer.create_scope() as scope:
+        yield scope

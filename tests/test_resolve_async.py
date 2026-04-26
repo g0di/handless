@@ -20,13 +20,13 @@ class FactoryRegistrationOptions(TypedDict, total=False):
 
 @use_sync_and_async_mock
 async def test_resolve_type_calls_registration_factory_and_returns_its_result(
-    acontainer: Container, acontext: Scope, create_factory: type[Mock | AsyncMock]
+    acontainer: Container, ascope: Scope, create_factory: type[Mock | AsyncMock]
 ) -> None:
     expected = FakeService()
     factory = create_factory(return_value=expected)
     acontainer.register(FakeService).factory(factory)
 
-    resolved = await acontext.aresolve(FakeService)
+    resolved = await ascope.aresolve(FakeService)
 
     assert resolved is expected
     factory.assert_called_once()
@@ -34,28 +34,28 @@ async def test_resolve_type_calls_registration_factory_and_returns_its_result(
 
 @use_sync_and_async_mock
 async def test_resolve_type_calls_registration_factory_with_ctx_and_returns_its_result(
-    acontainer: Container, acontext: Scope, create_factory: type[Mock | AsyncMock]
+    acontainer: Container, ascope: Scope, create_factory: type[Mock | AsyncMock]
 ) -> None:
     expected = FakeService()
     factory = create_factory(wraps=lambda ctx: expected)  # noqa: ARG005
     acontainer.register(FakeService).factory(factory)
 
-    resolved = await acontext.aresolve(FakeService)
+    resolved = await ascope.aresolve(FakeService)
 
     assert resolved is expected
-    factory.assert_called_once_with(ctx=acontext)
+    factory.assert_called_once_with(ctx=ascope)
 
 
 @use_sync_and_async_mock
 async def test_resolve_type_calls_registration_factory_with_dependencies_and_returns_its_result(
-    acontainer: Container, acontext: Scope, create_factory: type[Mock | AsyncMock]
+    acontainer: Container, ascope: Scope, create_factory: type[Mock | AsyncMock]
 ) -> None:
     factory = create_factory(wraps=FakeServiceWithParams)
     acontainer.register(FakeServiceWithParams).factory(factory)
     acontainer.register(str).factory(AsyncMock(return_value="foo"))
     acontainer.register(int).value(42)
 
-    resolved = await acontext.aresolve(FakeServiceWithParams)
+    resolved = await ascope.aresolve(FakeServiceWithParams)
 
     assert isinstance(resolved, FakeServiceWithParams)
     factory.assert_called_once_with(foo="foo", bar=42)
@@ -65,33 +65,33 @@ async def test_resolve_type_calls_registration_factory_with_dependencies_and_ret
     "options", [FactoryRegistrationOptions(), FactoryRegistrationOptions(managed=True)]
 )
 async def test_resolve_type_enters_context_manager_returned_by_registration_factory(
-    acontainer: Container, acontext: Scope, options: FactoryRegistrationOptions
+    acontainer: Container, ascope: Scope, options: FactoryRegistrationOptions
 ) -> None:
     acontainer.register(AsyncFakeService).self(**options)
 
-    resolved = await acontext.aresolve(AsyncFakeService)
+    resolved = await ascope.aresolve(AsyncFakeService)
 
     assert resolved.entered
     assert not resolved.exited
 
 
 async def test_resolve_type_not_enter_context_manager_returned_by_registration_factory_when_managed_is_false(
-    acontainer: Container, acontext: Scope
+    acontainer: Container, ascope: Scope
 ) -> None:
     acontainer.register(AsyncFakeService).self(managed=False)
 
-    resolved = await acontext.aresolve(AsyncFakeService)
+    resolved = await ascope.aresolve(AsyncFakeService)
 
     assert not resolved.entered
 
 
 async def test_resolve_type_not_enter_non_context_manager_object_returned_by_registration_factory(
-    container: Container, context: Scope
+    container: Container, scope: Scope
 ) -> None:
     container.register(object).self(managed=True)
 
     try:
-        await context.aresolve(object)
+        await scope.aresolve(object)
     except AttributeError:
         pytest.fail(reason="Should not try to enter non context manager object")
 
@@ -169,40 +169,40 @@ class TestResolveTypeUsingTransientLifetime:
         self,
         request: pytest.FixtureRequest,
         acontainer: Container,
-        acontext: Scope,
+        ascope: Scope,
         factory: Mock,
     ) -> AsyncFakeService:
         acontainer.register(AsyncFakeService).factory(factory, **request.param)
 
-        return await acontext.aresolve(AsyncFakeService)
+        return await ascope.aresolve(AsyncFakeService)
 
     async def test_calls_and_returns_registration_factory_result_on_each_resolve(
-        self, resolved: AsyncFakeService, acontext: Scope, factory: Mock
+        self, resolved: AsyncFakeService, ascope: Scope, factory: Mock
     ) -> None:
-        received = await acontext.aresolve(AsyncFakeService)
+        received = await ascope.aresolve(AsyncFakeService)
 
         assert received is not resolved
-        factory.assert_has_calls([call(_=acontext), call(_=acontext)])
+        factory.assert_has_calls([call(_=ascope), call(_=ascope)])
 
-    async def test_calls_and_returns_registration_factory_result_on_different_context(
+    async def test_calls_and_returns_registration_factory_result_on_different_scope(
         self,
         resolved: AsyncFakeService,
         acontainer: Container,
-        acontext: Scope,
+        ascope: Scope,
         factory: Mock,
     ) -> None:
-        async with acontainer.create_scope() as context2:
-            received = await context2.aresolve(AsyncFakeService)
+        async with acontainer.create_scope() as scope2:
+            received = await scope2.aresolve(AsyncFakeService)
 
         assert received is not resolved
-        factory.assert_has_calls([call(_=acontext), call(_=context2)])
+        factory.assert_has_calls([call(_=ascope), call(_=scope2)])
 
-    async def test_release_context_exit_entered_context_manager(
-        self, acontext: Scope, resolved: AsyncFakeService
+    async def test_release_scope_exit_entered_context_manager(
+        self, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        another = await acontext.aresolve(AsyncFakeService)
+        another = await ascope.aresolve(AsyncFakeService)
 
-        await acontext.arelease()
+        await ascope.arelease()
 
         assert resolved.exited
         assert another.exited
@@ -216,32 +216,32 @@ class TestResolveTypeBoundToSingletonRegistration:
 
     @pytest.fixture
     async def resolved(
-        self, acontainer: Container, acontext: Scope, factory: Mock
+        self, acontainer: Container, ascope: Scope, factory: Mock
     ) -> AsyncFakeService:
         acontainer.register(AsyncFakeService).factory(factory, Singleton())
 
-        return await acontext.aresolve(AsyncFakeService)
+        return await ascope.aresolve(AsyncFakeService)
 
-    async def test_calls_and_returns_registration_factory_result_once_per_context(
-        self, resolved: AsyncFakeService, acontext: Scope, factory: Mock
+    async def test_calls_and_returns_registration_factory_result_once_per_scope(
+        self, resolved: AsyncFakeService, ascope: Scope, factory: Mock
     ) -> None:
-        received = await acontext.aresolve(AsyncFakeService)
+        received = await ascope.aresolve(AsyncFakeService)
 
         assert received is resolved
-        factory.assert_called_once_with(_=acontext)
+        factory.assert_called_once_with(_=ascope)
 
     async def test_calls_and_returns_registration_factory_result_once_per_container(
         self,
         resolved: AsyncFakeService,
         acontainer: Container,
-        acontext: Container,
+        ascope: Scope,
         factory: Mock,
     ) -> None:
-        async with acontainer.create_scope() as context2:
-            received = await context2.aresolve(AsyncFakeService)
+        async with acontainer.create_scope() as scope2:
+            received = await scope2.aresolve(AsyncFakeService)
 
         assert received is resolved
-        factory.assert_called_once_with(_=acontext)
+        factory.assert_called_once_with(_=ascope)
 
     async def test_resolve_singleton_is_threadsafe(self, acontainer: Container) -> None:
         async def _factory(ctx: Scope) -> FakeServiceWithParams:
@@ -264,10 +264,10 @@ class TestResolveTypeBoundToSingletonRegistration:
         mock.assert_called_once()
         assert len(set(results)) == 1
 
-    async def test_release_context_not_exit_entered_context_manager(
-        self, acontext: Scope, resolved: AsyncFakeService
+    async def test_release_scope_not_exit_entered_context_manager(
+        self, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        await acontext.arelease()
+        await ascope.arelease()
 
         assert not resolved.exited
 
@@ -279,25 +279,25 @@ class TestResolveTypeBoundToSingletonRegistration:
         assert resolved.exited
 
     async def test_release_container_clear_cached_value(
-        self, acontainer: Container, acontext: Scope, resolved: AsyncFakeService
+        self, acontainer: Container, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
         await acontainer.arelease()
 
-        received = await acontext.aresolve(AsyncFakeService)
+        received = await ascope.aresolve(AsyncFakeService)
 
         assert received is not resolved
 
-    async def test_release_context_not_clear_cached_value(
-        self, acontext: Scope, resolved: AsyncFakeService
+    async def test_release_scope_not_clear_cached_value(
+        self, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        await acontext.arelease()
+        await ascope.arelease()
 
-        received = acontext.resolve(AsyncFakeService)
+        received = ascope.resolve(AsyncFakeService)
 
         assert received is resolved
 
 
-class TestResolveTypeBoundToContextRegistration:
+class TestResolveTypeBoundToScopeRegistration:
     @pytest.fixture(params=[Mock, AsyncMock])
     def factory(self, request: pytest.FixtureRequest) -> Mock:
         AnyMock = cast("type[Mock | AsyncMock]", request.param)  # noqa: N806
@@ -305,45 +305,45 @@ class TestResolveTypeBoundToContextRegistration:
 
     @pytest.fixture(autouse=True)
     async def resolved(
-        self, acontainer: Container, acontext: Scope, factory: Mock
+        self, acontainer: Container, ascope: Scope, factory: Mock
     ) -> AsyncFakeService:
         acontainer.register(AsyncFakeService).factory(factory, Scoped())
 
-        return await acontext.aresolve(AsyncFakeService)
+        return await ascope.aresolve(AsyncFakeService)
 
-    async def test_calls_and_returns_registration_factory_result_once_per_context(
-        self, resolved: AsyncFakeService, acontext: Scope, factory: Mock
+    async def test_calls_and_returns_registration_factory_result_once_per_scope(
+        self, resolved: AsyncFakeService, ascope: Scope, factory: Mock
     ) -> None:
-        received = await acontext.aresolve(AsyncFakeService)
+        received = await ascope.aresolve(AsyncFakeService)
 
         assert received is resolved
-        factory.assert_called_once_with(_=acontext)
+        factory.assert_called_once_with(_=ascope)
 
-    async def test_calls_and_returns_registration_factory_result_on_different_context(
+    async def test_calls_and_returns_registration_factory_result_on_different_scope(
         self,
         resolved: AsyncFakeService,
         acontainer: Container,
-        acontext: Scope,
+        ascope: Scope,
         factory: Mock,
     ) -> None:
-        async with acontainer.create_scope() as context2:
-            received = await context2.aresolve(AsyncFakeService)
+        async with acontainer.create_scope() as scope2:
+            received = await scope2.aresolve(AsyncFakeService)
 
         assert received is not resolved
-        factory.assert_has_calls([call(_=acontext), call(_=context2)])
+        factory.assert_has_calls([call(_=ascope), call(_=scope2)])
 
-    async def test_release_context_exit_entered_context_manager(
-        self, acontext: Scope, resolved: AsyncFakeService
+    async def test_release_scope_exit_entered_context_manager(
+        self, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        await acontext.arelease()
+        await ascope.arelease()
 
         assert resolved.exited
 
-    async def test_release_context_clear_cached_value(
-        self, acontext: Scope, resolved: AsyncFakeService
+    async def test_release_scope_clear_cached_value(
+        self, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        await acontext.arelease()
+        await ascope.arelease()
 
-        received = await acontext.aresolve(AsyncFakeService)
+        received = await ascope.aresolve(AsyncFakeService)
 
         assert received is not resolved
