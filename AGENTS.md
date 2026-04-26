@@ -57,6 +57,7 @@ This library currently support the following injection method:
   - Private objects in public packages are prefixed with underscore
   - Private methods or attributes part of public objects are prefixed with an underscore
   - In case of doubts default to private visibility for new code if it is not clear that this is part of the public API
+- Boolean flags (boolean method arguments must be keyword arguments only)
 
 ## Testing instructions
 
@@ -67,6 +68,7 @@ This library currently support the following injection method:
 - Any new feature or bug fixes must be covered by a test beforehand
   - The test is written first to validate the behavior then the code is implemented (test-first)
 - Tests covering a same method should be grouped under a same class for readability
+- Use pytest.mark.parametrize to test a same function with different inputs and outputs rather than creating one per situation
 
 ## Security considerations
 

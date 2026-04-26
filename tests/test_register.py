@@ -92,12 +92,16 @@ class TestRegisterFactory:
     @use_managed
     @use_lifetimes
     def test_register_factory_with_options(
-        self, container: Container, managed: bool, lifetime: Lifetime
+        self,
+        container: Container,
+        managed: bool,
+        lifetime: Lifetime | type[Lifetime],
+        expected_lifetime: Lifetime,
     ) -> None:
         container.register(FakeService).factory(FakeService, lifetime, managed=managed)
 
         assert container.lookup(FakeService) == Registration(
-            FakeService, FakeService, managed=managed, lifetime=lifetime
+            FakeService, FakeService, managed=managed, lifetime=expected_lifetime
         )
 
     def test_register_factory_with_generator_function_wraps_it_as_a_context_manager(
@@ -194,12 +198,16 @@ class TestRegisterSelf:
     @use_managed
     @use_lifetimes
     def test_register_self_with_options(
-        self, container: Container, managed: bool, lifetime: Lifetime
+        self,
+        container: Container,
+        managed: bool,
+        lifetime: Lifetime | type[Lifetime],
+        expected_lifetime: Lifetime,
     ) -> None:
         container.register(FakeService).self(lifetime, managed=managed)
 
         assert container.lookup(FakeService) == Registration(
-            FakeService, FakeService, lifetime=lifetime, managed=managed
+            FakeService, FakeService, lifetime=expected_lifetime, managed=managed
         )
 
 
@@ -313,7 +321,11 @@ class TestRegisterFactoryUsingDecorator:
     @use_managed
     @use_lifetimes
     def test_factory_decorator_with_options(
-        self, container: Container, managed: bool, lifetime: Lifetime
+        self,
+        container: Container,
+        managed: bool,
+        lifetime: Lifetime | type[Lifetime],
+        expected_lifetime: Lifetime,
     ) -> None:
         @container.factory(lifetime=lifetime, managed=managed)
         def get_fake_service() -> FakeService:
@@ -322,7 +334,7 @@ class TestRegisterFactoryUsingDecorator:
         registration = container.lookup(FakeService)
 
         assert registration.managed is managed
-        assert registration.lifetime == lifetime
+        assert registration.lifetime == expected_lifetime
 
 
 def test_register_same_type_twice_raises_an_error(container: Container) -> None:

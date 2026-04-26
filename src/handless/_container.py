@@ -150,7 +150,7 @@ class Container(Releasable["Container"]):
 
     @overload
     def factory(
-        self, *, managed: bool = ..., lifetime: Lifetime = ...
+        self, *, managed: bool = ..., lifetime: Lifetime | type[Lifetime] | None = ...
     ) -> Callable[[_U], _U]: ...
 
     def factory(
@@ -158,7 +158,7 @@ class Container(Releasable["Container"]):
         factory: _U | None = None,
         *,
         managed: bool = True,
-        lifetime: Lifetime | None = None,
+        lifetime: Lifetime | type[Lifetime] | None = None,
     ) -> Any:
         """Register decorated function as a factory for its return type annotation.
 

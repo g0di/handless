@@ -546,18 +546,21 @@ During registration of factories `.factory(...)`, `@container.factory()` and `.s
 
 > :warning: You can not change lifetimes for `.value(...)` and `.alias(...)` by design.
 
-Lifetimes are actual objects and not enum constants nor literals. You can pass them either as positional argument (for `.factory(...)` and `.self()`) or keyword argument.
+You can pass lifetimes either as positional or keyword argument. Lifetime classes can be passed directly without instantiation for concise registrations, or as instances for explicitness.
 
 ```python
 from handless import Container, Singleton, Transient, Scoped
 
 
 container = Container()
-# Singleton
-container.register(object).factory(lambda: object(), Singleton())
+# Singleton - pass class or instance
+container.register(object).factory(lambda: object(), Singleton)  # class (concise)
+container.register(object).factory(lambda: object(), Singleton())  # instance (explicit)
 # Scoped
+container.register(object).factory(lambda: object(), Scoped)
 container.register(object).factory(lambda: object(), Scoped())
 # Transient (The default)
+container.register(object).factory(lambda: object(), Transient)
 container.register(object).factory(lambda: object(), Transient())
 ```
 

@@ -7,7 +7,7 @@ import weakref
 from collections import defaultdict, deque
 from contextlib import AbstractAsyncContextManager, AbstractContextManager, suppress
 from threading import Lock, RLock
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, runtime_checkable
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
+@runtime_checkable
 class Lifetime(Protocol):
     def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
         """Resolve given registration within given scope.

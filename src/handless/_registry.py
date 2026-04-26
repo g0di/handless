@@ -155,26 +155,38 @@ class RegistrationBuilder(Generic[_T]):
         self._registry = registry
         self._type = type_
 
-    def self(self, lifetime: Lifetime | None = None, *, managed: bool = True) -> None:
+    def self(
+        self, lifetime: Lifetime | type[Lifetime] | None = None, *, managed: bool = True
+    ) -> None:
         """Register the type's constructor as its factory (standard constructor injection).
 
         This is the most common registration method. It automatically calls the type's
         ``__init__``, resolving any type-annotated parameters from the container.
 
-        :param lifetime: Caching strategy, defaults to ``Transient`` when omitted.
+        :param lifetime: Caching strategy as an instance or class, defaults to ``Transient``
+            when omitted. Can pass a class like ``Singleton`` or an instance like
+            ``Singleton()``.
         :param managed: Whether returned context managers are automatically managed.
         :raises RegistrationError: If constructor parameters lack type annotations.
 
         Example::
 
-            >>> from handless import Container, Scoped
+            >>> from handless import Container, Scoped, Singleton
             >>> class UserRepository:
             ...     def __init__(self, db: str):
             ...         self.db = db
             >>> container = Container()
             >>> container.register(str).value("postgresql://localhost")
-            >>> container.register(UserRepository).self(lifetime=Scoped())
+            >>> # Instance form:
+            >>> container.register(UserRepository).self(Scoped())
             >>> with container.create_scope() as scope:
+            ...     repo = scope.resolve(UserRepository)
+            ...     assert repo.db == "postgresql://localhost"
+            >>> # Or pass the class without instantiation:
+            >>> container2 = Container()
+            >>> container2.register(str).value("postgresql://localhost")
+            >>> container2.register(UserRepository).self(Scoped)
+            >>> with container2.create_scope() as scope:
             ...     repo = scope.resolve(UserRepository)
             ...     assert repo.db == "postgresql://localhost"
         """
@@ -185,9 +197,7 @@ class RegistrationBuilder(Generic[_T]):
 
         :param alias_type: Target type that should be resolved for this registration.
         """
-        self.factory(
-            lambda c: c.resolve(alias_type), lifetime=Transient(), managed=False
-        )
+        self.factory(lambda c: c.resolve(alias_type), managed=False)
 
     @overload
     def value(self, value: _T, *, managed: bool = ...) -> None: ...
@@ -205,13 +215,13 @@ class RegistrationBuilder(Generic[_T]):
         :param value: Concrete value to always return for this type.
         :param managed: Whether to manage context managers when ``value`` is one.
         """
-        self.factory(lambda: value, lifetime=Singleton(), managed=managed)
+        self.factory(lambda: value, lifetime=Singleton, managed=managed)
 
     @overload
     def factory(
         self,
         factory: Callable[[Scope], _T | Awaitable[_T]],
-        lifetime: Lifetime | None = ...,
+        lifetime: Lifetime | type[Lifetime] | None = ...,
         *,
         managed: bool = ...,
     ) -> None: ...
@@ -226,7 +236,7 @@ class RegistrationBuilder(Generic[_T]):
             | AbstractContextManager[_T]
             | AbstractAsyncContextManager[_T],
         ],
-        lifetime: Lifetime | None = ...,
+        lifetime: Lifetime | type[Lifetime] | None = ...,
         *,
         managed: Literal[True] = ...,
     ) -> None: ...
@@ -235,7 +245,7 @@ class RegistrationBuilder(Generic[_T]):
     def factory(
         self,
         factory: Callable[..., _T | Awaitable[_T]],
-        lifetime: Lifetime | None = ...,
+        lifetime: Lifetime | type[Lifetime] | None = ...,
         *,
         managed: bool = ...,
     ) -> None: ...
@@ -250,7 +260,7 @@ class RegistrationBuilder(Generic[_T]):
             | AbstractContextManager[_T]
             | AbstractAsyncContextManager[_T],
         ],
-        lifetime: Lifetime | None = ...,
+        lifetime: Lifetime | type[Lifetime] | None = ...,
         *,
         managed: Literal[True] = ...,
     ) -> None: ...
@@ -258,7 +268,7 @@ class RegistrationBuilder(Generic[_T]):
     def factory(
         self,
         factory: Callable[..., Any],
-        lifetime: Lifetime | None = None,
+        lifetime: Lifetime | type[Lifetime] | None = None,
         *,
         managed: bool = True,
     ) -> None:
@@ -273,7 +283,9 @@ class RegistrationBuilder(Generic[_T]):
         Note that variadic arguments (*args, **kwargs) are ignored.
 
         :param factory: Callable or type used to create resolved instances.
-        :param lifetime: Resolution lifetime, defaults to ``Transient`` when omitted.
+        :param lifetime: Resolution lifetime as an instance or class, defaults to
+            ``Transient`` when omitted. Can pass a class like ``Singleton`` or an
+            instance like ``Singleton()``.
         :param managed: Whether returned context managers are automatically managed.
         :raises RegistrationError: If dependency extraction fails.
         """
@@ -282,12 +294,16 @@ class RegistrationBuilder(Generic[_T]):
         if isgeneratorfunction(factory):
             factory = contextmanager(factory)
 
+        normalized_lifetime = (
+            lifetime() if isinstance(lifetime, type) else (lifetime or Transient())
+        )
+
         try:
             self._registry.register(
                 Registration(
                     self._type,
                     factory,
-                    lifetime=lifetime or Transient(),
+                    lifetime=normalized_lifetime,
                     managed=managed,
                     dependencies=_collect_dependencies(factory),
                 )

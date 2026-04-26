@@ -79,7 +79,15 @@ def create_fake_service_with_untyped_params(  # type: ignore  # noqa: PGH003
 FakeServiceNewType = NewType("FakeServiceNewType", IFakeService)  # type: ignore[misc]
 
 use_lifetimes = pytest.mark.parametrize(
-    "lifetime", [Transient(), Scoped(), Singleton()]
+    ("lifetime", "expected_lifetime"),
+    [
+        pytest.param(Transient, Transient(), id="Transient class"),
+        pytest.param(Transient(), Transient(), id="Transient instance"),
+        pytest.param(Scoped, Scoped(), id="Scoped class"),
+        pytest.param(Scoped(), Scoped(), id="Scoped instance"),
+        pytest.param(Singleton, Singleton(), id="Singleton class"),
+        pytest.param(Singleton(), Singleton(), id="Singleton instance"),
+    ],
 )
 use_managed = pytest.mark.parametrize(
     "managed", [True, False], ids=["Managed CM", "Not managed CM"]

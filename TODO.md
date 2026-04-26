@@ -91,7 +91,6 @@ This document contains all the ideas I've got for new features or changes to be 
 - :bug: Registering a type with itself must ensure the given type is not abstract or protocol
 - :new: add new lifetimes (threaded, pooled)
 - :new: add ability to choose default lifetime at container level
-- :new: add ability to pass lifetime class instead of instances
 - :new: add auto_registration capabilities so container is able to resolve types not registered
 - :new: use magic attributes (**handless_lifetime**) for auto resolving lifetimes from types
 - :new: Allow to configure containers through yaml/toml files
