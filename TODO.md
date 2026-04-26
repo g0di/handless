@@ -6,12 +6,6 @@ This document contains all the ideas I've got for new features or changes to be 
 
 ## Agent
 
-- Fix README capability drift:
-
-  - Remove or update outdated "not available yet" items that are already shipped.
-  - In particular, README currently says async support and positional-only autowiring are missing, but code/tests/changelog show they are implemented.
-  - Keep README, changelog, and tested behavior aligned before next release.
-
 - Align cleanup failure semantics with ExitStack behavior:
 
   - Do not silently swallow teardown exceptions in release and arelease.

@@ -24,11 +24,13 @@ In particular it contains the following features:
 - 🔁 **Inversion of control**: _Handless_ allows you to alias protocols or abstract classes to concrete implementations
 - 🧠 **Fully typed**: _Handless_ uses types for registrations. It makes sure that you register only things compatible with provided types and resolves objects with correct type
 - 🧰 **Flexible**: _Handless_ allows you to provide constant values, factories or lambda functions when registering your types
+- ⚡ **Async support**: _Handless_ supports async factories, async context managers, and async resolution APIs (`aresolve`)
+- ↔️ **Scope shortcuts**: _Handless_ provides `Container.resolve(...)` and `Container.aresolve(...)` context-manager shortcuts for one-off resolutions
+- 🎯 **Positional-only injection**: _Handless_ can autowire positional-only parameters from factories and constructors
+- 🧪 **Scoped local overrides**: _Handless_ allows per-scope registrations through `Scope.register_local(...)`
 
 The following features are **not available yet** but planned:
 
-- **Async support**: _Handless_ will support async functions and context managers
-- **Positional only argument**: _Handless_ for the moment can not autowire function or constructors using positional only arguments
 - **Default values**: _Handless_ will use default values of functions or types arguments when its missing type annotation or nothing is registered for this type
 - **Change default lifetime**: _Handless_ will allow you to specify the default lifetime to use any registered type to fit your needs and reduce boilerplate
 - **Partial binding**: _Handless_ will provide ability to partially bind a function to a container allowing to execute that function and have the container resolve and inject its arguments on the fly
@@ -48,7 +50,7 @@ The following features are **not available yet** but planned:
 - [Getting started](#getting-started)
 - [Core](#core)
   - [Create a container](#create-a-container)
-  - [Open a context](#open-a-context)
+  - [Open a scope](#open-a-scope)
   - [Register a value](#register-a-value)
   - [Register a factory function](#register-a-factory-function)
     - [Using `factory` decorator](#using-factory-decorator)
@@ -59,7 +61,7 @@ The following features are **not available yet** but planned:
   - [Context managers and cleanup](#context-managers-and-cleanup)
     - [Factories](#factories)
     - [Values](#values)
-  - [Context local registry](#context-local-registry)
+  - [Scope local registry](#scope-local-registry)
   - [Override container registrations](#override-container-registrations)
 - [Recipes](#recipes)
   - [Release container on application exits](#release-container-on-application-exits)
@@ -97,7 +99,7 @@ class Service:
         self.db = Database()  # tightly coupled
 ```
 
-_Same exemple with DI_
+_Same example with DI_
 
 ```python
 class Service:
@@ -358,22 +360,22 @@ There should be at most one container per entrypoint in your application (a CLI,
 
 > :warning The container is the most "high level" component of your application. It can import anything from any sub modules. However, none of your code should depends on the container itself. Otherwise you're going to use the service locator anti-pattern. There can be exceptions to this rule, for example, when used in an HTTP API controllers (as suggested in `svcs`).
 
-### Open a context
+### Open a scope
 
-To resolve any type from your container, you should usually open a context first. The
-context should be released when not necessary anymore.
+To resolve any type from your container, you should usually open a scope first. The
+scope should be released when not necessary anymore.
 
 If you only need a one-off resolution, you can use `container.resolve(...)` (or
 `container.aresolve(...)`) as a shorthand context manager.
 
-> :bulb: Opened context are automatically released on container release if the context still has a strong reference to it.
+> :bulb: Opened scopes are automatically released on container release if the scope still has a strong reference to it.
 
 ```python
 from handless import Container
 
 container = Container()
 
-# You can manually open and release your context
+# You can manually open and release your scope
 ctx = container.create_scope()
 ctx.resolve(...)
 ctx.release()
@@ -383,7 +385,7 @@ with container.create_scope():
     ctx.resolve(...)
 ```
 
-Context are of type `handless.Scope`.
+Scopes are of type `handless.Scope`.
 
 > :bulb: We did not chose `handless.Context` to avoid confusion with other contexts objects from other libraries.
 
@@ -588,9 +590,25 @@ Objects registered with `.value(...)` are NOT entered by default. If you want th
 
 > :question: Passing a value means that this value has been created outside of the container and then its lifetime should not container's responsibility.
 
-### Context local registry
+### Scope local registry
 
-> :construction: Under construction
+If you need to override or add registrations for a single scope only, use
+`scope.register_local(...)`. These local registrations have higher priority
+than container registrations, and only affect the current scope.
+
+```python
+from handless import Container
+
+container = Container()
+container.register(str).value("global")
+
+with container.create_scope() as scope:
+    scope.register_local(str).value("scope-local")
+    assert scope.resolve(str) == "scope-local"
+
+with container.create_scope() as scope:
+    assert scope.resolve(str) == "global"
+```
 
 ### Override container registrations
 
@@ -614,17 +632,17 @@ container.register(str).value("Hello")
 
 
 def test_my_container():
-    container.override(str).value("Overriden!")
+    container.override(str).value("Overridden!")
     with container.create_scope() as ctx:
         resolved = ctx.resolve(str)
-        assert resolved == "Overriden!"
+        assert resolved == "Overridden!"
 ```
 
 > :warning: Overriding is primarily made for testing purposes. You should not use overriding in your production code. If you have use cases where it could makes sense please open a ticket.
 
 Please also note the following:
 
-- Overrides can be overriden as well (each override erase the previous one)
+- Overrides can be overridden as well (each override erases the previous one)
 - Overrides always take precedence over registered type whatever his lifetime (even if the type was previously resolved and cached)
 - Overrides are automatically erased when the container is released
 - On container release, all overrides (even erased one) as well as any previously registered types are properly released as well
@@ -707,7 +725,7 @@ with container.create_scope() as ctx:
     assert isinstance(repo, SqliteTodoItemRepository)
 ```
 
-> :warning: Mypy does not like calling the `.register` and `.resolve` functions on `tyîng.Protocol` nor `abc.ABC` hence the type ignore magic comment.
+> :warning: Mypy does not like calling the `.register` and `.resolve` functions on `typing.Protocol` nor `abc.ABC` hence the type ignore magic comment.
 
 #### Runtime registration
 

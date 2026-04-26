@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Container.open_context()` has been renamed to `Container.create_scope()`
 - Improved public API docstrings across container, scope, registration, lifetime and exceptions modules.
 - Added and refined doctest examples for key public APIs, including lifetime strategies and scope/container resolution shortcuts.
+- Updated README capability matrix and core docs to match shipped behavior (async support, positional-only autowiring, and scope-local registrations), and corrected related wording/typos.
 
 ## [0.3.0] - 2025-09-25
 
