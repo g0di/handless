@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ResolutionContext` has been renamed to `Scope`
   - `Contextual` lifetime has been renamed to `Scoped`
   - `Container.open_context()` has been renamed to `Container.create_scope()`
+- Improved public API docstrings across container, scope, registration, lifetime and exceptions modules.
+- Added and refined doctest examples for key public APIs, including lifetime strategies and scope/container resolution shortcuts.
 
 ## [0.3.0] - 2025-09-25
 

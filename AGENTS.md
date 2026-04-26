@@ -49,6 +49,9 @@ This library currently support the following injection method:
   - It starts with a summary line
   - Provide more details and information in the docstring body
   - Include doctest examples
+  - Use pep257 and sphinx style for docstrings
+  - Document raises errors and parameters
+  - Documents returned value only if it is not just `None`
 - Limit library public API to only what we want to provide to users. Internals should be marked as private:
   - Private packages are prefixed with an underscore
   - Private objects in public packages are prefixed with underscore
@@ -63,6 +66,7 @@ This library currently support the following injection method:
 - Tests should focus on the public facing API rather than testing internals
 - Any new feature or bug fixes must be covered by a test beforehand
   - The test is written first to validate the behavior then the code is implemented (test-first)
+- Tests covering a same method should be grouped under a same class for readability
 
 ## Security considerations
 

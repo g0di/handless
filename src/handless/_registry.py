@@ -32,6 +32,12 @@ class Registry:
         self.allow_override = allow_override
 
     def register(self, registration: Registration[Any]) -> None:
+        """Store a registration for later resolution.
+
+        :param registration: Registration to store.
+        :raises RegistrationAlreadyExistError: If a registration already exists for the
+            same type and overriding is disabled.
+        """
         if not self.allow_override and registration.type_ in self._registrations:
             raise RegistrationAlreadyExistError(registration.type_)
 
@@ -39,9 +45,15 @@ class Registry:
         self._logger.info("Registered %s: %s", registration.type_, registration)
 
     def get_registration(self, type_: type[_T]) -> Registration[_T] | None:
+        """Return registration for given type, or ``None`` if not registered.
+
+        :param type_: Type to lookup.
+        :returns: Matching registration or ``None``.
+        """
         return self._registrations.get(type_)
 
     def clear(self) -> None:
+        """Remove all registrations from this registry."""
         self._registrations.clear()
 
 
@@ -50,6 +62,12 @@ _T = TypeVar("_T")
 
 @dataclass(slots=True, eq=False)
 class Registration(Generic[_T]):
+    """Describe how a specific type should be resolved.
+
+    A registration binds a target type to a factory callable, lifetime policy,
+    dependency list, and context management behavior.
+    """
+
     type_: type[_T]
     """Registered type"""
     factory: Callable[
@@ -80,6 +98,12 @@ class Registration(Generic[_T]):
 
 @dataclass(slots=True)
 class Dependency:
+    """Represent a single injectable dependency for a factory parameter.
+
+    Dependencies are extracted from callable parameters and used to resolve
+    arguments from a scope at runtime.
+    """
+
     name: str
     type_: type[Any]
     default: Any = ...
@@ -91,7 +115,10 @@ class Dependency:
     ) -> Dependency:
         """Create a Dependency from a inspect.Parameter object.
 
-        :param type_: Can be provided to override the type annotation of the given parameter
+        :param param: Inspected parameter to convert.
+        :param type_: Optional type override for the parameter annotation.
+        :returns: A dependency object inferred from the parameter.
+        :raises TypeError: If no valid type annotation can be determined.
         """
         actual_type = param.annotation if type_ is ... else type_
         if actual_type is Parameter.empty:
@@ -110,15 +137,54 @@ class Dependency:
 
 
 class RegistrationBuilder(Generic[_T]):
+    """Builder for defining how a registered type should be resolved.
+
+    Provides fluent API methods to specify the factory, lifetime, and management
+    strategy for a registered type. Use one of ``self()``, ``value()``, ``factory()``,
+    or ``alias()`` to complete the registration.
+
+    Example::
+
+        >>> from handless import Container, Scoped
+        >>> container = Container()
+        >>> container.register(str).value("config")
+        >>> container.register(list).self(lifetime=Scoped())
+    """
+
     def __init__(self, registry: Registry, type_: type[_T]) -> None:
         self._registry = registry
         self._type = type_
 
     def self(self, lifetime: Lifetime | None = None, *, managed: bool = True) -> None:
+        """Register the type's constructor as its factory (standard constructor injection).
+
+        This is the most common registration method. It automatically calls the type's
+        ``__init__``, resolving any type-annotated parameters from the container.
+
+        :param lifetime: Caching strategy, defaults to ``Transient`` when omitted.
+        :param managed: Whether returned context managers are automatically managed.
+        :raises RegistrationError: If constructor parameters lack type annotations.
+
+        Example::
+
+            >>> from handless import Container, Scoped
+            >>> class UserRepository:
+            ...     def __init__(self, db: str):
+            ...         self.db = db
+            >>> container = Container()
+            >>> container.register(str).value("postgresql://localhost")
+            >>> container.register(UserRepository).self(lifetime=Scoped())
+            >>> with container.create_scope() as scope:
+            ...     repo = scope.resolve(UserRepository)
+            ...     assert repo.db == "postgresql://localhost"
+        """
         self.factory(self._type, lifetime=lifetime, managed=managed)
 
     def alias(self, alias_type: type[_T]) -> None:
-        """Resolve the given type when resolving the registered one."""
+        """Resolve the given type when resolving the registered one.
+
+        :param alias_type: Target type that should be resolved for this registration.
+        """
         self.factory(
             lambda c: c.resolve(alias_type), lifetime=Transient(), managed=False
         )
@@ -134,7 +200,11 @@ class RegistrationBuilder(Generic[_T]):
     ) -> None: ...
 
     def value(self, value: Any, *, managed: bool = False) -> None:
-        """Use given value when resolving the registered type."""
+        """Use given value when resolving the registered type.
+
+        :param value: Concrete value to always return for this type.
+        :param managed: Whether to manage context managers when ``value`` is one.
+        """
         self.factory(lambda: value, lifetime=Singleton(), managed=managed)
 
     @overload
@@ -201,6 +271,11 @@ class RegistrationBuilder(Generic[_T]):
         given.
 
         Note that variadic arguments (*args, **kwargs) are ignored.
+
+        :param factory: Callable or type used to create resolved instances.
+        :param lifetime: Resolution lifetime, defaults to ``Transient`` when omitted.
+        :param managed: Whether returned context managers are automatically managed.
+        :raises RegistrationError: If dependency extraction fails.
         """
         if isasyncgenfunction(factory):
             factory = asynccontextmanager(factory)

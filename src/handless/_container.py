@@ -75,10 +75,48 @@ class Container(Releasable["Container"]):
         >>> container.register(object).factory(lambda: object())
         >>> container.register(Any).alias(object)
         >>> container.register(list).self()
+
+        :param type_: Type to register.
+        :returns: A registration builder for configuring value, factory, alias, or self.
         """
         return RegistrationBuilder(self._registry, type_)
 
     def override(self, type_: type[_T]) -> RegistrationBuilder[_T]:
+        """Temporarily override a type registration (for testing).
+
+        Overrides take precedence over normal registrations and are useful for
+        injecting test doubles (mocks, stubs, fakes) into your code without
+        modifying the container's base registrations.
+
+        The override registry is cleared when you call :meth:`release`, allowing
+        the same container instance to be reused for multiple test runs.
+
+        :param type_: Type to override.
+        :returns: A registration builder for defining the override provider.
+
+        Example::
+
+            >>> from unittest.mock import Mock
+            >>> container = Container()
+            >>> container.register(str).value("production-db-url")
+            >>>
+            >>> # Use production config in normal scope
+            >>> with container.create_scope() as scope:
+            ...     config = scope.resolve(str)
+            ...     assert "production" in config
+            >>>
+            >>> # Override for testing
+            >>> container.override(str).value("test-db-url")
+            >>> with container.create_scope() as scope:
+            ...     config = scope.resolve(str)
+            ...     assert "test" in config
+            >>>
+            >>> # Clean up - removes all overrides
+            >>> container.release()
+            >>> with container.create_scope() as scope:
+            ...     config = scope.resolve(str)
+            ...     assert "production" in config
+        """
         return RegistrationBuilder(self._overrides, type_)
 
     def lookup(self, key: type[_T]) -> Registration[_T]:
@@ -96,7 +134,9 @@ class Container(Releasable["Container"]):
             ...
         handless.exceptions.RegistrationNotFoundError: ...
 
-        :raise RegistrationNotFoundError: If the given type is not registered
+        :param key: Registered type key to retrieve.
+        :returns: Registration bound to ``key``.
+        :raises RegistrationNotFoundError: If the given type is not registered.
         """
         registration = self._overrides.get_registration(
             key
@@ -128,8 +168,10 @@ class Container(Releasable["Container"]):
         Decorated function is left untouched meaning that you can  safely call it manually.
 
         :param factory: The decorated factory function
+        :param managed: Whether returned context managers should be entered/exited automatically.
         :param lifetime: The factory lifetime, defaults to `Transient`
-        :return: The pristine decorated function
+        :returns: The pristine decorated function.
+        :raises RegistrationError: If the decorated function has no return type annotation.
         """
 
         def wrapper(factory: _U) -> _U:
@@ -174,6 +216,8 @@ class Container(Releasable["Container"]):
 
         You better use this function with a context manager. Otherwise call its release
         method when you're done with it.
+
+        :returns: A new scope bound to this container.
         """
         scope = Scope(self)
         self._scopes.add(scope)
@@ -213,6 +257,10 @@ class Container(Releasable["Container"]):
         >>> with container.resolve(str) as value:
         ...     print(value)
         handless
+
+        :param type_: First type to resolve.
+        :param types: Optional additional types to resolve in order.
+        :yields: One resolved object for a single type, otherwise a tuple of resolved objects.
         """
         requested_types = (type_, *types)
         with self.create_scope() as scope:
@@ -249,6 +297,10 @@ class Container(Releasable["Container"]):
         """Asynchronously resolve one or several types using a temporary scope.
 
         This is the async counterpart of :meth:`resolve`.
+
+        :param type_: First type to resolve.
+        :param types: Optional additional types to resolve in order.
+        :yields: One resolved object for a single type, otherwise a tuple of resolved objects.
         """
         requested_types = (type_, *types)
         async with self.create_scope() as scope:
@@ -281,6 +333,8 @@ class Scope(Releasable["Scope"]):
 
         Note that this constructor is not intended to be used directly.
         Prefer using `container.create_scope()` instead.
+
+        :param container: Parent container associated with this scope.
         """
         super().__init__()
         self._container = container
@@ -293,13 +347,64 @@ class Scope(Releasable["Scope"]):
         return self._container
 
     def register_local(self, type_: type[_T]) -> RegistrationBuilder[_T]:
+        """Register a type only within this scope (doesn't affect the container).
+
+        Local registrations are scope-specific and don't modify the parent container.
+        They take precedence over container registrations when resolving within this scope.
+
+        Useful for:
+        - Per-request customization in HTTP handlers
+        - Temporary test fixtures within a single test
+        - Scope-local state that shouldn't affect other scopes
+
+        :param type_: Type to register only in this scope.
+        :returns: A registration builder for defining the local provider.
+
+        Example::
+
+            >>> container = Container()
+            >>> container.register(str).value("global")
+            >>>
+            >>> with container.create_scope() as scope:
+            ...     # Override just for this scope
+            ...     scope.register_local(str).value("scope-local")
+            ...     assert scope.resolve(str) == "scope-local"
+            >>>
+            >>> # Other scopes unaffected
+            >>> with container.create_scope() as scope2:
+            ...     assert scope2.resolve(str) == "global"
+        """
         return RegistrationBuilder(self._registry, type_)
 
     def resolve(self, type_: type[_T]) -> _T:
-        """Resolve given type by returning an instance of it using the provider registered.
+        """Resolve a type to get an instance.
 
-        The provider is looked up from this scope local registry first then from its
-        parent container if not found.
+        Looks up the provider from this scope's local registry first, then from the
+        parent container if not found. Automatically injects any registered dependencies
+        required by the factory.
+
+        The behavior depends on the registered lifetime:
+        - **Transient**: Creates a new instance every time
+        - **Scoped**: Caches within this scope, new instance per scope
+        - **Singleton**: Caches in the container, same instance everywhere
+
+        :param type_: The type to resolve (must be registered).
+        :returns: An instance of the registered type, with dependencies injected.
+        :raises RegistrationNotFoundError: If the type was never registered.
+        :raises ResolutionError: If resolution fails (e.g. missing dependencies).
+
+        Example::
+
+            >>> container = Container()
+            >>> container.register(str).value("hello")
+            >>> with container.create_scope() as scope:
+            ...     msg = scope.resolve(str)
+            ...     print(msg)
+            hello
+
+        See Also:
+            aresolve: Async version for async factories
+            register_local: For scope-specific registrations
         """
         if type_ is type(self):
             return self
@@ -315,6 +420,47 @@ class Scope(Releasable["Scope"]):
             return value
 
     async def aresolve(self, type_: type[_T]) -> _T:
+        """Asynchronously resolve a type to get an instance.
+
+        This is the async variant of :meth:`resolve`. Use this when:
+        - The factory is an async function (async def)
+        - The factory is an async generator (async context manager)
+        - Any dependencies are async-resolvable
+
+        All other behavior is identical to :meth:`resolve`:
+        - Looks up from local scope first, then container
+        - Injects dependencies automatically
+        - Respects registered lifetimes
+        - Can create new instances or return cached ones
+
+        :param type_: The type to resolve (must be registered).
+        :returns: An instance of the registered type, with dependencies injected.
+        :raises RegistrationNotFoundError: If the type was never registered.
+        :raises ResolutionError: If resolution fails.
+
+        Example::
+
+            >>> import asyncio
+            >>> from handless import Container
+            >>>
+            >>> async def get_config() -> dict:
+            ...     return {"debug": True}
+            >>>
+            >>> container = Container()
+            >>> container.register(dict).factory(get_config)
+            >>>
+            >>> async def main():
+            ...     async with container.create_scope() as scope:
+            ...         config = await scope.aresolve(dict)
+            ...         print(config)
+            >>>
+            >>> asyncio.run(main())
+            {'debug': True}
+
+        See Also:
+            resolve: Sync version for sync factories
+            Lifetime: Explains caching behavior
+        """
         if type_ is type(self):
             return self
 

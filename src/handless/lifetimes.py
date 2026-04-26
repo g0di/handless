@@ -21,14 +21,43 @@ _T = TypeVar("_T")
 
 class Lifetime(Protocol):
     def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
-        """Resolve given registration within given scope."""
+        """Resolve given registration within given scope.
+
+        :param scope: Active resolution scope.
+        :param registration: Registration to resolve.
+        :returns: Resolved value.
+        """
 
     async def aresolve(self, scope: Scope, registration: Registration[_T]) -> _T:
-        """Asynchrnously resolve given registration within given scope."""
+        """Asynchrnously resolve given registration within given scope.
+
+        :param scope: Active resolution scope.
+        :param registration: Registration to resolve.
+        :returns: Resolved value.
+        """
 
 
 class Transient(Lifetime):
-    """Calls registration factory on each resolve."""
+    """Create a new instance on every resolve (default lifetime).
+
+    No caching - each call to ``scope.resolve()`` creates a fresh instance.
+    Use for stateful objects or when instances should not be shared.
+
+    Example::
+
+        >>> from handless import Container, Transient
+        >>> container = Container()
+        >>> container.register(object).self()  # Default is Transient
+        >>> with container.create_scope() as scope:
+        ...     o1 = scope.resolve(object)
+        ...     o2 = scope.resolve(object)
+        ...     print(o1 is o2)  # Different objects
+        False
+
+    See Also:
+        Scoped: for per-scope instances
+        Singleton: for app-wide singletons
+    """
 
     def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
         ctx = LifetimeContext.get(scope)
@@ -43,7 +72,33 @@ class Transient(Lifetime):
 
 
 class Scoped(Lifetime):
-    """Calls registration factory on resolve once per scope."""
+    """Create one instance per scope (best for request-scoped resources).
+
+    Within a single scope, all resolutions return the same cached instance.
+    Each new scope gets a fresh instance. Ideal for request context, database
+    sessions, or any request-lifetime resources.
+
+    Example::
+
+        >>> from handless import Container, Scoped
+        >>> container = Container()
+        >>> container.register(object).self(lifetime=Scoped())
+        >>>
+        >>> with container.create_scope() as scope1:
+        ...     o1 = scope1.resolve(object)
+        ...     o2 = scope1.resolve(object)
+        ...     print(o1 is o2)  # Same object in scope
+        True
+        >>>
+        >>> with container.create_scope() as scope2:
+        ...     o3 = scope2.resolve(object)
+        ...     print(o1 is o3)  # Different scopes = new object
+        False
+
+    See Also:
+        Transient: for no caching
+        Singleton: for app-wide singletons
+    """
 
     def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
         ctx = LifetimeContext.get(scope)
@@ -58,7 +113,33 @@ class Scoped(Lifetime):
 
 
 class Singleton(Lifetime):
-    """Calls registration factory on resolve once per container."""
+    """Create one instance for the entire container lifetime (app-wide).
+
+    The same instance is returned for all resolutions across all scopes.
+    Use for expensive resources, configuration, or services that must be shared.
+
+    Thread safety: If your singleton is not thread-safe, protect access with
+    locks or use a thread-safe implementation. Handless handles locking for singleton
+    creation but not for usage.
+
+    Example::
+
+        >>> from handless import Container, Singleton
+        >>> container = Container()
+        >>> container.register(object).self(lifetime=Singleton())
+        >>>
+        >>> with container.create_scope() as scope1:
+        ...     o1 = scope1.resolve(object)
+        >>>
+        >>> with container.create_scope() as scope2:
+        ...     o2 = scope2.resolve(object)
+        ...     print(o1 is o2)  # Same object across all scopes
+        True
+
+    See Also:
+        Scoped: for per-scope instances
+        Transient: for no caching
+    """
 
     def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
         ctx = LifetimeContext.get(scope.container)
@@ -111,7 +192,11 @@ class LifetimeContext(Releasable["LifetimeContext"]):
 
     @classmethod
     def get(cls, obj: object) -> LifetimeContext:
-        """Get or create a lifetime context for given releasable."""
+        """Get or create a lifetime context for given releasable.
+
+        :param obj: Releasable owner object (e.g. container or scope).
+        :returns: Existing or newly created lifetime context.
+        """
         if obj not in cls._contexts:
             cls._contexts[obj] = cls()
         return cls._contexts[obj]
