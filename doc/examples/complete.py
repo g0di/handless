@@ -111,4 +111,4 @@ with container.create_scope() as ctx:
     # User(email='hello.world@handless.io')  # noqa: ERA001
 
 
-container.release()
+container.close()

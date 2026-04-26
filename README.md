@@ -64,7 +64,7 @@ The following features are **not available yet** but planned:
   - [Scope local registry](#scope-local-registry)
   - [Override container registrations](#override-container-registrations)
 - [Recipes](#recipes)
-  - [Release container on application exits](#release-container-on-application-exits)
+  - [Close container on application exits](#close-container-on-application-exits)
   - [Register primitive types](#register-primitive-types)
   - [Register same type for different purposes](#register-same-type-for-different-purposes)
   - [Register implementations for protocols and abstract classes](#register-implementations-for-protocols-and-abstract-classes)
@@ -74,7 +74,7 @@ The following features are **not available yet** but planned:
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
   - [Add custom lifetime(s)](#add-custom-lifetimes)
-- [Q\&A](#qa)
+- [Q&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
   - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
@@ -123,7 +123,7 @@ This is where dependency injection containers can help you.
 
 As your project grows, wiring up dependencies manually becomes tedious and error-prone.
 
-A dependency injection container role is to **register** once how to create and compose each of your objects in order to get instances of them on demand. The act of asking a container to get an instance of a specific type is called **resolve**. Finally, when you don't need those instances anymore you or the container will delete them and eventually do some cleanup (if specified). This last step is known as **release**.
+A dependency injection container role is to **register** once how to create and compose each of your objects in order to get instances of them on demand. The act of asking a container to get an instance of a specific type is called **resolve**. Finally, when you don't need those instances anymore you or the container will delete them and eventually do some cleanup (if specified). This last step is known as **close**.
 
 Dependency injection containers can also:
 
@@ -170,7 +170,7 @@ In order to resolve any types from a container, a `handless.Scope` must be used.
 Most applications should open and manage scopes explicitly. For convenience,
 `Container.resolve(...)` and `Container.aresolve(...)` are available as
 context-manager shortcuts that open a temporary scope, resolve, yield the value,
-then release it on context exit.
+then close it on context exit.
 When called with several types, they yield a tuple of resolved values in the same
 order as requested.
 
@@ -194,15 +194,15 @@ When registering your types you can specify a lifetime. The lifetime determines 
 - ##### `handless.Singleton`
   - On first resolve, the type function is called and its return value is cached for the whole duration of the container and for scopes
   - Singletons are cached in the container itself
-  - Singletons context managers (if any) are entered on first resolve and exited on container end (release)
+  - Singletons context managers (if any) are entered on first resolve and exited on container end (close)
 - ##### `handless.Scoped`
   - The type function is called and cached once per scope. Additional resolve on the same scope always return the same cached value
   - Scoped instances are cached per scope
-  - Scoped context managers (if any) are entered on first resolve and exited on scope end (release)
+  - Scoped context managers (if any) are entered on first resolve and exited on scope end (close)
 - ##### `handless.Transient`
   - The type function is called on each resolve.
   - Transient values are never cached
-    - Transient context managers (if any) are entered on resolve and exited on scope end (release)
+    - Transient context managers (if any) are entered on resolve and exited on scope end (close)
 
 > :warning: You must understand that whichever lifetime you choose the container does not actually check returned object identity. The lifetime only determines **when** the container should execute registered functions or return a previously cached value. In other words, it means that you could register a transient type with a function returning always the same constant. You'll then end up with a singleton anyway.
 
@@ -332,26 +332,26 @@ with container.create_scope() as ctx:
     # User(email='hello.world@handless.io')  # noqa: ERA001
 
 
-container.release()
+container.close()
 ```
 
 ## Core
 
 ### Create a container
 
-To create a container simply create an instance of it. You can use your container in a context manager or manually call its `release` method to cleanup all objects resolved so far.
+To create a container simply create an instance of it. You can use your container in a context manager or manually call its `close` method to cleanup all objects resolved so far.
 
-> :bulb: `.release()` does not prevent from reusing your container afterwards.
+> :bulb: `.close()` does not prevent from reusing your container afterwards.
 
 ```python
 from handless import Container
 
 container = Container()
-# Use your container and release objects on exit
+# Use your container and close objects on exit
 with container:
     pass
-# Manually release
-container.release()
+# Manually close
+container.close()
 ```
 
 There should be at most one container per entrypoint in your application (a CLI, a HTTP server, ...). You can share the same container for all your entrypoints. A test is considered as an entrypoint as well.
@@ -363,22 +363,24 @@ There should be at most one container per entrypoint in your application (a CLI,
 ### Open a scope
 
 To resolve any type from your container, you should usually open a scope first. The
-scope should be released when not necessary anymore.
+scope should be closed when not necessary anymore.
 
 If you only need a one-off resolution, you can use `container.resolve(...)` (or
 `container.aresolve(...)`) as a shorthand context manager.
 
-> :bulb: Opened scopes are automatically released on container release if the scope still has a strong reference to it.
+> :bulb: Opened scopes are automatically closed on container close if the scope still has a strong reference to it.
+
+> :bulb: `scope.close()` and `await scope.aclose()` are idempotent and can be called multiple times. Closing a scope does not prevent resolving with that same scope afterwards.
 
 ```python
 from handless import Container
 
 container = Container()
 
-# You can manually open and release your scope
+# You can manually open and close your scope
 ctx = container.create_scope()
 ctx.resolve(...)
-ctx.release()
+ctx.close()
 
 # Or do it with a context manager
 with container.create_scope():
@@ -573,11 +575,11 @@ container.register(object).factory(lambda: object(), Transient())
 
 ### Context managers and cleanup
 
-Containers and contexts can take care of entering and exiting objects with context managers. Both has a `release` function which clear their cache and exits any entered context managers.
+Containers and contexts can take care of entering and exiting objects with context managers. Both has a `close` function which clear their cache and exits any entered context managers.
 
 #### Factories
 
-Object returned by functions registered with `.factory(...)` or `.self()` are automatically entered on resolve and exited on release if it is context managers.
+Object returned by functions registered with `.factory(...)` or `.self()` are automatically entered on resolve and exited on close if it is context managers.
 
 > :bulb: You can disable this default behavior by passing `managed=False`. However, passing `False` is disallowed if the object return is NOT an instance of the given type.
 
@@ -647,14 +649,14 @@ Please also note the following:
 
 - Overrides can be overridden as well (each override erases the previous one)
 - Overrides always take precedence over registered type whatever his lifetime (even if the type was previously resolved and cached)
-- Overrides are automatically erased when the container is released
-- On container release, all overrides (even erased one) as well as any previously registered types are properly released as well
+- Overrides are automatically erased when the container is closed
+- On container close, all overrides (even erased one) as well as any previously registered types are properly closed as well
 
 ## Recipes
 
-### Release container on application exits
+### Close container on application exits
 
-If your application has no shutdown mechanism you can register your container `release` method using `atexit` module to release on program exit.
+If your application has no shutdown mechanism you can register your container `close` method using `atexit` module to close on program exit.
 
 ```python
 import atexit
@@ -663,10 +665,10 @@ from handless import Container
 
 container = Container()
 
-atexit.register(container.release)
+atexit.register(container.close)
 ```
 
-Releasing the container is idempotent and can be used several times. Each time, all singletons will be cleared and then context manager exited, if any.
+Closing the container is idempotent and can be used several times. Each call clears singletons and exits entered context managers, if any. Closing also does not prevent using the container afterwards.
 
 ### Register primitive types
 
@@ -784,7 +786,7 @@ def get_todo_item_repository(ctx: Scope) -> TodoItemRepository:
 - Simpler API
 - Transient dependencies captivity
 - Everything is a context
-- Easier management and release of resolved values
+- Easier management and cleanup of resolved values
 
 ### Why using a fluent API to register types as a two step process?
 

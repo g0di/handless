@@ -171,17 +171,19 @@ class Releasable(AbstractContextManager[_T], AbstractAsyncContextManager[_T]):
     ) -> None:
         await LifetimeContext.get(self).__aexit__(exc_type, exc_val, exc_tb)
 
-    def release(self) -> None:
-        """Release cached instances and exit entered context managers.
+    def close(self) -> None:
+        """Close cached instances and exit entered context managers.
 
-        Note that the object is still fully usable afterwards.
+        This method is idempotent, can be called multiple times, and does not make
+        the object unusable afterwards.
         """
         self.__exit__(None, None, None)
 
-    async def arelease(self) -> None:
-        """Release cached instances and exit entered context managers.
+    async def aclose(self) -> None:
+        """Asynchronously close cached instances and exit entered context managers.
 
-        Note that the object is still fully usable afterwards.
+        This method is idempotent, can be called multiple times, and does not make
+        the object unusable afterwards.
         """
         await self.__aexit__(None, None, None)
 
@@ -223,7 +225,7 @@ class LifetimeContext(Releasable["LifetimeContext"]):
             cm = self._entered_context_managers.pop()
             if isinstance(cm, AbstractAsyncContextManager):
                 warnings.warn(
-                    f"SKipped exiting async context manager {cm} in sync cleanup, use `arelease()` or `async with`.",
+                    f"SKipped exiting async context manager {cm} in sync cleanup, use `aclose()` or `async with`.",
                     UserWarning,
                     stacklevel=1,
                 )
@@ -261,10 +263,10 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         self._registration_locks.clear()
         self._async_registration_locks.clear()
 
-    def release(self) -> None:
+    def close(self) -> None:
         self.__exit__(None, None, None)
 
-    async def arelease(self) -> None:
+    async def aclose(self) -> None:
         await self.__aexit__(None, None, None)
 
     def get_cached_instance(self, scope: Scope, registration: Registration[_T]) -> _T:
@@ -399,7 +401,7 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         if self._entered_context_managers:
             warnings.warn(
                 "A Container or Scope has been garbage-collected with pending resources."
-                " Did you forget to call `release()` or `arelease()`?",
+                " Did you forget to call `close()` or `aclose()`?",
                 UserWarning,
                 stacklevel=1,
             )

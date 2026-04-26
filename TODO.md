@@ -8,7 +8,7 @@ This document contains all the ideas I've got for new features or changes to be 
 
 - Align cleanup failure semantics with ExitStack behavior:
 
-  - Do not silently swallow teardown exceptions in release and arelease.
+  - Do not silently swallow teardown exceptions in close and aclose.
   - Aggregate/propagate teardown failures after attempting all exits.
   - Add tests for exception propagation in sync and async cleanup paths.
 
@@ -75,7 +75,6 @@ This document contains all the ideas I've got for new features or changes to be 
 ## Misc
 
 - Maybe raise errors collected while exiting all entered context managers rather than just logging them and continuing silently (take ExitStack as example)
-- I'm hesitating into renaming `release` function to `close` and `resolve` to `get` to make it more pythonic and shorter. I'm also not so much fan of the name Scope and LifetimeContext, all those context are misleading. Maybe I should revert resolution context into scope and LifetimeContext to some LifetimeState or LifetimeCache?
 - :new: On resolve error, do not chain resolve exception, keep the latest one, with the whole resolve chain and the root cause of the error
 - :bug: When logging service type resolved, also display the full requiremnt chain (maybe under debug level)
 - :new: add function for resolving all services in the container for testing purposes

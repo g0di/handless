@@ -40,12 +40,12 @@ class Container(Releasable["Container"]):
     Containers hold registrations defining how to resolve registered types. It also cache
     all singleton lifetime types. To resolve a type from a container you must open a scope.
 
-    You're free to use the container in a context manager or to manually call the release
-    method, both does the same. The release function does not prevent to reuse the container
-    it just clears all cached singleton and exits their context manager if entered.
+    You're free to use the container in a context manager or to manually call the close
+    method, both does the same. The close function does not prevent reusing the container;
+    it only clears cached singletons and exits their context managers if entered.
 
-    You should release your container when your application stops.
-    You should create a scope anytime you need to resolve types and release it as soon as possible.
+    You should close your container when your application stops.
+    You should create a scope anytime you need to resolve types and close it as soon as possible.
     For example, in a HTTP API, you may open one scope per request. For a message listener
     you may open one per message handling. For a CLI you open a scope per command received.
 
@@ -55,7 +55,7 @@ class Container(Releasable["Container"]):
     ...     value = scope.resolve(str)
     ...     print(value)
     Hello Container!
-    >>> container.release()
+    >>> container.close()
     """
 
     def __init__(self) -> None:
@@ -88,7 +88,7 @@ class Container(Releasable["Container"]):
         injecting test doubles (mocks, stubs, fakes) into your code without
         modifying the container's base registrations.
 
-        The override registry is cleared when you call :meth:`release`, allowing
+        The override registry is cleared when you call :meth:`close`, allowing
         the same container instance to be reused for multiple test runs.
 
         :param type_: Type to override.
@@ -112,7 +112,7 @@ class Container(Releasable["Container"]):
             ...     assert "test" in config
             >>>
             >>> # Clean up - removes all overrides
-            >>> container.release()
+            >>> container.close()
             >>> with container.create_scope() as scope:
             ...     config = scope.resolve(str)
             ...     assert "production" in config
@@ -195,26 +195,26 @@ class Container(Releasable["Container"]):
             return wrapper(factory)
         return wrapper
 
-    def release(self) -> None:
-        """Release all cached singletons and opened scopes.
+    def close(self) -> None:
+        """Close all cached singletons and opened scopes.
 
-        This will also exits any entered context managers for singleton lifetime objects.
+        This also exits any entered context managers for singleton lifetime objects.
         Note that opened scopes are weakly referenced meaning that only ones still
-        referenced will be released.
+        referenced will be closed.
 
-        This method is safe to be called several times, it does not prevent from using
-        the container.
+        This method is idempotent and can safely be called multiple times.
+        Calling it never prevents resolving new values with the same container afterwards.
         """
         # TODO: create a test that ensure scopes are properly closed on container close
         for scope in self._scopes:
-            scope.release()
+            scope.close()
         self._overrides.clear()
-        return super().release()
+        return super().close()
 
     def create_scope(self) -> Scope:
         """Create and open a new scope for resolving types.
 
-        You better use this function with a context manager. Otherwise call its release
+        You better use this function with a context manager. Otherwise call its close
         method when you're done with it.
 
         :returns: A new scope bound to this container.
@@ -246,7 +246,7 @@ class Container(Releasable["Container"]):
         """Resolve one or several types using a temporary scope.
 
         This is a shorthand for opening a scope, resolving type(s), yielding
-        result(s), then releasing that scope on context exit.
+        result(s), then closing that scope on context exit.
 
         When resolving a single type, the yielded value is the resolved object.
         When resolving several types, the yielded value is a tuple preserving the
@@ -318,7 +318,7 @@ class Scope(Releasable["Scope"]):
     """Allow to resolve types from a container.
 
     It caches scoped types and enters context managers for both scoped and
-    transient types. Cache is cleared on call to release method and all entered context
+    transient types. Cache is cleared on call to close method and all entered context
     managers are exited.
 
     >>> container = Container()

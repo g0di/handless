@@ -202,7 +202,7 @@ class TestResolveTypeUsingTransientLifetime:
     ) -> None:
         another = await ascope.aresolve(AsyncFakeService)
 
-        await ascope.arelease()
+        await ascope.aclose()
 
         assert resolved.exited
         assert another.exited
@@ -267,21 +267,21 @@ class TestResolveTypeBoundToSingletonRegistration:
     async def test_release_scope_not_exit_entered_context_manager(
         self, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        await ascope.arelease()
+        await ascope.aclose()
 
         assert not resolved.exited
 
     async def test_release_container_exit_entered_context_manager(
         self, acontainer: Container, resolved: AsyncFakeService
     ) -> None:
-        await acontainer.arelease()
+        await acontainer.aclose()
 
         assert resolved.exited
 
     async def test_release_container_clear_cached_value(
         self, acontainer: Container, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        await acontainer.arelease()
+        await acontainer.aclose()
 
         received = await ascope.aresolve(AsyncFakeService)
 
@@ -290,7 +290,7 @@ class TestResolveTypeBoundToSingletonRegistration:
     async def test_release_scope_not_clear_cached_value(
         self, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        await ascope.arelease()
+        await ascope.aclose()
 
         received = ascope.resolve(AsyncFakeService)
 
@@ -335,14 +335,14 @@ class TestResolveTypeBoundToScopeRegistration:
     async def test_release_scope_exit_entered_context_manager(
         self, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        await ascope.arelease()
+        await ascope.aclose()
 
         assert resolved.exited
 
     async def test_release_scope_clear_cached_value(
         self, ascope: Scope, resolved: AsyncFakeService
     ) -> None:
-        await ascope.arelease()
+        await ascope.aclose()
 
         received = await ascope.aresolve(AsyncFakeService)
 

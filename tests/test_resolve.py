@@ -188,7 +188,7 @@ class TestResolveTypeUsingTransientLifetime:
     ) -> None:
         another = scope.resolve(FakeService)
 
-        scope.release()
+        scope.close()
 
         assert resolved.exited
         assert another.exited
@@ -246,21 +246,21 @@ class TestResolveTypeBoundToSingletonRegistration:
     def test_release_scope_not_exit_entered_context_manager(
         self, scope: Scope, resolved: FakeService
     ) -> None:
-        scope.release()
+        scope.close()
 
         assert not resolved.exited
 
     def test_release_container_exit_entered_context_manager(
         self, container: Container, resolved: FakeService
     ) -> None:
-        container.release()
+        container.close()
 
         assert resolved.exited
 
     def test_release_container_clear_cached_value(
         self, container: Container, scope: Scope, resolved: FakeService
     ) -> None:
-        container.release()
+        container.close()
 
         received = scope.resolve(FakeService)
 
@@ -269,7 +269,7 @@ class TestResolveTypeBoundToSingletonRegistration:
     def test_release_scope_not_clear_cached_value(
         self, scope: Scope, resolved: FakeService
     ) -> None:
-        scope.release()
+        scope.close()
 
         received = scope.resolve(FakeService)
 
@@ -309,14 +309,14 @@ class TestResolveTypeBoundToScopeRegistration:
     def test_release_scope_exit_entered_context_manager(
         self, scope: Scope, resolved: FakeService
     ) -> None:
-        scope.release()
+        scope.close()
 
         assert resolved.exited
 
     def test_release_scope_clear_cached_value(
         self, scope: Scope, resolved: FakeService
     ) -> None:
-        scope.release()
+        scope.close()
 
         received = scope.resolve(FakeService)
 
@@ -348,7 +348,7 @@ class TestOverrideTypes:
     def test_release_container_clear_overrides(
         self, container: Container, scope: Scope, factory: Mock, factory_override: Mock
     ) -> None:
-        container.release()
+        container.close()
         scope.resolve(FakeService)
 
         factory.assert_called_once_with()

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RegistrationBuilder.self(...)` and `RegistrationBuilder.factory(...)` now accept `lifetime` as positional argument in addition to keyword argument.
 - Lifetime parameters in `.self(...)`, `.factory(...)`, and `@container.factory()` now accept lifetime classes (e.g., `Singleton`, `Scoped`, `Transient`) in addition to lifetime instances (e.g., `Singleton()`, `Scoped()`, `Transient()`). This allows for more concise registrations without explicit instantiation.
 - **Breaking:** renamed registration option `enter` to `managed` across `RegistrationBuilder.self(...)`, `RegistrationBuilder.value(...)`, `RegistrationBuilder.factory(...)`, `Container.factory(...)` and `Registration` (`enter` field is now `managed`).
+- **Breaking:** renamed cleanup methods from `release()`/`arelease()` to `close()`/`aclose()` on container and scope objects.
 - **Breaking:** replaced resolution context terminology with scope terminology across the public API:
   - `ResolutionContext` has been renamed to `Scope`
   - `Contextual` lifetime has been renamed to `Scoped`
