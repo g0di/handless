@@ -80,6 +80,7 @@ This library currently support the following injection method:
 
 - Each notable changes made must be added in the unreleased section [CHANGELOG.md](./CHANGELOG.md) file following [keepachangelog](https://keepachangelog.com/en/1.1.0/) recommendations
   - Purely internal changes must be kept concise on a dedicated internal section
+  - Previous changelog entries (released versions) must not be updated during refactoring operations except explicitly asked for
 - Documentation wether on code docstring or [README.md](./README.md) must be kept synced with the code.
   - New features must be added to the documentation
 - After changes, update the [TODO.md](./TODO.md) to remove occurences of the change
