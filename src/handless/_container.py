@@ -168,13 +168,13 @@ class Container(Releasable["Container"]):
 
             >>> container = Container()
             >>> @container.binding
-            ... def get_database() -> Database:
-            ...     return Database()
-            >>> # Now Database is bound, and you can also call the function directly
-            >>> db = get_database()
+            ... def get_config() -> dict:
+            ...     return {"debug": True}
+            >>> # Now dict is bound, and you can also call the function directly
+            >>> config = get_config()
             >>> # Or resolve it from a scope
             >>> with container.create_scope() as scope:
-            ...     db = scope.resolve(Database)
+            ...     config = scope.resolve(dict)
 
         :param factory: The decorated factory function (function parameter only used internally)
         :param managed: Whether returned context managers should be entered/exited automatically.

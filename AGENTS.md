@@ -72,7 +72,6 @@ This library currently support the following injection method:
 - Use pytest.mark.parametrize to test a same function with different inputs and outputs rather than creating one per situation
 - Prefer using good naming of variables, classes, methods and functions rather than comments to makes tests more readable. This includes proper naming of test functions. It should mention what is being tested and which behavior is expected without detailing exact values
 
-
 ## Security considerations
 
 - Particular care must be taken to avoid memory leak when managing dependencies and their lifetime with containers and contexts

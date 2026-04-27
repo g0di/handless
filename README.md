@@ -183,7 +183,7 @@ same scope lifecycle. This design choice has been made for two reasons:
 - Avoid keeping transient values for the whole duration of a container and as a consequence, an application.
   > :question: This is because there is no reliable and easy way in Python to automatically cleanup object before garbage collection. Explicit cleanup is required or at least strongly encouraged.
 - Keep scoped lifetime semantics explicit and predictable
-    > :question: For types bound with a lifetime of a `Scope`, reusing a dedicated
+  > :question: For types bound with a lifetime of a `Scope`, reusing a dedicated
   > scope keeps behavior obvious and avoids accidental resolve patterns where each call
   > silently creates an independent scope.
 
