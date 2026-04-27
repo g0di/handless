@@ -92,7 +92,7 @@ container.bind(StdoutNotificationManager).to_self(Transient())
 container.bind(EmailNotificationManager).to_self()
 
 
-@container.factory
+@container.binding
 def create_notification_manager(config: Config, ctx: Scope) -> NotificationManager:
     if config.smtp_host == "stdout":
         return ctx.resolve(StdoutNotificationManager)

@@ -313,7 +313,7 @@ container.bind(StdoutNotificationManager).to_self(Transient())
 container.bind(EmailNotificationManager).to_self()
 
 
-@container.factory
+@container.binding
 def create_notification_manager(config: Config, ctx: Scope) -> NotificationManager:
     if config.smtp_host == "stdout":
         return ctx.resolve(StdoutNotificationManager)
@@ -439,9 +439,9 @@ with container.resolve(Foo) as resolved_foo:
     assert resolved_foo.bar == 42
 ```
 
-#### Using `factory` decorator
+#### Using `binding` decorator
 
-Having to write your factory function somewhere then bind it on your container elsewhere tends to reduce readability. If you prefer you can opt for using the factory decorator instead.
+Having to write your factory function somewhere then bind it on your container elsewhere tends to reduce readability. If you prefer you can opt for using the binding decorator instead.
 
 ```python
 from handless import Container
@@ -456,7 +456,7 @@ container = Container()
 container.bind(int).to_value(42)
 
 
-@container.factory
+@container.binding
 def create_foo(bar: int) -> Foo:
     return Foo(bar)
 
@@ -466,7 +466,7 @@ with container.resolve(Foo) as resolved_foo:
     assert resolved_foo.bar == 42
 ```
 
-This is mostly a matter of preference as both ways do the exact same thing. You can also pass parameters to the factory decorator `@factory(lifetime=..., managed=...)`.
+This is mostly a matter of preference as both ways do the exact same thing. You can also pass parameters to the binding decorator `@binding(lifetime=..., managed=...)`.
 
 ### Bind a lambda function
 
@@ -544,7 +544,7 @@ When resolving `IFoo`, the container will actually resolve and returns `Foo`.
 
 ### Manage lifetime
 
-During binding of factories `.to_factory(...)`, `@container.factory()` and `.to_self()` you can optionally pass a lifetime.
+During binding of factories `.to_factory(...)`, `@container.binding()` and `.to_self()` you can optionally pass a lifetime.
 
 > :warning: You can not change lifetimes for `.to_value(...)` and `.to(...)` by design.
 
@@ -748,7 +748,7 @@ container.bind(MongoTodoItemRepository).to_factory(
 )
 
 
-@container.factory
+@container.binding
 def get_todo_item_repository(ctx: Scope) -> TodoItemRepository:
     db_type = os.getenv("DB_TYPE", "sqlite")
     if db_type == "sqlite":

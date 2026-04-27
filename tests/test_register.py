@@ -209,11 +209,11 @@ class TestBindSelf:
         )
 
 
-class TestBindFactoryUsingDecorator:
-    def test_factory_decorator_binds_decorated_function_for_its_return_type_annotation(
+class TestBindingDecorator:
+    def test_binding_decorator_binds_decorated_function_for_its_return_type_annotation(
         self, container: Container
     ) -> None:
-        @container.factory
+        @container.binding
         def get_fake_service() -> FakeService:
             return FakeService()
 
@@ -221,10 +221,10 @@ class TestBindFactoryUsingDecorator:
             FakeService, get_fake_service, managed=True, lifetime=Transient()
         )
 
-    def test_factory_decorator_binds_decorated_function_with_arguments(
+    def test_binding_decorator_binds_decorated_function_with_arguments(
         self, container: Container
     ) -> None:
-        @container.factory
+        @container.binding
         def get_fake_service(
             foo: str,  # noqa: ARG001
             ctx: Scope,  # noqa: ARG001
@@ -246,28 +246,28 @@ class TestBindFactoryUsingDecorator:
             ),
         )
 
-    def test_factory_decorator_raise_error_for_function_with_untyped_parameters(
+    def test_binding_decorator_raise_error_for_function_with_untyped_parameters(
         self, container: Container
     ) -> None:
         with pytest.raises(BindingError):
 
-            @container.factory
+            @container.binding
             def get_fake_service(foo, bar) -> FakeService:  # type: ignore  # noqa: ANN001, ARG001, PGH003
                 return FakeService()
 
-    def test_factory_decorator_raise_error_for_function_without_return_type(
+    def test_binding_decorator_raise_error_for_function_without_return_type(
         self, container: Container
     ) -> None:
         with pytest.raises(BindingError):
 
-            @container.factory
+            @container.binding
             def get_fake_service():  # type: ignore  # noqa: ANN202, PGH003
                 return FakeService()
 
-    def test_factory_decorator_wraps_decorated_generators_as_context_manager(
+    def test_binding_decorator_wraps_decorated_generators_as_context_manager(
         self, container: Container
     ) -> None:
-        @container.factory
+        @container.binding
         def get_fake_service() -> Iterator[FakeService]:
             yield FakeService()
 
@@ -278,10 +278,10 @@ class TestBindFactoryUsingDecorator:
             lifetime=Transient(),
         )
 
-    def test_factory_decorator_wraps_decorated_async_generators_as_async_context_manager(
+    def test_binding_decorator_wraps_decorated_async_generators_as_async_context_manager(
         self, container: Container
     ) -> None:
-        @container.factory
+        @container.binding
         async def get_fake_service() -> AsyncIterator[FakeService]:
             yield FakeService()
 
@@ -292,10 +292,10 @@ class TestBindFactoryUsingDecorator:
             lifetime=Transient(),
         )
 
-    def test_factory_decorator_binds_context_manager_as_is(
+    def test_binding_decorator_binds_context_manager_as_is(
         self, container: Container
     ) -> None:
-        @container.factory
+        @container.binding
         @contextmanager
         def get_fake_service() -> Iterator[FakeService]:
             yield FakeService()
@@ -304,10 +304,10 @@ class TestBindFactoryUsingDecorator:
             FakeService, get_fake_service, managed=True, lifetime=Transient()
         )
 
-    def test_factory_decorator_binds_async_context_manager_as_is(
+    def test_binding_decorator_binds_async_context_manager_as_is(
         self, container: Container
     ) -> None:
-        @container.factory
+        @container.binding
         @asynccontextmanager
         async def get_fake_service() -> AsyncIterator[FakeService]:
             yield FakeService()
@@ -318,14 +318,14 @@ class TestBindFactoryUsingDecorator:
 
     @use_managed
     @use_lifetimes
-    def test_factory_decorator_with_options(
+    def test_binding_decorator_with_options(
         self,
         container: Container,
         managed: bool,
         lifetime: Lifetime | type[Lifetime],
         expected_lifetime: Lifetime,
     ) -> None:
-        @container.factory(lifetime=lifetime, managed=managed)
+        @container.binding(lifetime=lifetime, managed=managed)
         def get_fake_service() -> FakeService:
             return FakeService()
 

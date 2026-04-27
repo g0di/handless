@@ -140,31 +140,46 @@ class Container(Releasable["Container"]):
         return binding
 
     @overload
-    def factory(self, factory: _U) -> _U: ...
+    def binding(self, factory: _U) -> _U: ...
 
     @overload
-    def factory(
+    def binding(
         self, *, managed: bool = ..., lifetime: Lifetime | type[Lifetime] | None = ...
     ) -> Callable[[_U], _U]: ...
 
-    def factory(
+    def binding(
         self,
         factory: _U | None = None,
         *,
         managed: bool = True,
         lifetime: Lifetime | type[Lifetime] | None = None,
     ) -> Any:
-        """Bind decorated function as a factory for its return type annotation.
+        """Declare a function as a factory binding for its return type annotation.
 
-        This is a shortand for `container.bind(SomeType).to_factory(decorated_function)`
-        Where `SomeType` is the return type annotation of `decorated_function`.
+        This decorator extracts the return type from the decorated function and
+        registers it as a factory binding. It is equivalent to calling
+        `container.bind(SomeType).to_factory(decorated_function)` where `SomeType`
+        is inferred from the function's return type annotation.
 
-        Decorated function is left untouched meaning that you can  safely call it manually.
+        The decorated function is left untouched, so you can safely call it directly
+        in your code in addition to having it registered with the container.
 
-        :param factory: The decorated factory function
+        Example::
+
+            >>> container = Container()
+            >>> @container.binding
+            ... def get_database() -> Database:
+            ...     return Database()
+            >>> # Now Database is bound, and you can also call the function directly
+            >>> db = get_database()
+            >>> # Or resolve it from a scope
+            >>> with container.create_scope() as scope:
+            ...     db = scope.resolve(Database)
+
+        :param factory: The decorated factory function (function parameter only used internally)
         :param managed: Whether returned context managers should be entered/exited automatically.
-        :param lifetime: The factory lifetime, defaults to `Transient`
-        :returns: The pristine decorated function.
+        :param lifetime: The binding lifetime, defaults to `Transient`
+        :returns: The unmodified decorated function.
         :raises BindingError: If the decorated function has no return type annotation.
         """
 

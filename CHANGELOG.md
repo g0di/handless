@@ -21,9 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Exception names have been renamed: `RegistrationError` -> `BindingError`, `RegistrationNotFoundError` -> `BindingNotFoundError`, `RegistrationAlreadyExistError` -> `BindingAlreadyExistsError`.
   - Legacy exception aliases (`RegistrationError`, `RegistrationNotFoundError`, `RegistrationAlreadyExistError`) have been removed.
   - Fluent binder methods were renamed: `.factory(...)` -> `.to_factory(...)`, `.value(...)` -> `.to_value(...)`, `.alias(...)` -> `.to(...)`, `.self(...)` -> `.to_self(...)`
+  - Decorator renamed: `@container.factory()` -> `@container.binding()` (noun form for declarative binding marker)
 - `Binder.to_self(...)` and `Binder.to_factory(...)` now accept `lifetime` as positional argument in addition to keyword argument.
-- Lifetime parameters in `.to_self(...)`, `.to_factory(...)`, and `@container.factory()` now accept lifetime classes (e.g., `Singleton`, `Scoped`, `Transient`) in addition to lifetime instances (e.g., `Singleton()`, `Scoped()`, `Transient()`). This allows for more concise bindings without explicit instantiation.
-- **Breaking:** renamed binding option `enter` to `managed` across `Binder.to_self(...)`, `Binder.to_value(...)`, `Binder.to_factory(...)`, `Container.factory(...)` and `Binding` (`enter` field is now `managed`).
+- Lifetime parameters in `.to_self(...)`, `.to_factory(...)`, and `@container.binding()` now accept lifetime classes (e.g., `Singleton`, `Scoped`, `Transient`) in addition to lifetime instances (e.g., `Singleton()`, `Scoped()`, `Transient()`). This allows for more concise bindings without explicit instantiation.
+- **Breaking:** renamed binding option `enter` to `managed` across `Binder.to_self(...)`, `Binder.to_value(...)`, `Binder.to_factory(...)`, `Container.binding(...)` and `Binding` (`enter` field is now `managed`).
 - **Breaking:** renamed cleanup methods from `release()`/`arelease()` to `close()`/`aclose()` on container and scope objects.
 - **Breaking:** replaced resolution context terminology with scope terminology across the public API:
   - `ResolutionContext` has been renamed to `Scope`
