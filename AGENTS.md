@@ -58,6 +58,7 @@ This library currently support the following injection method:
   - Private methods or attributes part of public objects are prefixed with an underscore
   - In case of doubts default to private visibility for new code if it is not clear that this is part of the public API
 - Boolean flags (boolean method arguments must be keyword arguments only)
+- Prefer using good naming of variables, classes, methods and functions rather than comments. Keep comments for explaining things that cannot be expressed through code (workarounds, optimizations, non-obvious for having done something this way)
 
 ## Testing instructions
 
@@ -69,6 +70,8 @@ This library currently support the following injection method:
   - The test is written first to validate the behavior then the code is implemented (test-first)
 - Tests covering a same method should be grouped under a same class for readability
 - Use pytest.mark.parametrize to test a same function with different inputs and outputs rather than creating one per situation
+- Prefer using good naming of variables, classes, methods and functions rather than comments to makes tests more readable. This includes proper naming of test functions. It should mention what is being tested and which behavior is expected without detailing exact values
+
 
 ## Security considerations
 

@@ -214,7 +214,6 @@ class Container(Releasable["Container"]):
         This method is idempotent and can safely be called multiple times.
         Calling it never prevents resolving new values with the same container afterwards.
         """
-        # TODO: create a test that ensure scopes are properly closed on container close
         for scope in self._scopes:
             scope.close()
         self._overrides.clear()

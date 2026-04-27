@@ -347,3 +347,44 @@ class TestResolveTypeBoundToScopeRegistration:
         received = await ascope.aresolve(AsyncFakeService)
 
         assert received is not resolved
+
+
+class TestContainerCloseWithScopes:
+    async def test_container_close_closes_referenced_scopes(
+        self, acontainer: Container
+    ) -> None:
+        """Verify that container.aclose() closes all referenced scopes."""
+        acontainer.bind(AsyncFakeService).to_self(lifetime=Singleton())
+        scope = acontainer.create_scope()
+        service = await scope.aresolve(AsyncFakeService)
+
+        assert service.entered
+        assert not service.exited
+
+        await acontainer.aclose()
+
+        assert service.exited
+
+    async def test_container_close_no_error_when_unreferenced_scopes_garbage_collected(
+        self, acontainer: Container
+    ) -> None:
+        """Verify container.aclose() handles scopes that are garbage collected (weakref).
+
+        When a scope is no longer referenced and garbage collected, it should
+        automatically disappear from the container's weakref set, and closing
+        the container should not raise any errors.
+        """
+        import gc
+
+        acontainer.bind(AsyncFakeService).to_self(lifetime=Singleton())
+
+        async def create_unreferenced_scope_and_resolve_service() -> AsyncFakeService:
+            scope = acontainer.create_scope()
+            return await scope.aresolve(AsyncFakeService)
+
+        service = await create_unreferenced_scope_and_resolve_service()
+        gc.collect()
+
+        await acontainer.aclose()
+
+        assert service.exited

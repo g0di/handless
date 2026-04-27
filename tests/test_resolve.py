@@ -394,3 +394,44 @@ class TestOverrideTypes:
 
         override = scope.resolve(FakeService)
         assert override is not singleton
+
+
+class TestContainerCloseWithScopes:
+    def test_container_close_closes_referenced_scopes(
+        self, container: Container
+    ) -> None:
+        """Verify that container.close() closes all referenced scopes."""
+        container.bind(FakeService).to_self(lifetime=Singleton())
+        scope = container.create_scope()
+        service = scope.resolve(FakeService)
+
+        assert service.entered
+        assert not service.exited
+
+        container.close()
+
+        assert service.exited
+
+    def test_container_close_no_error_when_unreferenced_scopes_garbage_collected(
+        self, container: Container
+    ) -> None:
+        """Verify container.close() handles scopes that are garbage collected (weakref).
+
+        When a scope is no longer referenced and garbage collected, it should
+        automatically disappear from the container's weakref set, and closing
+        the container should not raise any errors.
+        """
+        import gc
+
+        container.bind(FakeService).to_self(lifetime=Singleton())
+
+        def create_unreferenced_scope_and_resolve_service() -> FakeService:
+            scope = container.create_scope()
+            return scope.resolve(FakeService)
+
+        service = create_unreferenced_scope_and_resolve_service()
+        gc.collect()
+
+        container.close()
+
+        assert service.exited
