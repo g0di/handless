@@ -78,18 +78,18 @@ class UserService:
 config = Config(smtp_host="test")
 
 container = Container()
-container.register(Config).value(config)
+container.bind(Config).to_value(config)
 
 # User repository
-container.register(InMemoryUserRepository).self(Singleton())
-container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore[type-abstract]
+container.bind(InMemoryUserRepository).to_self(Singleton())
+container.bind(UserRepository).to(InMemoryUserRepository)  # type: ignore[type-abstract]
 
 # Notification manager
-container.register(smtplib.SMTP).factory(
+container.bind(smtplib.SMTP).to_factory(
     lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host), Singleton(), managed=True
 )
-container.register(StdoutNotificationManager).self(Transient())
-container.register(EmailNotificationManager).self()
+container.bind(StdoutNotificationManager).to_self(Transient())
+container.bind(EmailNotificationManager).to_self()
 
 
 @container.factory
@@ -100,7 +100,7 @@ def create_notification_manager(config: Config, ctx: Scope) -> NotificationManag
 
 
 # Top level service
-container.register(UserService).self(Scoped())
+container.bind(UserService).to_self(Scoped())
 
 
 with container.create_scope() as ctx:

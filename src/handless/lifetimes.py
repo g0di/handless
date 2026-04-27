@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from handless._container import Scope
-    from handless._registry import Registration
+    from handless._registry import Binding
 
 
 _T = TypeVar("_T")
@@ -21,19 +21,19 @@ _T = TypeVar("_T")
 
 @runtime_checkable
 class Lifetime(Protocol):
-    def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
-        """Resolve given registration within given scope.
+    def resolve(self, scope: Scope, binding: Binding[_T]) -> _T:
+        """Resolve given binding within given scope.
 
         :param scope: Active resolution scope.
-        :param registration: Registration to resolve.
+        :param binding: Binding to resolve.
         :returns: Resolved value.
         """
 
-    async def aresolve(self, scope: Scope, registration: Registration[_T]) -> _T:
-        """Asynchrnously resolve given registration within given scope.
+    async def aresolve(self, scope: Scope, binding: Binding[_T]) -> _T:
+        """Asynchrnously resolve given binding within given scope.
 
         :param scope: Active resolution scope.
-        :param registration: Registration to resolve.
+        :param binding: Binding to resolve.
         :returns: Resolved value.
         """
 
@@ -48,7 +48,7 @@ class Transient(Lifetime):
 
         >>> from handless import Container, Transient
         >>> container = Container()
-        >>> container.register(object).self()  # Default is Transient
+        >>> container.bind(object).to_self()  # Default is Transient
         >>> with container.create_scope() as scope:
         ...     o1 = scope.resolve(object)
         ...     o2 = scope.resolve(object)
@@ -60,13 +60,13 @@ class Transient(Lifetime):
         Singleton: for app-wide singletons
     """
 
-    def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+    def resolve(self, scope: Scope, binding: Binding[_T]) -> _T:
         ctx = LifetimeContext.get(scope)
-        return ctx.get_instance(scope, registration)
+        return ctx.get_instance(scope, binding)
 
-    async def aresolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+    async def aresolve(self, scope: Scope, binding: Binding[_T]) -> _T:
         ctx = LifetimeContext.get(scope)
-        return await ctx.aget_instance(scope, registration)
+        return await ctx.aget_instance(scope, binding)
 
     def __eq__(self, value: object) -> bool:
         return isinstance(value, Transient)
@@ -83,7 +83,7 @@ class Scoped(Lifetime):
 
         >>> from handless import Container, Scoped
         >>> container = Container()
-        >>> container.register(object).self(lifetime=Scoped())
+        >>> container.bind(object).to_self(lifetime=Scoped())
         >>>
         >>> with container.create_scope() as scope1:
         ...     o1 = scope1.resolve(object)
@@ -101,13 +101,13 @@ class Scoped(Lifetime):
         Singleton: for app-wide singletons
     """
 
-    def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+    def resolve(self, scope: Scope, binding: Binding[_T]) -> _T:
         ctx = LifetimeContext.get(scope)
-        return ctx.get_cached_instance(scope, registration)
+        return ctx.get_cached_instance(scope, binding)
 
-    async def aresolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+    async def aresolve(self, scope: Scope, binding: Binding[_T]) -> _T:
         ctx = LifetimeContext.get(scope)
-        return await ctx.aget_cached_instance(scope, registration)
+        return await ctx.aget_cached_instance(scope, binding)
 
     def __eq__(self, value: object) -> bool:
         return isinstance(value, Scoped)
@@ -127,7 +127,7 @@ class Singleton(Lifetime):
 
         >>> from handless import Container, Singleton
         >>> container = Container()
-        >>> container.register(object).self(lifetime=Singleton())
+        >>> container.bind(object).to_self(lifetime=Singleton())
         >>>
         >>> with container.create_scope() as scope1:
         ...     o1 = scope1.resolve(object)
@@ -142,13 +142,13 @@ class Singleton(Lifetime):
         Transient: for no caching
     """
 
-    def resolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+    def resolve(self, scope: Scope, binding: Binding[_T]) -> _T:
         ctx = LifetimeContext.get(scope.container)
-        return ctx.get_cached_instance(scope, registration)
+        return ctx.get_cached_instance(scope, binding)
 
-    async def aresolve(self, scope: Scope, registration: Registration[_T]) -> _T:
+    async def aresolve(self, scope: Scope, binding: Binding[_T]) -> _T:
         ctx = LifetimeContext.get(scope.container)
-        return await ctx.aget_cached_instance(scope, registration)
+        return await ctx.aget_cached_instance(scope, binding)
 
     def __eq__(self, value: object) -> bool:
         return isinstance(value, Singleton)
@@ -269,53 +269,51 @@ class LifetimeContext(Releasable["LifetimeContext"]):
     async def aclose(self) -> None:
         await self.__aexit__(None, None, None)
 
-    def get_cached_instance(self, scope: Scope, registration: Registration[_T]) -> _T:
-        # NOTE: use registration object ID allowing to not get previously cached value
-        # for a type already resolved but overriden afterwards (Override will register
-        # another registration object).
-        registration_hash = id(registration)
+    def get_cached_instance(self, scope: Scope, binding: Binding[_T]) -> _T:
+        # NOTE: use binding object ID allowing to not get previously cached value
+        # for a type already resolved but overriden afterwards (Override will bind
+        # another binding object).
+        registration_hash = id(binding)
 
         with self._lock:
             # Use a context shared lock to ensure all threads use the same lock
-            # per registration
+            # per binding
             registration_lock = self._registration_locks[registration_hash]
 
         with registration_lock:
-            # Use a context and registration shared lock to ensure a single thread
+            # Use a context and binding shared lock to ensure a single thread
             # can run the following code. This will ensure we can not end up with
-            # two instances of a singleton lifetime registration if two threads
+            # two instances of a singleton lifetime binding if two threads
             # resolve it at the same time
             if registration_hash not in self._cache:
-                self._cache[registration_hash] = self.get_instance(scope, registration)
+                self._cache[registration_hash] = self.get_instance(scope, binding)
             return cast("_T", self._cache[registration_hash])
 
-    async def aget_cached_instance(
-        self, scope: Scope, registration: Registration[_T]
-    ) -> _T:
-        # NOTE: use registration object ID allowing to not get previously cached value
-        # for a type already resolved but overriden afterwards (Override will register
-        # another registration object).
-        registration_hash = id(registration)
+    async def aget_cached_instance(self, scope: Scope, binding: Binding[_T]) -> _T:
+        # NOTE: use binding object ID allowing to not get previously cached value
+        # for a type already resolved but overriden afterwards (Override will bind
+        # another binding object).
+        registration_hash = id(binding)
 
         async with self._async_lock:
             # Use a context shared lock to ensure all threads use the same lock
-            # per registration
+            # per binding
             registration_lock = self._async_registration_locks[registration_hash]
 
         async with registration_lock:
-            # Use a context and registration shared lock to ensure a single thread
+            # Use a context and binding shared lock to ensure a single thread
             # can run the following code. This will ensure we can not end up with
-            # two instances of a singleton lifetime registration if two threads
+            # two instances of a singleton lifetime binding if two threads
             # resolve it at the same time
             if registration_hash not in self._cache:
                 self._cache[registration_hash] = await self.aget_instance(
-                    scope, registration
+                    scope, binding
                 )
             return cast("_T", self._cache[registration_hash])
 
-    def get_instance(self, scope: Scope, registration: Registration[_T]) -> _T:
-        args, kwargs = self._resolve_dependencies(registration, scope)
-        instance = registration.factory(*args, **kwargs)
+    def get_instance(self, scope: Scope, binding: Binding[_T]) -> _T:
+        args, kwargs = self._resolve_dependencies(binding, scope)
+        instance = binding.factory(*args, **kwargs)
 
         if asyncio.iscoroutine(instance):
             instance.close()
@@ -324,14 +322,14 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         if isinstance(instance, AbstractAsyncContextManager):
             msg = f"Cannot resolve async context manager {instance}. Use `aresolve()` instead."
             raise TypeError(msg)
-        if isinstance(instance, AbstractContextManager) and registration.managed:
+        if isinstance(instance, AbstractContextManager) and binding.managed:
             self._entered_context_managers.append(instance)
             instance = instance.__enter__()
 
         with suppress(TypeError):
-            if not isinstance(instance, registration.type_):
+            if not isinstance(instance, binding.type_):
                 warnings.warn(
-                    f"Container resolved {registration.type_} with {instance} which is not an instance of this type. "
+                    f"Container resolved {binding.type_} with {instance} which is not an instance of this type. "
                     "This could lead to unexpected errors.",
                     UserWarning,
                     stacklevel=4,
@@ -341,23 +339,23 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         # is not way to enforce this so we just return the value anyway
         return cast("_T", instance)
 
-    async def aget_instance(self, scope: Scope, registration: Registration[_T]) -> _T:
-        args, kwargs = await self._aresolve_dependencies(registration, scope)
-        instance = registration.factory(*args, **kwargs)
+    async def aget_instance(self, scope: Scope, binding: Binding[_T]) -> _T:
+        args, kwargs = await self._aresolve_dependencies(binding, scope)
+        instance = binding.factory(*args, **kwargs)
 
         if asyncio.iscoroutine(instance):
             instance = await instance
-        if isinstance(instance, AbstractAsyncContextManager) and registration.managed:
+        if isinstance(instance, AbstractAsyncContextManager) and binding.managed:
             self._entered_context_managers.append(instance)
             instance = await instance.__aenter__()
-        if isinstance(instance, AbstractContextManager) and registration.managed:
+        if isinstance(instance, AbstractContextManager) and binding.managed:
             self._entered_context_managers.append(instance)
             instance = instance.__enter__()
 
         with suppress(TypeError):
-            if not isinstance(instance, registration.type_):
+            if not isinstance(instance, binding.type_):
                 warnings.warn(
-                    f"Container resolved {registration.type_} with {instance} which is not an instance of this type. "
+                    f"Container resolved {binding.type_} with {instance} which is not an instance of this type. "
                     "This could lead to unexpected errors.",
                     UserWarning,
                     stacklevel=4,
@@ -368,12 +366,12 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         return cast("_T", instance)
 
     def _resolve_dependencies(
-        self, registration: Registration[_T], scope: Scope
+        self, binding: Binding[_T], scope: Scope
     ) -> tuple[list[Any], dict[str, Any]]:
         args = []
         kwargs: dict[str, Any] = {}
 
-        for dep in registration.dependencies:
+        for dep in binding.dependencies:
             resolved = scope.resolve(dep.type_)
             if dep.positional_only:
                 args.append(resolved)
@@ -383,12 +381,12 @@ class LifetimeContext(Releasable["LifetimeContext"]):
         return args, kwargs
 
     async def _aresolve_dependencies(
-        self, registration: Registration[_T], scope: Scope
+        self, binding: Binding[_T], scope: Scope
     ) -> tuple[list[Any], dict[str, Any]]:
         args = []
         kwargs: dict[str, Any] = {}
 
-        for dep in registration.dependencies:
+        for dep in binding.dependencies:
             resolved = await scope.aresolve(dep.type_)
             if dep.positional_only:
                 args.append(resolved)

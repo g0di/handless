@@ -12,7 +12,7 @@ Current implementation provides an imperative API for building a container and r
 This library tries to follow dependency injection best practices and patterns:
 
 - **Composition root**: the mapping between concrete classes and interface must be composed as close as possible to the application entry point. The Composition root should be an unique location in the application;
-- **Register, Resolve, Release**: The Register, Resolve and Release pattern describes how to use a DI container. The Register Resolve Release pattern states that a DI Container’s methods must be invoked in this strict sequence. The Register method register components with container. The Resolve method resolves the concrete class basing on an interface. Finally, Release method destroys the instances when they are no longer needed;
+- **Register, Resolve, Release**: The Register, Resolve and Release pattern describes how to use a DI container. The Register Resolve Release pattern states that a DI Container’s methods must be invoked in this strict sequence. The Register method register components with container. The Resolve method resolves the concrete class basing on an interface. Finally, Release method destroys the instances when they are no longer needed. Note that in this library, "registration" is made through "bind" method and release is named "close" to be more pythonic;
 
 This library currently support the following injection method:
 

@@ -12,17 +12,13 @@ from contextlib import (
 from inspect import isasyncgenfunction, isgeneratorfunction
 from typing import TYPE_CHECKING, Any, TypeVar, get_args, overload
 
-from handless._registry import RegistrationBuilder, Registry
+from handless._registry import Binder, Registry
 from handless._utils import get_return_type, isasynccontextmanager, iscontextmanager
-from handless.exceptions import (
-    RegistrationError,
-    RegistrationNotFoundError,
-    ResolutionError,
-)
+from handless.exceptions import BindingError, BindingNotFoundError, ResolutionError
 from handless.lifetimes import Releasable
 
 if TYPE_CHECKING:
-    from handless._registry import Registration
+    from handless._registry import Binding
     from handless.lifetimes import Lifetime
 
 
@@ -37,7 +33,7 @@ _U = TypeVar("_U", bound=Callable[..., Any])
 class Container(Releasable["Container"]):
     """Create a new container.
 
-    Containers hold registrations defining how to resolve registered types. It also cache
+    Containers hold bindings defining how to resolve bound types. It also cache
     all singleton lifetime types. To resolve a type from a container you must open a scope.
 
     You're free to use the container in a context manager or to manually call the close
@@ -50,7 +46,7 @@ class Container(Releasable["Container"]):
     you may open one per message handling. For a CLI you open a scope per command received.
 
     >>> container = Container()
-    >>> container.register(str).value("Hello Container!")
+    >>> container.bind(str).to_value("Hello Container!")
     >>> with container.create_scope() as scope:
     ...     value = scope.resolve(str)
     ...     print(value)
@@ -64,41 +60,41 @@ class Container(Releasable["Container"]):
         self._overrides = Registry(allow_override=True)
         self._scopes = weakref.WeakSet[Scope]()
 
-    def register(self, type_: type[_T]) -> RegistrationBuilder[_T]:
-        """Register given type and define its resolution at runtime.
+    def bind(self, type_: type[_T]) -> Binder[_T]:
+        """Bind given type and define its resolution at runtime.
 
         This function returns a builder providing function for choosing the provider to
         use for resolving given type as well as its lifetime.
 
         >>> container = Container()
-        >>> container.register(str).value("handless")
-        >>> container.register(object).factory(lambda: object())
-        >>> container.register(Any).alias(object)
-        >>> container.register(list).self()
+        >>> container.bind(str).to_value("handless")
+        >>> container.bind(object).to_factory(lambda: object())
+        >>> container.bind(Any).to(object)
+        >>> container.bind(list).to_self()
 
-        :param type_: Type to register.
-        :returns: A registration builder for configuring value, factory, alias, or self.
+        :param type_: Type to bind.
+        :returns: A binding builder for configuring value, factory, alias, or self.
         """
-        return RegistrationBuilder(self._registry, type_)
+        return Binder(self._registry, type_)
 
-    def override(self, type_: type[_T]) -> RegistrationBuilder[_T]:
-        """Temporarily override a type registration (for testing).
+    def override(self, type_: type[_T]) -> Binder[_T]:
+        """Temporarily override a type binding (for testing).
 
-        Overrides take precedence over normal registrations and are useful for
+        Overrides take precedence over normal bindings and are useful for
         injecting test doubles (mocks, stubs, fakes) into your code without
-        modifying the container's base registrations.
+        modifying the container's base bindings.
 
         The override registry is cleared when you call :meth:`close`, allowing
         the same container instance to be reused for multiple test runs.
 
         :param type_: Type to override.
-        :returns: A registration builder for defining the override provider.
+        :returns: A binding builder for defining the override provider.
 
         Example::
 
             >>> from unittest.mock import Mock
             >>> container = Container()
-            >>> container.register(str).value("production-db-url")
+            >>> container.bind(str).to_value("production-db-url")
             >>>
             >>> # Use production config in normal scope
             >>> with container.create_scope() as scope:
@@ -106,7 +102,7 @@ class Container(Releasable["Container"]):
             ...     assert "production" in config
             >>>
             >>> # Override for testing
-            >>> container.override(str).value("test-db-url")
+            >>> container.override(str).to_value("test-db-url")
             >>> with container.create_scope() as scope:
             ...     config = scope.resolve(str)
             ...     assert "test" in config
@@ -117,33 +113,31 @@ class Container(Releasable["Container"]):
             ...     config = scope.resolve(str)
             ...     assert "production" in config
         """
-        return RegistrationBuilder(self._overrides, type_)
+        return Binder(self._overrides, type_)
 
-    def lookup(self, key: type[_T]) -> Registration[_T]:
-        """Return registration for given type if any.
+    def lookup(self, key: type[_T]) -> Binding[_T]:
+        """Return binding for given type if any.
 
         >>> container = Container()
-        >>> container.register(str).value("handless")
+        >>> container.bind(str).to_value("handless")
         >>> container.lookup(str)
-        Registration(type_=<class 'str'>, ...)
+        Binding(type_=<class 'str'>, ...)
 
-        If the given type is not registered
+        If the given type is not bound
         >>> container = Container()
         >>> container.lookup(str)
         Traceback (most recent call last):
             ...
-        handless.exceptions.RegistrationNotFoundError: ...
+        handless.exceptions.BindingNotFoundError: ...
 
-        :param key: Registered type key to retrieve.
-        :returns: Registration bound to ``key``.
-        :raises RegistrationNotFoundError: If the given type is not registered.
+        :param key: Bound type key to retrieve.
+        :returns: Binding bound to ``key``.
+        :raises BindingNotFoundError: If the given type is not bound.
         """
-        registration = self._overrides.get_registration(
-            key
-        ) or self._registry.get_registration(key)
-        if not registration:
-            raise RegistrationNotFoundError(key)
-        return registration
+        binding = self._overrides.get_binding(key) or self._registry.get_binding(key)
+        if not binding:
+            raise BindingNotFoundError(key)
+        return binding
 
     @overload
     def factory(self, factory: _U) -> _U: ...
@@ -160,9 +154,9 @@ class Container(Releasable["Container"]):
         managed: bool = True,
         lifetime: Lifetime | type[Lifetime] | None = None,
     ) -> Any:
-        """Register decorated function as a factory for its return type annotation.
+        """Bind decorated function as a factory for its return type annotation.
 
-        This is a shortand for `container.register(SomeType).factory(decorated_function)`
+        This is a shortand for `container.bind(SomeType).to_factory(decorated_function)`
         Where `SomeType` is the return type annotation of `decorated_function`.
 
         Decorated function is left untouched meaning that you can  safely call it manually.
@@ -171,7 +165,7 @@ class Container(Releasable["Container"]):
         :param managed: Whether returned context managers should be entered/exited automatically.
         :param lifetime: The factory lifetime, defaults to `Transient`
         :returns: The pristine decorated function.
-        :raises RegistrationError: If the decorated function has no return type annotation.
+        :raises BindingError: If the decorated function has no return type annotation.
         """
 
         def wrapper(factory: _U) -> _U:
@@ -185,9 +179,9 @@ class Container(Releasable["Container"]):
                 rettype = get_args(rettype)[0]
             if not rettype:
                 msg = f"{factory} has no return type annotation"
-                raise RegistrationError(msg)
+                raise BindingError(msg)
 
-            self.register(rettype).factory(factory, lifetime=lifetime, managed=managed)
+            self.bind(rettype).to_factory(factory, lifetime=lifetime, managed=managed)
             # NOTE: return decorated func untouched to ease reuse
             return factory
 
@@ -253,7 +247,7 @@ class Container(Releasable["Container"]):
         order of requested types.
 
         >>> container = Container()
-        >>> container.register(str).value("handless")
+        >>> container.bind(str).to_value("handless")
         >>> with container.resolve(str) as value:
         ...     print(value)
         handless
@@ -322,7 +316,7 @@ class Scope(Releasable["Scope"]):
     managers are exited.
 
     >>> container = Container()
-    >>> container.register(str).value("handless")
+    >>> container.bind(str).to_value("handless")
     >>> with container.create_scope() as scope:
     ...     scope.resolve(str)
     'handless'
@@ -346,57 +340,57 @@ class Scope(Releasable["Scope"]):
         """Return the parent container of this scope."""
         return self._container
 
-    def register_local(self, type_: type[_T]) -> RegistrationBuilder[_T]:
-        """Register a type only within this scope (doesn't affect the container).
+    def bind_local(self, type_: type[_T]) -> Binder[_T]:
+        """Bind a type only within this scope (doesn't affect the container).
 
-        Local registrations are scope-specific and don't modify the parent container.
-        They take precedence over container registrations when resolving within this scope.
+        Local bindings are scope-specific and don't modify the parent container.
+        They take precedence over container bindings when resolving within this scope.
 
         Useful for:
         - Per-request customization in HTTP handlers
         - Temporary test fixtures within a single test
         - Scope-local state that shouldn't affect other scopes
 
-        :param type_: Type to register only in this scope.
-        :returns: A registration builder for defining the local provider.
+        :param type_: Type to bind only in this scope.
+        :returns: A binding builder for defining the local provider.
 
         Example::
 
             >>> container = Container()
-            >>> container.register(str).value("global")
+            >>> container.bind(str).to_value("global")
             >>>
             >>> with container.create_scope() as scope:
             ...     # Override just for this scope
-            ...     scope.register_local(str).value("scope-local")
+            ...     scope.bind_local(str).to_value("scope-local")
             ...     assert scope.resolve(str) == "scope-local"
             >>>
             >>> # Other scopes unaffected
             >>> with container.create_scope() as scope2:
             ...     assert scope2.resolve(str) == "global"
         """
-        return RegistrationBuilder(self._registry, type_)
+        return Binder(self._registry, type_)
 
     def resolve(self, type_: type[_T]) -> _T:
         """Resolve a type to get an instance.
 
         Looks up the provider from this scope's local registry first, then from the
-        parent container if not found. Automatically injects any registered dependencies
+        parent container if not found. Automatically injects any bound dependencies
         required by the factory.
 
-        The behavior depends on the registered lifetime:
+        The behavior depends on the bound lifetime:
         - **Transient**: Creates a new instance every time
         - **Scoped**: Caches within this scope, new instance per scope
         - **Singleton**: Caches in the container, same instance everywhere
 
-        :param type_: The type to resolve (must be registered).
-        :returns: An instance of the registered type, with dependencies injected.
-        :raises RegistrationNotFoundError: If the type was never registered.
+        :param type_: The type to resolve (must be bound).
+        :returns: An instance of the bound type, with dependencies injected.
+        :raises BindingNotFoundError: If the type was never bound.
         :raises ResolutionError: If resolution fails (e.g. missing dependencies).
 
         Example::
 
             >>> container = Container()
-            >>> container.register(str).value("hello")
+            >>> container.bind(str).to_value("hello")
             >>> with container.create_scope() as scope:
             ...     msg = scope.resolve(str)
             ...     print(msg)
@@ -404,16 +398,16 @@ class Scope(Releasable["Scope"]):
 
         See Also:
             aresolve: Async version for async factories
-            register_local: For scope-specific registrations
+            bind_local: For scope-specific bindings
         """
         if type_ is type(self):
             return self
 
-        registration = self._lookup(type_)
+        binding = self._lookup(type_)
 
         try:
-            value = registration.lifetime.resolve(self, registration)
-            self._logger.info("Resolved %s: %s -> %s", type_, registration, type(value))
+            value = binding.lifetime.resolve(self, binding)
+            self._logger.info("Resolved %s: %s -> %s", type_, binding, type(value))
         except Exception as error:
             raise ResolutionError(type_) from error
         else:
@@ -430,12 +424,12 @@ class Scope(Releasable["Scope"]):
         All other behavior is identical to :meth:`resolve`:
         - Looks up from local scope first, then container
         - Injects dependencies automatically
-        - Respects registered lifetimes
+        - Respects bound lifetimes
         - Can create new instances or return cached ones
 
-        :param type_: The type to resolve (must be registered).
-        :returns: An instance of the registered type, with dependencies injected.
-        :raises RegistrationNotFoundError: If the type was never registered.
+        :param type_: The type to resolve (must be bound).
+        :returns: An instance of the bound type, with dependencies injected.
+        :raises BindingNotFoundError: If the type was never bound.
         :raises ResolutionError: If resolution fails.
 
         Example::
@@ -447,7 +441,7 @@ class Scope(Releasable["Scope"]):
             ...     return {"debug": True}
             >>>
             >>> container = Container()
-            >>> container.register(dict).factory(get_config)
+            >>> container.bind(dict).to_factory(get_config)
             >>>
             >>> async def main():
             ...     async with container.create_scope() as scope:
@@ -464,15 +458,15 @@ class Scope(Releasable["Scope"]):
         if type_ is type(self):
             return self
 
-        registration = self._lookup(type_)
+        binding = self._lookup(type_)
 
         try:
-            value = await registration.lifetime.aresolve(self, registration)
-            self._logger.info("Resolved %s: %s -> %s", type_, registration, type(value))
+            value = await binding.lifetime.aresolve(self, binding)
+            self._logger.info("Resolved %s: %s -> %s", type_, binding, type(value))
         except Exception as error:
             raise ResolutionError(type_) from error
         else:
             return value
 
-    def _lookup(self, type_: type[_T]) -> Registration[_T]:
-        return self._registry.get_registration(type_) or self._container.lookup(type_)
+    def _lookup(self, type_: type[_T]) -> Binding[_T]:
+        return self._registry.get_binding(type_) or self._container.lookup(type_)

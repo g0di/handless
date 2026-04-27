@@ -5,63 +5,63 @@ class HandlessException(Exception):  # noqa: N818
     """Base exception for all handless errors."""
 
 
-class RegistrationNotFoundError(HandlessException):
-    """Raised when resolving a type that was never registered.
+class BindingNotFoundError(HandlessException):
+    """Raised when resolving a type that was never bound.
 
     This typically means:
-    - The type was not registered on the container
-    - A local scope registration was needed but not provided
+    - The type was not bound on the container
+    - A local scope binding was needed but not provided
     - The type name was misspelled
 
-    When an unregistered type is resolved, this exception is raised with a message
-    like: "Type <class 'list'> is not registered"
+    When an unbound type is resolved, this exception is raised with a message
+    like: "Type <class 'list'> is not bound"
 
-    To fix: Register the type before resolving it on the container using one of:
-    - container.register(MyType).self()
-    - container.register(MyType).value(instance)
-    - container.register(MyType).factory(factory_func)
+    To fix: Bind the type before resolving it on the container using one of:
+    - container.bind(MyType).to_self()
+    - container.bind(MyType).to_value(instance)
+    - container.bind(MyType).to_factory(factory_func)
     """
 
     def __init__(self, type_: type[Any]) -> None:
-        """Initialize a registration-not-found error.
+        """Initialize a binding-not-found error.
 
         :param type_: Missing type that was requested.
         """
-        super().__init__(f"Type {type_} is not registered")
+        super().__init__(f"Type {type_} is not bound")
 
 
-class RegistrationAlreadyExistError(HandlessException):
-    """Raised when attempting to register a type that's already registered.
+class BindingAlreadyExistsError(HandlessException):
+    """Raised when attempting to bind a type that's already bound.
 
-    By default, the container prevents duplicate registrations to catch errors.
+    By default, the container prevents duplicate bindings to catch errors.
     This is overridable only via :meth:`Container.override`.
 
-    Example error message: "Type <class 'str'> is already registered"
+    Example error message: "Type <class 'str'> is already bound"
 
-    To replace a registration:
+    To replace a binding:
     - Use :meth:`Container.override` for testing purposes (temporary replacement)
     - Create a new container for a completely fresh setup
-    - Use scope-local registration with :meth:`Scope.register_local` for per-scope changes
+    - Use scope-local binding with :meth:`Scope.bind_local` for per-scope changes
     """
 
     def __init__(self, type_: type[Any]) -> None:
-        """Initialize an already-exists registration error.
+        """Initialize an already-exists binding error.
 
-        :param type_: Type that was already registered.
+        :param type_: Type that was already bound.
         """
-        super().__init__(f"Type {type_} is already registered")
+        super().__init__(f"Type {type_} is already bound")
 
 
-class RegistrationError(HandlessException):
-    """Raised when an error occurs during type registration.
+class BindingError(HandlessException):
+    """Raised when an error occurs during type binding.
 
-    This wraps underlying errors that occur during registration, such as:
+    This wraps underlying errors that occur during binding, such as:
     - Missing type annotations on factory parameters
     - Invalid factory function signature
-    - Conflicting registration settings
+    - Conflicting binding settings
 
     The exception message typically includes details about what went wrong,
-    such as: "Cannot register <Type> using <factory>: <underlying error>"
+    such as: "Cannot bind <Type> using <factory>: <underlying error>"
 
     Ensure all factory function parameters have type annotations for proper
     dependency injection, or use a single untyped parameter to receive a Scope.
@@ -82,7 +82,7 @@ class ResolutionError(HandlessException):
 
     Access the ``__cause__`` attribute to see the original exception that caused
     the resolution to fail. This usually contains more details about what went wrong
-    (e.g., a dependency wasn't registered, or the factory function raised an error).
+    (e.g., a dependency wasn't bound, or the factory function raised an error).
     """
 
     def __init__(self, type_: type) -> None:

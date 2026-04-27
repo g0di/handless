@@ -17,7 +17,7 @@ This document contains all the ideas I've got for new features or changes to be 
   - Narrow implicit context injection rule:
   - Keep one-arg untyped fallback only for lambda factories.
   - For non-lambda callables, require explicit Scope annotation and fail fast otherwise.
-  - Document this as an intentional ergonomic exception for concise registrations.
+  - Document this as an intentional ergonomic exception for concise bindings.
 
 - Improve resolution error diagnostics:
 
@@ -26,16 +26,16 @@ This document contains all the ideas I've got for new features or changes to be 
   - Apply this consistently to sync resolve and async resolve.
   - Add tests covering nested failure chains and verify message/metadata content.
 
-- Define precedence contract for overrides vs scope-local registrations:
+- Define precedence contract for overrides vs scope-local bindings:
 
-  - Container overrides must take precedence over everything, including scope-local registrations.
+  - Container overrides must take precedence over everything, including scope-local bindings.
   - Update lookup order and behavior docs to reflect this rule.
   - Add tests for all combinations: registered vs override vs scope-local, including cached instances.
 
 - Make sync/async resolution behavior deterministic without splitting caches:
 
   - Keep a single cache to preserve singleton/scoped identity.
-  - Classify registrations by execution mode (sync-only vs async-capable).
+  - Classify bindings by execution mode (sync-only vs async-capable).
   - Enforce mode before cache access so resolve and aresolve behavior does not depend on cold/warm cache state.
   - Add tests covering both cold and cached paths for sync and async APIs.
 
@@ -48,7 +48,7 @@ This document contains all the ideas I've got for new features or changes to be 
 
 - Add runtime container validation API:
 
-  - Introduce a container.validate() method to analyze the full registration graph after bootstrap.
+  - Introduce a container.validate() method to analyze the full binding graph after bootstrap.
   - Detect and report captive dependencies (lifetime mismatches), unresolved required dependencies, and sync/async incompatibilities.
   - Support both non-raising report mode and strict fail-fast mode.
   - Keep validation side-effect free and runnable in tests/CI/startup.
@@ -82,7 +82,7 @@ This document contains all the ideas I've got for new features or changes to be 
 - :bug: Add a function for printing the whole dependency tree with lifetimes
 - :new: Add ping functions and ability to health check services in the container
 
-## Registration
+## Binding
 
 - :new: Add functions for copying a container
 - :new: Add ability to register local values on scopes, for example, HTTP request scoped objects or anything from other frameworks
@@ -93,12 +93,12 @@ This document contains all the ideas I've got for new features or changes to be 
 - :new: add auto_registration capabilities so container is able to resolve types not registered
 - :new: use magic attributes (**handless_lifetime**) for auto resolving lifetimes from types
 - :new: Allow to configure containers through yaml/toml files
-- :new: Add ability to register release callback per registration (for values for exemples)
+- :new: Add ability to register release callback per binding (for values for exemples)
 
 ## Tests
 
 - add tests for covering uncovered code
-- Split unit tests into smaller files (one per registration type, one per resolve lifetime, ...)
+- Split unit tests into smaller files (one per binding type, one per resolve lifetime, ...)
 
 ## github
 

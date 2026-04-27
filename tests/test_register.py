@@ -4,10 +4,10 @@ from typing import Any
 
 import pytest
 
-from handless import Container, Registration, Scope
+from handless import Binding, Container, Scope
 from handless._registry import Dependency
 from handless._utils import are_functions_equal
-from handless.exceptions import RegistrationAlreadyExistError, RegistrationError
+from handless.exceptions import BindingAlreadyExistsError, BindingError
 from handless.lifetimes import Lifetime, Singleton, Transient
 from tests.helpers import (
     FakeService,
@@ -24,7 +24,7 @@ from tests.helpers import (
 )
 
 
-class TestRegisterFactory:
+class TestBindFactory:
     @pytest.mark.parametrize(
         ("factory", "dependencies"),
         [
@@ -58,16 +58,16 @@ class TestRegisterFactory:
         [IFakeService, FakeService, FakeServiceNewType],
         ids=["Protocol", "Type", "NewType"],
     )
-    def test_register_factory(
+    def test_bind_factory(
         self,
         container: Container,
         type_: type[IFakeService],
         factory: Callable[..., IFakeService],
         dependencies: tuple[Dependency, ...],
     ) -> None:
-        container.register(type_).factory(factory)
+        container.bind(type_).to_factory(factory)
 
-        assert container.lookup(type_) == Registration(
+        assert container.lookup(type_) == Binding(
             type_,
             factory,
             managed=True,
@@ -83,102 +83,100 @@ class TestRegisterFactory:
             pytest.param(create_fake_service_with_untyped_params, id="Function"),
         ],
     )
-    def test_register_factory_with_untyped_parameters(
+    def test_bind_factory_with_untyped_parameters(
         self, container: Container, factory: Callable[..., FakeServiceWithParams]
     ) -> None:
-        with pytest.raises(RegistrationError):
-            container.register(FakeServiceWithParams).factory(factory)
+        with pytest.raises(BindingError):
+            container.bind(FakeServiceWithParams).to_factory(factory)
 
     @use_managed
     @use_lifetimes
-    def test_register_factory_with_options(
+    def test_bind_factory_with_options(
         self,
         container: Container,
         managed: bool,
         lifetime: Lifetime | type[Lifetime],
         expected_lifetime: Lifetime,
     ) -> None:
-        container.register(FakeService).factory(FakeService, lifetime, managed=managed)
+        container.bind(FakeService).to_factory(FakeService, lifetime, managed=managed)
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService, FakeService, managed=managed, lifetime=expected_lifetime
         )
 
-    def test_register_factory_with_generator_function_wraps_it_as_a_context_manager(
+    def test_bind_factory_with_generator_function_wraps_it_as_a_context_manager(
         self, container: Container
     ) -> None:
         def fake_service_generator() -> Iterator[FakeService]:
             yield FakeService()
 
-        container.register(FakeService).factory(fake_service_generator)
+        container.bind(FakeService).to_factory(fake_service_generator)
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService,
             contextmanager(fake_service_generator),
             managed=True,
             lifetime=Transient(),
         )
 
-    def test_register_factory_with_async_generator_function_wraps_it_as_an_async_context_manager(
+    def test_bind_factory_with_async_generator_function_wraps_it_as_an_async_context_manager(
         self, container: Container
     ) -> None:
         async def fake_service_generator() -> AsyncIterator[FakeService]:
             yield FakeService()
 
-        container.register(FakeService).factory(fake_service_generator)
+        container.bind(FakeService).to_factory(fake_service_generator)
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService,
             asynccontextmanager(fake_service_generator),
             managed=True,
             lifetime=Transient(),
         )
 
-    def test_register_factory_with_contextmanager_decorated_function_registers_it_as_is(
+    def test_bind_factory_with_contextmanager_decorated_function_binds_it_as_is(
         self, container: Container
     ) -> None:
         @contextmanager
         def fake_service_context_manager() -> Iterator[FakeService]:
             yield FakeService()
 
-        container.register(FakeService).factory(fake_service_context_manager)
+        container.bind(FakeService).to_factory(fake_service_context_manager)
 
         assert container.lookup(FakeService).factory == fake_service_context_manager
 
-    def test_register_factory_with_asynccontextmanager_decorated_function_registers_it_as_is(
+    def test_bind_factory_with_asynccontextmanager_decorated_function_binds_it_as_is(
         self, container: Container
     ) -> None:
         @asynccontextmanager
         async def fake_service_context_manager() -> AsyncIterator[FakeService]:
             yield FakeService()
 
-        container.register(FakeService).factory(fake_service_context_manager)
+        container.bind(FakeService).to_factory(fake_service_context_manager)
 
         assert container.lookup(FakeService).factory == fake_service_context_manager
 
 
-class TestRegisterValue:
-    def test_register_value(self, container: Container) -> None:
-        container.register(FakeService).value(expected := FakeService())
+class TestBindValue:
+    def test_bind_value(self, container: Container) -> None:
+        container.bind(FakeService).to_value(expected := FakeService())
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService, lambda: expected, managed=False, lifetime=Singleton()
         )
 
     @use_managed
-    def test_register_value_with_options(
-        self, container: Container, managed: bool
-    ) -> None:
-        container.register(FakeService).value(FakeService(), managed=managed)
+    def test_bind_value_with_options(self, container: Container, managed: bool) -> None:
+        container.bind(FakeService).to_value(FakeService(), managed=managed)
 
         assert container.lookup(FakeService).managed is managed
 
 
-class TestRegisterAlias:
-    def test_register_alias(self, container: Container) -> None:
-        container.register(IFakeService).alias(alias := FakeService)  # type: ignore[type-abstract]
+class TestBindAlias:
+    def test_bind_alias(self, container: Container) -> None:
+        container.bind(IFakeService).to(alias := FakeService)  # type: ignore[type-abstract]
 
-        assert container.lookup(IFakeService) == Registration(  # type: ignore[type-abstract]
+        assert container.lookup(IFakeService) == Binding(  # type: ignore[type-abstract]
             IFakeService,  # type: ignore[type-abstract]
             lambda c: c.resolve(alias),
             lifetime=Transient(),
@@ -187,43 +185,43 @@ class TestRegisterAlias:
         )
 
 
-class TestRegisterSelf:
-    def test_register_self(self, container: Container) -> None:
-        container.register(FakeService).self()
+class TestBindSelf:
+    def test_bind_self(self, container: Container) -> None:
+        container.bind(FakeService).to_self()
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService, FakeService, lifetime=Transient(), managed=True
         )
 
     @use_managed
     @use_lifetimes
-    def test_register_self_with_options(
+    def test_bind_self_with_options(
         self,
         container: Container,
         managed: bool,
         lifetime: Lifetime | type[Lifetime],
         expected_lifetime: Lifetime,
     ) -> None:
-        container.register(FakeService).self(lifetime, managed=managed)
+        container.bind(FakeService).to_self(lifetime, managed=managed)
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService, FakeService, lifetime=expected_lifetime, managed=managed
         )
 
 
-class TestRegisterFactoryUsingDecorator:
-    def test_factory_decorator_register_decorated_function_for_its_return_type_annotation(
+class TestBindFactoryUsingDecorator:
+    def test_factory_decorator_binds_decorated_function_for_its_return_type_annotation(
         self, container: Container
     ) -> None:
         @container.factory
         def get_fake_service() -> FakeService:
             return FakeService()
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService, get_fake_service, managed=True, lifetime=Transient()
         )
 
-    def test_factory_decorator_register_decorated_function_with_arguments(
+    def test_factory_decorator_binds_decorated_function_with_arguments(
         self, container: Container
     ) -> None:
         @container.factory
@@ -236,7 +234,7 @@ class TestRegisterFactoryUsingDecorator:
         ) -> FakeService:
             return FakeService()
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService,
             get_fake_service,
             managed=True,
@@ -251,7 +249,7 @@ class TestRegisterFactoryUsingDecorator:
     def test_factory_decorator_raise_error_for_function_with_untyped_parameters(
         self, container: Container
     ) -> None:
-        with pytest.raises(RegistrationError):
+        with pytest.raises(BindingError):
 
             @container.factory
             def get_fake_service(foo, bar) -> FakeService:  # type: ignore  # noqa: ANN001, ARG001, PGH003
@@ -260,7 +258,7 @@ class TestRegisterFactoryUsingDecorator:
     def test_factory_decorator_raise_error_for_function_without_return_type(
         self, container: Container
     ) -> None:
-        with pytest.raises(RegistrationError):
+        with pytest.raises(BindingError):
 
             @container.factory
             def get_fake_service():  # type: ignore  # noqa: ANN202, PGH003
@@ -273,7 +271,7 @@ class TestRegisterFactoryUsingDecorator:
         def get_fake_service() -> Iterator[FakeService]:
             yield FakeService()
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService,
             contextmanager(get_fake_service),
             managed=True,
@@ -287,14 +285,14 @@ class TestRegisterFactoryUsingDecorator:
         async def get_fake_service() -> AsyncIterator[FakeService]:
             yield FakeService()
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService,
             asynccontextmanager(get_fake_service),
             managed=True,
             lifetime=Transient(),
         )
 
-    def test_factory_decorator_register_context_manager_as_is(
+    def test_factory_decorator_binds_context_manager_as_is(
         self, container: Container
     ) -> None:
         @container.factory
@@ -302,11 +300,11 @@ class TestRegisterFactoryUsingDecorator:
         def get_fake_service() -> Iterator[FakeService]:
             yield FakeService()
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService, get_fake_service, managed=True, lifetime=Transient()
         )
 
-    def test_factory_decorator_register_async_context_manager_as_is(
+    def test_factory_decorator_binds_async_context_manager_as_is(
         self, container: Container
     ) -> None:
         @container.factory
@@ -314,7 +312,7 @@ class TestRegisterFactoryUsingDecorator:
         async def get_fake_service() -> AsyncIterator[FakeService]:
             yield FakeService()
 
-        assert container.lookup(FakeService) == Registration(
+        assert container.lookup(FakeService) == Binding(
             FakeService, get_fake_service, managed=True, lifetime=Transient()
         )
 
@@ -331,24 +329,24 @@ class TestRegisterFactoryUsingDecorator:
         def get_fake_service() -> FakeService:
             return FakeService()
 
-        registration = container.lookup(FakeService)
+        binding = container.lookup(FakeService)
 
-        assert registration.managed is managed
-        assert registration.lifetime == expected_lifetime
-
-
-def test_register_same_type_twice_raises_an_error(container: Container) -> None:
-    container.register(FakeService).value(FakeService())
-
-    with pytest.raises(RegistrationAlreadyExistError):
-        container.register(FakeService).value(FakeService())
+        assert binding.managed is managed
+        assert binding.lifetime == expected_lifetime
 
 
-def test_override_registered_type(container: Container) -> None:
+def test_bind_same_type_twice_raises_an_error(container: Container) -> None:
+    container.bind(FakeService).to_value(FakeService())
+
+    with pytest.raises(BindingAlreadyExistsError):
+        container.bind(FakeService).to_value(FakeService())
+
+
+def test_override_bound_type(container: Container) -> None:
     service = FakeService()
-    container.register(FakeService).value(service)
+    container.bind(FakeService).to_value(service)
 
-    container.override(FakeService).value(expected := FakeService())
+    container.override(FakeService).to_value(expected := FakeService())
 
-    registration = container.lookup(FakeService)
-    assert are_functions_equal(registration.factory, lambda: expected)
+    binding = container.lookup(FakeService)
+    assert are_functions_equal(binding.factory, lambda: expected)

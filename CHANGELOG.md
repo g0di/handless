@@ -13,17 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `RegistrationBuilder.self(...)` and `RegistrationBuilder.factory(...)` now accept `lifetime` as positional argument in addition to keyword argument.
-- Lifetime parameters in `.self(...)`, `.factory(...)`, and `@container.factory()` now accept lifetime classes (e.g., `Singleton`, `Scoped`, `Transient`) in addition to lifetime instances (e.g., `Singleton()`, `Scoped()`, `Transient()`). This allows for more concise registrations without explicit instantiation.
-- **Breaking:** renamed registration option `enter` to `managed` across `RegistrationBuilder.self(...)`, `RegistrationBuilder.value(...)`, `RegistrationBuilder.factory(...)`, `Container.factory(...)` and `Registration` (`enter` field is now `managed`).
+- **Breaking:** registration terminology has been renamed to binding terminology across the public API:
+  - `Container.register(...)` has been renamed to `Container.bind(...)`
+  - `Scope.register_local(...)` has been renamed to `Scope.bind_local(...)`
+  - `Registration` has been renamed to `Binding`
+  - `RegistrationBuilder` has been renamed to `Binder`
+  - Exception names have been renamed: `RegistrationError` -> `BindingError`, `RegistrationNotFoundError` -> `BindingNotFoundError`, `RegistrationAlreadyExistError` -> `BindingAlreadyExistsError`.
+  - Legacy exception aliases (`RegistrationError`, `RegistrationNotFoundError`, `RegistrationAlreadyExistError`) have been removed.
+  - Fluent binder methods were renamed: `.factory(...)` -> `.to_factory(...)`, `.value(...)` -> `.to_value(...)`, `.alias(...)` -> `.to(...)`, `.self(...)` -> `.to_self(...)`
+- `Binder.to_self(...)` and `Binder.to_factory(...)` now accept `lifetime` as positional argument in addition to keyword argument.
+- Lifetime parameters in `.to_self(...)`, `.to_factory(...)`, and `@container.factory()` now accept lifetime classes (e.g., `Singleton`, `Scoped`, `Transient`) in addition to lifetime instances (e.g., `Singleton()`, `Scoped()`, `Transient()`). This allows for more concise bindings without explicit instantiation.
+- **Breaking:** renamed binding option `enter` to `managed` across `Binder.to_self(...)`, `Binder.to_value(...)`, `Binder.to_factory(...)`, `Container.factory(...)` and `Binding` (`enter` field is now `managed`).
 - **Breaking:** renamed cleanup methods from `release()`/`arelease()` to `close()`/`aclose()` on container and scope objects.
 - **Breaking:** replaced resolution context terminology with scope terminology across the public API:
   - `ResolutionContext` has been renamed to `Scope`
   - `Contextual` lifetime has been renamed to `Scoped`
   - `Container.open_context()` has been renamed to `Container.create_scope()`
-- Improved public API docstrings across container, scope, registration, lifetime and exceptions modules.
+- Improved public API docstrings across container, scope, binding, lifetime and exceptions modules.
 - Added and refined doctest examples for key public APIs, including lifetime strategies and scope/container resolution shortcuts.
-- Updated README capability matrix and core docs to match shipped behavior (async support, positional-only autowiring, and scope-local registrations), and corrected related wording/typos.
+- Updated README capability matrix and core docs to match shipped behavior (async support, positional-only autowiring, and scope-local bindings), and corrected related wording/typos.
 
 ## [0.3.0] - 2025-09-25
 
@@ -43,17 +51,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Resolution of registrations with singleton lifetime is now threadsafe. Two context trying to resolve a same singleton at the same time will end up with the exact same value
+- Resolution of bindings with singleton lifetime is now threadsafe. Two context trying to resolve a same singleton at the same time will end up with the exact same value
 
 ## [0.2.0] - 2025-08-11
 
 ### Added
 
 - Added documentation to README.md file including but not limited to:
-  - Registration API
+  - Binding API
   - Context managers & cleanup
   - Types resolving
-  - Registrations overrides
+  - Bindings overrides
   - Release container on application exits recipe
   - Register implementations for protocols and abstract classes recipe
   - Alternatives section
@@ -74,7 +82,7 @@ This version does a major change to the public API. Now `Container` is the main 
 ### Added
 
 - `factory` registry decorator now properly register generators decorated with the `contextmanager` decorator.
-- Added ability to override container dependencies at scope level using `register_local()` function.
+- Added ability to override container dependencies at scope level using `bind_local()` function.
 - Added a function `self()` to register a type and use it as its own factory
 
 ### Removed
@@ -85,13 +93,13 @@ This version does a major change to the public API. Now `Container` is the main 
 
 - One must now use objects for lifetimes instead of literals, `Singleton`, `Contextual`, `Transient`.
 - Renamed to `lookup` the function to get a binding for a type
-- Changed the registration API which now use method chaining for registering either value, factory or alias.
+- Changed the binding API which now use method chaining for registering either value, factory or alias.
 - Replaced `Scope` with `ResolutionContext`
 - `close()` method for `Container` and `ResolutionContext` has been renamed to `release()`
 
 ### Internals
 
-- Registrations has now has a reference to the type to which it is binded
+- Bindings has now has a reference to the type to which it is binded
 - Extracted the context containaing cached resolved types and entered context managers into a dedicated object which is not tied to `Container` nor `ResolutionContext` directly.
 
 ## [0.1.0-alpha.2] - 2025-04-07
@@ -120,8 +128,8 @@ This version does a major change to the public API. Now `Container` is the main 
 ### Added
 
 - `Registry` - for registering services by type including values, factories, scoped factories, singletons, aliases
-- Imperative services registration - through `register`, `register_*` and dict like `reg.lookup(Service) = ...` functions
-- Declarative services registration - through decorators `@factory`, `@singleton`, `@scoped`
+- Imperative services binding - through `register`, `register_*` and dict like `reg.lookup(Service) = ...` functions
+- Declarative services binding - through decorators `@factory`, `@singleton`, `@scoped`
 - Manual wiring - lambda can be used as factories with optionally a single argument to receive the container
 - Autowiring - The container uses factories and classes constructors arguments type hints to resolve and inject nested dependencies
 - `Container` - for resolving services from registry

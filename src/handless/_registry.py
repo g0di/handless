@@ -14,7 +14,7 @@ from types import EllipsisType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
 from handless._utils import are_functions_equal, get_non_variadic_params
-from handless.exceptions import RegistrationAlreadyExistError, RegistrationError
+from handless.exceptions import BindingAlreadyExistsError, BindingError
 from handless.lifetimes import Lifetime, Singleton, Transient
 
 if TYPE_CHECKING:
@@ -24,52 +24,52 @@ if TYPE_CHECKING:
 
 
 class Registry:
-    """Register object types and define how to resolve them."""
+    """Store and look up type bindings."""
 
     def __init__(self, *, allow_override: bool = False) -> None:
         self._logger = logging.getLogger(__name__)
-        self._registrations: dict[type[Any], Registration[Any]] = {}
+        self._bindings: dict[type[Any], Binding[Any]] = {}
         self.allow_override = allow_override
 
-    def register(self, registration: Registration[Any]) -> None:
-        """Store a registration for later resolution.
+    def register(self, binding: Binding[Any]) -> None:
+        """Store a binding for later resolution.
 
-        :param registration: Registration to store.
-        :raises RegistrationAlreadyExistError: If a registration already exists for the
+        :param binding: Binding to store.
+        :raises BindingAlreadyExistsError: If a binding already exists for the
             same type and overriding is disabled.
         """
-        if not self.allow_override and registration.type_ in self._registrations:
-            raise RegistrationAlreadyExistError(registration.type_)
+        if not self.allow_override and binding.type_ in self._bindings:
+            raise BindingAlreadyExistsError(binding.type_)
 
-        self._registrations[registration.type_] = registration
-        self._logger.info("Registered %s: %s", registration.type_, registration)
+        self._bindings[binding.type_] = binding
+        self._logger.info("Bound %s: %s", binding.type_, binding)
 
-    def get_registration(self, type_: type[_T]) -> Registration[_T] | None:
-        """Return registration for given type, or ``None`` if not registered.
+    def get_binding(self, type_: type[_T]) -> Binding[_T] | None:
+        """Return binding for given type, or ``None`` if not bound.
 
         :param type_: Type to lookup.
-        :returns: Matching registration or ``None``.
+        :returns: Matching binding or ``None``.
         """
-        return self._registrations.get(type_)
+        return self._bindings.get(type_)
 
     def clear(self) -> None:
-        """Remove all registrations from this registry."""
-        self._registrations.clear()
+        """Remove all bindings from this registry."""
+        self._bindings.clear()
 
 
 _T = TypeVar("_T")
 
 
 @dataclass(slots=True, eq=False)
-class Registration(Generic[_T]):
+class Binding(Generic[_T]):
     """Describe how a specific type should be resolved.
 
-    A registration binds a target type to a factory callable, lifetime policy,
+    A binding maps a target type to a factory callable, lifetime policy,
     dependency list, and context management behavior.
     """
 
     type_: type[_T]
-    """Registered type"""
+    """Bound type"""
     factory: Callable[
         ...,
         _T
@@ -77,7 +77,7 @@ class Registration(Generic[_T]):
         | AbstractContextManager[_T]
         | AbstractAsyncContextManager[_T],
     ]
-    """Factory returning instances of the registered type"""
+    """Factory returning instances of the bound type"""
     managed: bool
     """Whether context managers returned by factory should be managed."""
     lifetime: Lifetime
@@ -87,7 +87,7 @@ class Registration(Generic[_T]):
 
     def __eq__(self, value: object) -> bool:
         return (
-            isinstance(value, Registration)
+            isinstance(value, Binding)
             and self.type_ == value.type_
             and are_functions_equal(self.factory, value.factory)
             and self.managed == value.managed
@@ -136,38 +136,38 @@ class Dependency:
         )
 
 
-class RegistrationBuilder(Generic[_T]):
-    """Builder for defining how a registered type should be resolved.
+class Binder(Generic[_T]):
+    """Builder for defining how a bound type should be resolved.
 
     Provides fluent API methods to specify the factory, lifetime, and management
-    strategy for a registered type. Use one of ``self()``, ``value()``, ``factory()``,
-    or ``alias()`` to complete the registration.
+    strategy for a bound type. Use one of ``to_self()``, ``to_value()``,
+    ``to_factory()``, or ``to()`` to complete the binding.
 
     Example::
 
         >>> from handless import Container, Scoped
         >>> container = Container()
-        >>> container.register(str).value("config")
-        >>> container.register(list).self(lifetime=Scoped())
+        >>> container.bind(str).to_value("config")
+        >>> container.bind(list).to_self(lifetime=Scoped())
     """
 
     def __init__(self, registry: Registry, type_: type[_T]) -> None:
         self._registry = registry
         self._type = type_
 
-    def self(
+    def to_self(
         self, lifetime: Lifetime | type[Lifetime] | None = None, *, managed: bool = True
     ) -> None:
-        """Register the type's constructor as its factory (standard constructor injection).
+        """Bind the type's constructor as its factory (standard constructor injection).
 
-        This is the most common registration method. It automatically calls the type's
+        This is the most common binding method. It automatically calls the type's
         ``__init__``, resolving any type-annotated parameters from the container.
 
         :param lifetime: Caching strategy as an instance or class, defaults to ``Transient``
             when omitted. Can pass a class like ``Singleton`` or an instance like
             ``Singleton()``.
         :param managed: Whether returned context managers are automatically managed.
-        :raises RegistrationError: If constructor parameters lack type annotations.
+        :raises BindingError: If constructor parameters lack type annotations.
 
         Example::
 
@@ -176,49 +176,49 @@ class RegistrationBuilder(Generic[_T]):
             ...     def __init__(self, db: str):
             ...         self.db = db
             >>> container = Container()
-            >>> container.register(str).value("postgresql://localhost")
+            >>> container.bind(str).to_value("postgresql://localhost")
             >>> # Instance form:
-            >>> container.register(UserRepository).self(Scoped())
+            >>> container.bind(UserRepository).to_self(Scoped())
             >>> with container.create_scope() as scope:
             ...     repo = scope.resolve(UserRepository)
             ...     assert repo.db == "postgresql://localhost"
             >>> # Or pass the class without instantiation:
             >>> container2 = Container()
-            >>> container2.register(str).value("postgresql://localhost")
-            >>> container2.register(UserRepository).self(Scoped)
+            >>> container2.bind(str).to_value("postgresql://localhost")
+            >>> container2.bind(UserRepository).to_self(Scoped)
             >>> with container2.create_scope() as scope:
             ...     repo = scope.resolve(UserRepository)
             ...     assert repo.db == "postgresql://localhost"
         """
-        self.factory(self._type, lifetime=lifetime, managed=managed)
+        self.to_factory(self._type, lifetime=lifetime, managed=managed)
 
-    def alias(self, alias_type: type[_T]) -> None:
-        """Resolve the given type when resolving the registered one.
+    def to(self, alias_type: type[_T]) -> None:
+        """Resolve the given type when resolving the bound one.
 
-        :param alias_type: Target type that should be resolved for this registration.
+        :param alias_type: Target type that should be resolved for this binding.
         """
-        self.factory(lambda c: c.resolve(alias_type), managed=False)
+        self.to_factory(lambda c: c.resolve(alias_type), managed=False)
 
     @overload
-    def value(self, value: _T, *, managed: bool = ...) -> None: ...
+    def to_value(self, value: _T, *, managed: bool = ...) -> None: ...
 
     # NOTE: following overload ensure managed is True when passing a context manager not being
     # an instance of _T
     @overload
-    def value(
+    def to_value(
         self, value: AbstractContextManager[_T], *, managed: Literal[True]
     ) -> None: ...
 
-    def value(self, value: Any, *, managed: bool = False) -> None:
-        """Use given value when resolving the registered type.
+    def to_value(self, value: Any, *, managed: bool = False) -> None:
+        """Use given value when resolving the bound type.
 
         :param value: Concrete value to always return for this type.
         :param managed: Whether to manage context managers when ``value`` is one.
         """
-        self.factory(lambda: value, lifetime=Singleton, managed=managed)
+        self.to_factory(lambda: value, lifetime=Singleton, managed=managed)
 
     @overload
-    def factory(
+    def to_factory(
         self,
         factory: Callable[[Scope], _T | Awaitable[_T]],
         lifetime: Lifetime | type[Lifetime] | None = ...,
@@ -227,7 +227,7 @@ class RegistrationBuilder(Generic[_T]):
     ) -> None: ...
 
     @overload
-    def factory(
+    def to_factory(
         self,
         factory: Callable[
             [Scope],
@@ -242,7 +242,7 @@ class RegistrationBuilder(Generic[_T]):
     ) -> None: ...
 
     @overload
-    def factory(
+    def to_factory(
         self,
         factory: Callable[..., _T | Awaitable[_T]],
         lifetime: Lifetime | type[Lifetime] | None = ...,
@@ -251,7 +251,7 @@ class RegistrationBuilder(Generic[_T]):
     ) -> None: ...
 
     @overload
-    def factory(
+    def to_factory(
         self,
         factory: Callable[
             ...,
@@ -265,14 +265,14 @@ class RegistrationBuilder(Generic[_T]):
         managed: Literal[True] = ...,
     ) -> None: ...
 
-    def factory(
+    def to_factory(
         self,
         factory: Callable[..., Any],
         lifetime: Lifetime | type[Lifetime] | None = None,
         *,
         managed: bool = True,
     ) -> None:
-        """Use a function or type to produce an instance of registered type when resolved.
+        """Use a function or type to produce an instance of bound type when resolved.
 
         If the factory has parameters, it will be automatically resolved and injected on
         call. Parameters MUST have type annotation in order to be properly ressolved or a
@@ -287,7 +287,7 @@ class RegistrationBuilder(Generic[_T]):
             ``Transient`` when omitted. Can pass a class like ``Singleton`` or an
             instance like ``Singleton()``.
         :param managed: Whether returned context managers are automatically managed.
-        :raises RegistrationError: If dependency extraction fails.
+        :raises BindingError: If dependency extraction fails.
         """
         if isasyncgenfunction(factory):
             factory = asynccontextmanager(factory)
@@ -300,7 +300,7 @@ class RegistrationBuilder(Generic[_T]):
 
         try:
             self._registry.register(
-                Registration(
+                Binding(
                     self._type,
                     factory,
                     lifetime=normalized_lifetime,
@@ -309,8 +309,8 @@ class RegistrationBuilder(Generic[_T]):
                 )
             )
         except TypeError as error:
-            msg = f"Cannot register {self._type} using {factory}: {error}"
-            raise RegistrationError(msg) from error
+            msg = f"Cannot bind {self._type} using {factory}: {error}"
+            raise BindingError(msg) from error
 
 
 def _collect_dependencies(

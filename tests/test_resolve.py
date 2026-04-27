@@ -21,7 +21,7 @@ def test_resolve_type_calls_registration_factory_and_returns_its_result(
 ) -> None:
     expected = FakeService()
     factory = Mock(return_value=expected)
-    container.register(FakeService).factory(factory)
+    container.bind(FakeService).to_factory(factory)
 
     resolved = scope.resolve(FakeService)
 
@@ -34,7 +34,7 @@ def test_resolve_type_calls_registration_factory_with_ctx_and_returns_its_result
 ) -> None:
     expected = FakeService()
     factory = Mock(wraps=lambda ctx: expected)  # noqa: ARG005
-    container.register(FakeService).factory(factory)
+    container.bind(FakeService).to_factory(factory)
 
     resolved = scope.resolve(FakeService)
 
@@ -46,9 +46,9 @@ def test_resolve_type_calls_registration_factory_with_dependencies_and_returns_i
     container: Container, scope: Scope
 ) -> None:
     factory = Mock(wraps=FakeServiceWithParams)
-    container.register(FakeServiceWithParams).factory(factory)
-    container.register(str).value("foo")
-    container.register(int).value(42)
+    container.bind(FakeServiceWithParams).to_factory(factory)
+    container.bind(str).to_value("foo")
+    container.bind(int).to_value(42)
 
     resolved = scope.resolve(FakeServiceWithParams)
 
@@ -62,7 +62,7 @@ def test_resolve_type_calls_registration_factory_with_dependencies_and_returns_i
 def test_resolve_type_enters_context_manager_returned_by_registration_factory(
     container: Container, scope: Scope, options: FactoryRegistrationOptions
 ) -> None:
-    container.register(FakeService).self(**options)
+    container.bind(FakeService).to_self(**options)
 
     resolved = scope.resolve(FakeService)
 
@@ -73,7 +73,7 @@ def test_resolve_type_enters_context_manager_returned_by_registration_factory(
 def test_resolve_type_not_enter_context_manager_returned_by_registration_factory_when_managed_is_false(
     container: Container, scope: Scope
 ) -> None:
-    container.register(FakeService).self(managed=False)
+    container.bind(FakeService).to_self(managed=False)
 
     resolved = scope.resolve(FakeService)
 
@@ -83,7 +83,7 @@ def test_resolve_type_not_enter_context_manager_returned_by_registration_factory
 def test_resolve_type_not_enter_non_context_manager_object_returned_by_registration_factory(
     container: Container, scope: Scope
 ) -> None:
-    container.register(object).self(managed=True)
+    container.bind(object).to_self(managed=True)
 
     try:
         scope.resolve(object)
@@ -94,13 +94,13 @@ def test_resolve_type_not_enter_non_context_manager_object_returned_by_registrat
 class TestContainerResolveShortcut:
     def test_resolves_type_without_manual_scope(self, container: Container) -> None:
         expected = object()
-        container.register(object).value(expected)
+        container.bind(object).to_value(expected)
 
         with container.resolve(object) as resolved:
             assert resolved is expected
 
     def test_uses_new_scope_for_each_call(self, container: Container) -> None:
-        container.register(FakeService).self(Scoped())
+        container.bind(FakeService).to_self(Scoped())
 
         with container.resolve(FakeService) as first:
             pass
@@ -111,7 +111,7 @@ class TestContainerResolveShortcut:
         assert first is not second
 
     def test_releases_temporary_scope(self, container: Container) -> None:
-        container.register(FakeService).self(Scoped())
+        container.bind(FakeService).to_self(Scoped())
 
         with container.resolve(FakeService) as resolved:
             assert resolved.entered
@@ -121,8 +121,8 @@ class TestContainerResolveShortcut:
 
     def test_resolves_several_types_in_single_call(self, container: Container) -> None:
         expected_number = 42
-        container.register(str).value("foo")
-        container.register(int).value(expected_number)
+        container.bind(str).to_value("foo")
+        container.bind(int).to_value(expected_number)
 
         with container.resolve(str, int) as (text, number):
             assert text == "foo"
@@ -132,8 +132,8 @@ class TestContainerResolveShortcut:
         self, container: Container
     ) -> None:
         expected_number = 42
-        container.register(FakeService).self(Scoped())
-        container.register(int).value(expected_number)
+        container.bind(FakeService).to_self(Scoped())
+        container.bind(int).to_value(expected_number)
 
         with container.resolve(FakeService, int) as (service, number):
             assert number == expected_number
@@ -162,7 +162,7 @@ class TestResolveTypeUsingTransientLifetime:
         scope: Scope,
         factory: Mock,
     ) -> FakeService:
-        container.register(FakeService).factory(factory, **request.param)
+        container.bind(FakeService).to_factory(factory, **request.param)
 
         return scope.resolve(FakeService)
 
@@ -203,7 +203,7 @@ class TestResolveTypeBoundToSingletonRegistration:
     def resolved(
         self, container: Container, scope: Scope, factory: Mock
     ) -> FakeService:
-        container.register(FakeService).factory(factory, Singleton())
+        container.bind(FakeService).to_factory(factory, Singleton())
 
         return scope.resolve(FakeService)
 
@@ -231,9 +231,9 @@ class TestResolveTypeBoundToSingletonRegistration:
             return FakeServiceWithParams(ctx.resolve(str), ctx.resolve(int))
 
         mock = Mock(wraps=_factory)
-        container.register(str).value("foo")
-        container.register(int).value(42)
-        container.register(FakeService).factory(mock, Singleton())
+        container.bind(str).to_value("foo")
+        container.bind(int).to_value(42)
+        container.bind(FakeService).to_factory(mock, Singleton())
 
         with ThreadPoolExecutor(100) as pool:
             results = pool.map(
@@ -285,7 +285,7 @@ class TestResolveTypeBoundToScopeRegistration:
     def resolved(
         self, container: Container, scope: Scope, factory: Mock
     ) -> FakeService:
-        container.register(FakeService).factory(factory, Scoped())
+        container.bind(FakeService).to_factory(factory, Scoped())
 
         return scope.resolve(FakeService)
 
@@ -327,13 +327,13 @@ class TestOverrideTypes:
     @pytest.fixture
     def factory(self, container: Container) -> Mock:
         factory = Mock(wraps=FakeService)
-        container.register(FakeService).factory(factory)
+        container.bind(FakeService).to_factory(factory)
         return factory
 
     @pytest.fixture
     def factory_override(self, container: Container) -> Mock:
         factory_override = Mock(wraps=FakeService)
-        container.override(FakeService).factory(factory_override)
+        container.override(FakeService).to_factory(factory_override)
         return factory_override
 
     def test_resolve_type_calls_override_factory_and_returns_its_result_when_registered(
@@ -358,7 +358,7 @@ class TestOverrideTypes:
         self, container: Container, scope: Scope, factory: Mock, factory_override: Mock
     ) -> None:
         factory_override2 = Mock(wraps=FakeService)
-        container.override(FakeService).factory(factory_override2)
+        container.override(FakeService).to_factory(factory_override2)
 
         scope.resolve(FakeService)
 
@@ -385,10 +385,10 @@ class TestOverrideTypes:
     ) -> None:
         factory = Mock(wraps=FakeService)
         factory_override = Mock(wraps=FakeService)
-        container.register(FakeService).factory(factory, lifetime)
+        container.bind(FakeService).to_factory(factory, lifetime)
         singleton = scope.resolve(FakeService)
 
-        container.override(FakeService).factory(
+        container.override(FakeService).to_factory(
             factory_override, lifetime=override_lifetime
         )
 

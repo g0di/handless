@@ -24,7 +24,7 @@ async def test_resolve_type_calls_registration_factory_and_returns_its_result(
 ) -> None:
     expected = FakeService()
     factory = create_factory(return_value=expected)
-    acontainer.register(FakeService).factory(factory)
+    acontainer.bind(FakeService).to_factory(factory)
 
     resolved = await ascope.aresolve(FakeService)
 
@@ -38,7 +38,7 @@ async def test_resolve_type_calls_registration_factory_with_ctx_and_returns_its_
 ) -> None:
     expected = FakeService()
     factory = create_factory(wraps=lambda ctx: expected)  # noqa: ARG005
-    acontainer.register(FakeService).factory(factory)
+    acontainer.bind(FakeService).to_factory(factory)
 
     resolved = await ascope.aresolve(FakeService)
 
@@ -51,9 +51,9 @@ async def test_resolve_type_calls_registration_factory_with_dependencies_and_ret
     acontainer: Container, ascope: Scope, create_factory: type[Mock | AsyncMock]
 ) -> None:
     factory = create_factory(wraps=FakeServiceWithParams)
-    acontainer.register(FakeServiceWithParams).factory(factory)
-    acontainer.register(str).factory(AsyncMock(return_value="foo"))
-    acontainer.register(int).value(42)
+    acontainer.bind(FakeServiceWithParams).to_factory(factory)
+    acontainer.bind(str).to_factory(AsyncMock(return_value="foo"))
+    acontainer.bind(int).to_value(42)
 
     resolved = await ascope.aresolve(FakeServiceWithParams)
 
@@ -67,7 +67,7 @@ async def test_resolve_type_calls_registration_factory_with_dependencies_and_ret
 async def test_resolve_type_enters_context_manager_returned_by_registration_factory(
     acontainer: Container, ascope: Scope, options: FactoryRegistrationOptions
 ) -> None:
-    acontainer.register(AsyncFakeService).self(**options)
+    acontainer.bind(AsyncFakeService).to_self(**options)
 
     resolved = await ascope.aresolve(AsyncFakeService)
 
@@ -78,7 +78,7 @@ async def test_resolve_type_enters_context_manager_returned_by_registration_fact
 async def test_resolve_type_not_enter_context_manager_returned_by_registration_factory_when_managed_is_false(
     acontainer: Container, ascope: Scope
 ) -> None:
-    acontainer.register(AsyncFakeService).self(managed=False)
+    acontainer.bind(AsyncFakeService).to_self(managed=False)
 
     resolved = await ascope.aresolve(AsyncFakeService)
 
@@ -88,7 +88,7 @@ async def test_resolve_type_not_enter_context_manager_returned_by_registration_f
 async def test_resolve_type_not_enter_non_context_manager_object_returned_by_registration_factory(
     container: Container, scope: Scope
 ) -> None:
-    container.register(object).self(managed=True)
+    container.bind(object).to_self(managed=True)
 
     try:
         await scope.aresolve(object)
@@ -101,13 +101,13 @@ class TestContainerAresolveShortcut:
         self, acontainer: Container
     ) -> None:
         expected = object()
-        acontainer.register(object).value(expected)
+        acontainer.bind(object).to_value(expected)
 
         async with acontainer.aresolve(object) as resolved:
             assert resolved is expected
 
     async def test_uses_new_scope_for_each_call(self, acontainer: Container) -> None:
-        acontainer.register(AsyncFakeService).self(Scoped())
+        acontainer.bind(AsyncFakeService).to_self(Scoped())
 
         async with acontainer.aresolve(AsyncFakeService) as first:
             pass
@@ -118,7 +118,7 @@ class TestContainerAresolveShortcut:
         assert first is not second
 
     async def test_releases_temporary_scope(self, acontainer: Container) -> None:
-        acontainer.register(AsyncFakeService).self(Scoped())
+        acontainer.bind(AsyncFakeService).to_self(Scoped())
 
         async with acontainer.aresolve(AsyncFakeService) as resolved:
             assert resolved.entered
@@ -130,8 +130,8 @@ class TestContainerAresolveShortcut:
         self, acontainer: Container
     ) -> None:
         expected_number = 42
-        acontainer.register(str).value("foo")
-        acontainer.register(int).value(expected_number)
+        acontainer.bind(str).to_value("foo")
+        acontainer.bind(int).to_value(expected_number)
 
         async with acontainer.aresolve(str, int) as (text, number):
             assert text == "foo"
@@ -141,8 +141,8 @@ class TestContainerAresolveShortcut:
         self, acontainer: Container
     ) -> None:
         expected_number = 42
-        acontainer.register(AsyncFakeService).self(Scoped())
-        acontainer.register(int).value(expected_number)
+        acontainer.bind(AsyncFakeService).to_self(Scoped())
+        acontainer.bind(int).to_value(expected_number)
 
         async with acontainer.aresolve(AsyncFakeService, int) as (service, number):
             assert number == expected_number
@@ -172,7 +172,7 @@ class TestResolveTypeUsingTransientLifetime:
         ascope: Scope,
         factory: Mock,
     ) -> AsyncFakeService:
-        acontainer.register(AsyncFakeService).factory(factory, **request.param)
+        acontainer.bind(AsyncFakeService).to_factory(factory, **request.param)
 
         return await ascope.aresolve(AsyncFakeService)
 
@@ -218,7 +218,7 @@ class TestResolveTypeBoundToSingletonRegistration:
     async def resolved(
         self, acontainer: Container, ascope: Scope, factory: Mock
     ) -> AsyncFakeService:
-        acontainer.register(AsyncFakeService).factory(factory, Singleton())
+        acontainer.bind(AsyncFakeService).to_factory(factory, Singleton())
 
         return await ascope.aresolve(AsyncFakeService)
 
@@ -250,9 +250,9 @@ class TestResolveTypeBoundToSingletonRegistration:
             return FakeServiceWithParams(ctx.resolve(str), ctx.resolve(int))
 
         mock = AsyncMock(wraps=_factory)
-        acontainer.register(str).value("foo")
-        acontainer.register(int).value(42)
-        acontainer.register(FakeServiceWithParams).factory(mock, Singleton())
+        acontainer.bind(str).to_value("foo")
+        acontainer.bind(int).to_value(42)
+        acontainer.bind(FakeServiceWithParams).to_factory(mock, Singleton())
 
         results = await asyncio.gather(
             *[
@@ -307,7 +307,7 @@ class TestResolveTypeBoundToScopeRegistration:
     async def resolved(
         self, acontainer: Container, ascope: Scope, factory: Mock
     ) -> AsyncFakeService:
-        acontainer.register(AsyncFakeService).factory(factory, Scoped())
+        acontainer.bind(AsyncFakeService).to_factory(factory, Scoped())
 
         return await ascope.aresolve(AsyncFakeService)
 

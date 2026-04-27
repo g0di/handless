@@ -18,24 +18,24 @@ Handless is a Python dependency injection container which aims at facilitating c
 
 In particular it contains the following features:
 
-- 🔌 **Autowiring**: _Handless_ reads your objects constructor to determines its dependencies and resolve them automatically for you without explicit registration
+- 🔌 **Autowiring**: _Handless_ reads your objects constructor to determines its dependencies and resolve them automatically for you without explicit binding
 - ♻️ **Lifetimes**: _Handless_ allows you to pick between singleton, scoped, and transient lifetimes to determines when to reuse cached object or get new ones
 - 🧹 **Context managers**: _Handless_ automatically enter and exit context managers of your objects without having you to manage them
 - 🔁 **Inversion of control**: _Handless_ allows you to alias protocols or abstract classes to concrete implementations
-- 🧠 **Fully typed**: _Handless_ uses types for registrations. It makes sure that you register only things compatible with provided types and resolves objects with correct type
-- 🧰 **Flexible**: _Handless_ allows you to provide constant values, factories or lambda functions when registering your types
+- 🧠 **Fully typed**: _Handless_ uses types for bindings. It makes sure that you bind only things compatible with provided types and resolves objects with correct type
+- 🧰 **Flexible**: _Handless_ allows you to provide constant values, factories or lambda functions when binding your types
 - ⚡ **Async support**: _Handless_ supports async factories, async context managers, and async resolution APIs (`aresolve`)
 - ↔️ **Scope shortcuts**: _Handless_ provides `Container.resolve(...)` and `Container.aresolve(...)` context-manager shortcuts for one-off resolutions
 - 🎯 **Positional-only injection**: _Handless_ can autowire positional-only parameters from factories and constructors
-- 🧪 **Scoped local overrides**: _Handless_ allows per-scope registrations through `Scope.register_local(...)`
+- 🧪 **Scoped local overrides**: _Handless_ allows per-scope bindings through `Scope.bind_local(...)`
 
 The following features are **not available yet** but planned:
 
-- **Default values**: _Handless_ will use default values of functions or types arguments when its missing type annotation or nothing is registered for this type
-- **Change default lifetime**: _Handless_ will allow you to specify the default lifetime to use any registered type to fit your needs and reduce boilerplate
+- **Default values**: _Handless_ will use default values of functions or types arguments when its missing type annotation or nothing is bound for this type
+- **Change default lifetime**: _Handless_ will allow you to specify the default lifetime to use any bound type to fit your needs and reduce boilerplate
 - **Partial binding**: _Handless_ will provide ability to partially bind a function to a container allowing to execute that function and have the container resolve and inject its arguments on the fly
-- **Pings**: _Handless_ will allow you to register callbacks for your types allowing you to implement pings/health checks for objects interacting with shared resources (api, databases, ...
-- **Captive dependencies detection**: _Handless_ will try to provide ability to detect captive dependencies due to lifetimes mismatches during registration (e.g: a singleton type depending on a transient one)
+- **Pings**: _Handless_ will allow you to bind callbacks for your types allowing you to implement pings/health checks for objects interacting with shared resources (api, databases, ...
+- **Captive dependencies detection**: _Handless_ will try to provide ability to detect captive dependencies due to lifetimes mismatches during binding (e.g: a singleton type depending on a transient one)
 
 **Table of Content**
 
@@ -51,32 +51,32 @@ The following features are **not available yet** but planned:
 - [Core](#core)
   - [Create a container](#create-a-container)
   - [Open a scope](#open-a-scope)
-  - [Register a value](#register-a-value)
-  - [Register a factory function](#register-a-factory-function)
+    - [Bind a value](#bind-a-value)
+    - [Bind a factory function](#bind-a-factory-function)
     - [Using `factory` decorator](#using-factory-decorator)
-  - [Register a lambda function](#register-a-lambda-function)
-  - [Register a type constructor](#register-a-type-constructor)
-  - [Register an alias](#register-an-alias)
+    - [Bind a lambda function](#bind-a-lambda-function)
+    - [Bind a type constructor](#bind-a-type-constructor)
+    - [Bind an alias](#bind-an-alias)
   - [Manage lifetime](#manage-lifetime)
   - [Context managers and cleanup](#context-managers-and-cleanup)
     - [Factories](#factories)
     - [Values](#values)
   - [Scope local registry](#scope-local-registry)
-  - [Override container registrations](#override-container-registrations)
+  - [Override container bindings](#override-container-bindings)
 - [Recipes](#recipes)
   - [Close container on application exits](#close-container-on-application-exits)
-  - [Register primitive types](#register-primitive-types)
-  - [Register same type for different purposes](#register-same-type-for-different-purposes)
-  - [Register implementations for protocols and abstract classes](#register-implementations-for-protocols-and-abstract-classes)
-    - [Static registration](#static-registration)
-    - [Runtime registration](#runtime-registration)
+    - [Bind primitive types](#bind-primitive-types)
+    - [Bind same type for different purposes](#bind-same-type-for-different-purposes)
+    - [Bind implementations for protocols and abstract classes](#bind-implementations-for-protocols-and-abstract-classes)
+    - [Static binding](#static-binding)
+    - [Runtime binding](#runtime-binding)
   - [Testing](#testing)
   - [Use with FastAPI](#use-with-fastapi)
   - [Use with Typer](#use-with-typer)
   - [Add custom lifetime(s)](#add-custom-lifetimes)
 - [Q&A](#qa)
   - [Why requiring having a context object to resolve types instead of using the container directly?](#why-requiring-having-a-context-object-to-resolve-types-instead-of-using-the-container-directly)
-  - [Why using a fluent API to register types as a two step process?](#why-using-a-fluent-api-to-register-types-as-a-two-step-process)
+    - [Why using a fluent API to bind types as a two step process?](#why-using-a-fluent-api-to-bind-types-as-a-two-step-process)
   - [Why using objects for lifetimes? (Why not using enums or literals?)](#why-using-objects-for-lifetimes-why-not-using-enums-or-literals)
 - [Alternatives](#alternatives)
 - [Contributing](#contributing)
@@ -123,7 +123,7 @@ This is where dependency injection containers can help you.
 
 As your project grows, wiring up dependencies manually becomes tedious and error-prone.
 
-A dependency injection container role is to **register** once how to create and compose each of your objects in order to get instances of them on demand. The act of asking a container to get an instance of a specific type is called **resolve**. Finally, when you don't need those instances anymore you or the container will delete them and eventually do some cleanup (if specified). This last step is known as **close**.
+A dependency injection container role is to **bind** once how to create and compose each of your objects in order to get instances of them on demand. The act of asking a container to get an instance of a specific type is called **resolve**. Finally, when you don't need those instances anymore you or the container will delete them and eventually do some cleanup (if specified). This last step is known as **close**.
 
 Dependency injection containers can also:
 
@@ -136,15 +136,15 @@ Instead of writing all the wiring logic yourself, the container does it for you 
 
 ### 🚀 What This Library Solves
 
-As stated in the introduction _Handless_ provides you a dependency injection container that allows you to register your types and how to resolve them. It also takes care of lifetimes, context managers and is fully typed. _Handless_ is able to read your types `__init__` method to determine the dependencies to inject in order to create instances.
+As stated in the introduction _Handless_ provides you a dependency injection container that allows you to bind your types and how to resolve them. It also takes care of lifetimes, context managers and is fully typed. _Handless_ is able to read your types `__init__` method to determine the dependencies to inject in order to create instances.
 
 All of this is does not require you to add any library specific decorators or attributes to your existing types.
 
-Its API provide lot of flexibility for registering your types.
+Its API provide lot of flexibility for binding your types.
 
 This library provides a lightweight, flexible **dependency injection container for Python** that helps you:
 
-- ✅ **Register** services with factories, values, aliases or constructors
+- ✅ **Bind** services with factories, values, aliases or constructors
 - ✅ **Resolve** dependencies automatically (with type hints or custom logic)
 - ✅ **Manage lifecycles** — including scope-aware caching and cleanup (singleton, transient, scoped)
 - ✅ **Handle context managers** by entering and exiting created objects context managers automatically
@@ -158,9 +158,9 @@ Here are the main concept and design choice of **Handless**.
 
 #### Container
 
-_Handless_ provides a `handless.Container` dependency injection container. This container allows you to **register** Python types and define how to resolve them. You can provide a function responsible of returning an instance of the type, a constant value, an alias (i.e: another type that should be resolved instead) or using the type constructor itself. This produces a **registration**.
+_Handless_ provides a `handless.Container` dependency injection container. This container allows you to **bind** Python types and define how to resolve them. You can provide a function responsible of returning an instance of the type, a constant value, an alias (i.e: another type that should be resolved instead) or using the type constructor itself. This produces a **binding**.
 
-> :bulb: In the end, a registration is a type attached to function. This function is responsible to get an instance of the specified type based on the provided factory, value, alias or constructor.
+> :bulb: In the end, a binding is a type attached to function. This function is responsible to get an instance of the specified type based on the provided factory, value, alias or constructor.
 
 #### Scope
 
@@ -183,13 +183,13 @@ same scope lifecycle. This design choice has been made for two reasons:
 - Avoid keeping transient values for the whole duration of a container and as a consequence, an application.
   > :question: This is because there is no reliable and easy way in Python to automatically cleanup object before garbage collection. Explicit cleanup is required or at least strongly encouraged.
 - Keep scoped lifetime semantics explicit and predictable
-  > :question: For types registered with a lifetime of a `Scope`, reusing a dedicated
+    > :question: For types bound with a lifetime of a `Scope`, reusing a dedicated
   > scope keeps behavior obvious and avoids accidental resolve patterns where each call
   > silently creates an independent scope.
 
 #### Lifetimes
 
-When registering your types you can specify a lifetime. The lifetime determines when the container will execute or get a cached value of the function attached to the type to resolve:
+When binding your types you can specify a lifetime. The lifetime determines when the container will execute or get a cached value of the function attached to the type to resolve:
 
 - ##### `handless.Singleton`
   - On first resolve, the type function is called and its return value is cached for the whole duration of the container and for scopes
@@ -204,9 +204,9 @@ When registering your types you can specify a lifetime. The lifetime determines 
   - Transient values are never cached
     - Transient context managers (if any) are entered on resolve and exited on scope end (close)
 
-> :warning: You must understand that whichever lifetime you choose the container does not actually check returned object identity. The lifetime only determines **when** the container should execute registered functions or return a previously cached value. In other words, it means that you could register a transient type with a function returning always the same constant. You'll then end up with a singleton anyway.
+> :warning: You must understand that whichever lifetime you choose the container does not actually check returned object identity. The lifetime only determines **when** the container should execute bound functions or return a previously cached value. In other words, it means that you could bind a transient type with a function returning always the same constant. You'll then end up with a singleton anyway.
 
-> :bulb: To avoid any troubles or misunderstanding regarding lifetimes when registering factories, ensure that your **factories always create new instance of your object** and does not do any manual caching upfront. Let the container take care of caching.
+> :bulb: To avoid any troubles or misunderstanding regarding lifetimes when binding factories, ensure that your **factories always create new instance of your object** and does not do any manual caching upfront. Let the container take care of caching.
 
 ## Getting started
 
@@ -299,18 +299,18 @@ class UserService:
 config = Config(smtp_host="stdout")
 
 container = Container()
-container.register(Config).value(config)
+container.bind(Config).to_value(config)
 
 # User repository
-container.register(InMemoryUserRepository).self(Singleton())
-container.register(UserRepository).alias(InMemoryUserRepository)  # type: ignore[type-abstract]
+container.bind(InMemoryUserRepository).to_self(Singleton())
+container.bind(UserRepository).to(InMemoryUserRepository)  # type: ignore[type-abstract]
 
 # Notification manager
-container.register(smtplib.SMTP).factory(
+container.bind(smtplib.SMTP).to_factory(
     lambda ctx: smtplib.SMTP(ctx.resolve(Config).smtp_host), Singleton(), managed=True
 )
-container.register(StdoutNotificationManager).self(Transient())
-container.register(EmailNotificationManager).self()
+container.bind(StdoutNotificationManager).to_self(Transient())
+container.bind(EmailNotificationManager).to_self()
 
 
 @container.factory
@@ -321,7 +321,7 @@ def create_notification_manager(config: Config, ctx: Scope) -> NotificationManag
 
 
 # Top level service
-container.register(UserService).self(Scoped())
+container.bind(UserService).to_self(Scoped())
 
 
 with container.create_scope() as ctx:
@@ -391,9 +391,9 @@ Scopes are of type `handless.Scope`.
 
 > :bulb: We did not chose `handless.Context` to avoid confusion with other contexts objects from other libraries.
 
-### Register a value
+### Bind a value
 
-You can register a value directly for your type. When resolved, the provided value will be returned as-is.
+You can bind a value directly for your type. When resolved, the provided value will be returned as-is.
 
 ```python
 from handless import Container
@@ -405,16 +405,16 @@ class Foo:
 
 foo = Foo()
 container = Container()
-container.register(Foo).value(foo)
+container.bind(Foo).to_value(foo)
 with container.resolve(Foo) as resolved_foo:
     assert resolved_foo is foo
 ```
 
-### Register a factory function
+### Bind a factory function
 
-If you're looking for lazy instantiating your objects you can instead register a factory. A factory is a callable taking no or several arguments and returning an instance of the type registered. The callable can be a function, a method or even a type (a class). During resolution, the container will take care of calling the factory and return its return value. If your factory takes arguments, the container will first resolve its arguments using their type annotations and pass them to the factory.
+If you're looking for lazy instantiating your objects you can instead bind a factory. A factory is a callable taking no or several arguments and returning an instance of the type bound. The callable can be a function, a method or even a type (a class). During resolution, the container will take care of calling the factory and return its return value. If your factory takes arguments, the container will first resolve its arguments using their type annotations and pass them to the factory.
 
-> :warning: your callable arguments must have type annotation to be properly resolved. If missing, an error will be raised at registration time.
+> :warning: your callable arguments must have type annotation to be properly resolved. If missing, an error will be raised at binding time.
 
 > :bulb: You do not need to create a dedicated factory function. There is nothing that prevents you from using an already existing function from standard library or any other library as long as it has typed parameters (or no parameters).
 
@@ -432,8 +432,8 @@ def create_foo(bar: int) -> Foo:
 
 
 container = Container()
-container.register(int).value(42)
-container.register(Foo).factory(create_foo)
+container.bind(int).to_value(42)
+container.bind(Foo).to_factory(create_foo)
 with container.resolve(Foo) as resolved_foo:
     assert isinstance(resolved_foo, Foo)
     assert resolved_foo.bar == 42
@@ -441,7 +441,7 @@ with container.resolve(Foo) as resolved_foo:
 
 #### Using `factory` decorator
 
-Having to write your factory function somewhere then register it on your container elsewhere tends to reduce readability. If you prefer you can opt for using the factory decorator instead.
+Having to write your factory function somewhere then bind it on your container elsewhere tends to reduce readability. If you prefer you can opt for using the factory decorator instead.
 
 ```python
 from handless import Container
@@ -453,7 +453,7 @@ class Foo:
 
 
 container = Container()
-container.register(int).value(42)
+container.bind(int).to_value(42)
 
 
 @container.factory
@@ -468,30 +468,9 @@ with container.resolve(Foo) as resolved_foo:
 
 This is mostly a matter of preference as both ways do the exact same thing. You can also pass parameters to the factory decorator `@factory(lifetime=..., managed=...)`.
 
-### Register a lambda function
+### Bind a lambda function
 
-When registering a factory, you can also pass a lambda function. However, as lambdas arguments can not have type annotation it is handled differently. Lambdas can take 0 or 1 argument. If one is given, a `Scope` object will be passed, when called at resolution, as the only argument. This allows you to resolve nested types if required.
-
-```python
-from handless import Container
-
-
-class Foo:
-    def __init__(self, bar: int) -> None:
-        self.bar = bar
-
-
-container = Container()
-container.register(int).value(42)
-container.register(Foo).factory(lambda ctx: Foo(ctx.resolve(int)))
-with container.resolve(Foo) as resolved_foo:
-    assert isinstance(resolved_foo, Foo)
-    assert resolved_foo.bar == 42
-```
-
-### Register a type constructor
-
-When you want to register a type and use its constructor (`__init__` method) as its own factory, you can use the `self()` method instead of using `.factory(MyType)`.
+When binding a factory, you can also pass a lambda function. However, as lambdas arguments can not have type annotation it is handled differently. Lambdas can take 0 or 1 argument. If one is given, a `Scope` object will be passed, when called at resolution, as the only argument. This allows you to resolve nested types if required.
 
 ```python
 from handless import Container
@@ -503,18 +482,39 @@ class Foo:
 
 
 container = Container()
-container.register(int).value(42)
-container.register(Foo).self()  # Same as: container.register(Foo).factory(Foo)
+container.bind(int).to_value(42)
+container.bind(Foo).to_factory(lambda ctx: Foo(ctx.resolve(int)))
 with container.resolve(Foo) as resolved_foo:
     assert isinstance(resolved_foo, Foo)
     assert resolved_foo.bar == 42
 ```
 
-### Register an alias
+### Bind a type constructor
+
+When you want to bind a type and use its constructor (`__init__` method) as its own factory, you can use the `self()` method instead of using `.factory(MyType)`.
+
+```python
+from handless import Container
+
+
+class Foo:
+    def __init__(self, bar: int) -> None:
+        self.bar = bar
+
+
+container = Container()
+container.bind(int).to_value(42)
+container.bind(Foo).to_self()  # Same as: container.bind(Foo).to_factory(Foo)
+with container.resolve(Foo) as resolved_foo:
+    assert isinstance(resolved_foo, Foo)
+    assert resolved_foo.bar == 42
+```
+
+### Bind an alias
 
 When you want a type to be resolved using resolution of another type you can define an alias.
 
-> :bulb: Useful for registering concrete implementations to protocols or abstract classes
+> :bulb: Useful for binding concrete implementations to protocols or abstract classes
 
 ```python
 from typing import Protocol
@@ -533,8 +533,8 @@ class Foo(IFoo):
 
 foo = Foo()
 container = Container()
-container.register(Foo).value(foo)
-container.register(IFoo).alias(Foo)
+container.bind(Foo).to_value(foo)
+container.bind(IFoo).to(Foo)
 resolved_foo = container.create_scope().resolve(IFoo)
 
 assert resolved_foo is foo
@@ -544,11 +544,11 @@ When resolving `IFoo`, the container will actually resolve and returns `Foo`.
 
 ### Manage lifetime
 
-During registration of factories `.factory(...)`, `@container.factory()` and `.self()` you can optionally pass a lifetime.
+During binding of factories `.to_factory(...)`, `@container.factory()` and `.to_self()` you can optionally pass a lifetime.
 
-> :warning: You can not change lifetimes for `.value(...)` and `.alias(...)` by design.
+> :warning: You can not change lifetimes for `.to_value(...)` and `.to(...)` by design.
 
-You can pass lifetimes either as positional or keyword argument. Lifetime classes can be passed directly without instantiation for concise registrations, or as instances for explicitness.
+You can pass lifetimes either as positional or keyword argument. Lifetime classes can be passed directly without instantiation for concise bindings, or as instances for explicitness.
 
 ```python
 from handless import Container, Singleton, Transient, Scoped
@@ -556,14 +556,14 @@ from handless import Container, Singleton, Transient, Scoped
 
 container = Container()
 # Singleton - pass class or instance
-container.register(object).factory(lambda: object(), Singleton)  # class (concise)
-container.register(object).factory(lambda: object(), Singleton())  # instance (explicit)
+container.bind(object).to_factory(lambda: object(), Singleton)  # class (concise)
+container.bind(object).to_factory(lambda: object(), Singleton())  # instance (explicit)
 # Scoped
-container.register(object).factory(lambda: object(), Scoped)
-container.register(object).factory(lambda: object(), Scoped())
+container.bind(object).to_factory(lambda: object(), Scoped)
+container.bind(object).to_factory(lambda: object(), Scoped())
 # Transient (The default)
-container.register(object).factory(lambda: object(), Transient)
-container.register(object).factory(lambda: object(), Transient())
+container.bind(object).to_factory(lambda: object(), Transient)
+container.bind(object).to_factory(lambda: object(), Transient())
 ```
 
 [As described above](#lifetimes), lifetimes allow to determine when the container will execute types factory and cache their result. Generally speaking you may use:
@@ -579,7 +579,7 @@ Containers and contexts can take care of entering and exiting objects with conte
 
 #### Factories
 
-Object returned by functions registered with `.factory(...)` or `.self()` are automatically entered on resolve and exited on close if it is context managers.
+Object returned by functions bound with `.to_factory(...)` or `.to_self()` are automatically entered on resolve and exited on close if it is context managers.
 
 > :bulb: You can disable this default behavior by passing `managed=False`. However, passing `False` is disallowed if the object return is NOT an instance of the given type.
 
@@ -591,53 +591,53 @@ If you pass a function which is a generator it will be automatically wrapped as 
 
 #### Values
 
-Objects registered with `.value(...)` are NOT entered by default. If you want their context manager to be handled for you you must pass `.value(..., managed=True)`.
+Objects bound with `.to_value(...)` are NOT entered by default. If you want their context manager to be handled for you you must pass `.to_value(..., managed=True)`.
 
 > :question: Passing a value means that this value has been created outside of the container and then its lifetime should not container's responsibility.
 
 ### Scope local registry
 
-If you need to override or add registrations for a single scope only, use
-`scope.register_local(...)`. These local registrations have higher priority
-than container registrations, and only affect the current scope.
+If you need to override or add bindings for a single scope only, use
+`scope.bind_local(...)`. These local bindings have higher priority
+than container bindings, and only affect the current scope.
 
 ```python
 from handless import Container
 
 container = Container()
-container.register(str).value("global")
+container.bind(str).to_value("global")
 
 with container.create_scope() as scope:
-    scope.register_local(str).value("scope-local")
+    scope.bind_local(str).to_value("scope-local")
     assert scope.resolve(str) == "scope-local"
 
 with container.create_scope() as scope:
     assert scope.resolve(str) == "global"
 ```
 
-### Override container registrations
+### Override container bindings
 
-Containers does not allow to register the same type twice. The following code will raise an error.
+Containers does not allow to bind the same type twice. The following code will raise an error.
 
 ```python
 from handless import Container
 
 container = Container()
-container.register(str).value("Hello")
-container.register(str).value("This will raise an error!")
+container.bind(str).to_value("Hello")
+container.bind(str).to_value("This will raise an error!")
 ```
 
-In order to override your container registered types you must use the `override(...)` function instead. This function works identically to `register(...)`.
+In order to override your container bound types you must use the `override(...)` function instead. This function works identically to `bind(...)`.
 
 ```python
 from handless import Container
 
 container = Container()
-container.register(str).value("Hello")
+container.bind(str).to_value("Hello")
 
 
 def test_my_container():
-    container.override(str).value("Overridden!")
+    container.override(str).to_value("Overridden!")
     with container.create_scope() as ctx:
         resolved = ctx.resolve(str)
         assert resolved == "Overridden!"
@@ -648,9 +648,9 @@ def test_my_container():
 Please also note the following:
 
 - Overrides can be overridden as well (each override erases the previous one)
-- Overrides always take precedence over registered type whatever his lifetime (even if the type was previously resolved and cached)
+- Overrides always take precedence over bound type whatever his lifetime (even if the type was previously resolved and cached)
 - Overrides are automatically erased when the container is closed
-- On container close, all overrides (even erased one) as well as any previously registered types are properly closed as well
+- On container close, all overrides (even erased one) as well as any previously bound types are properly closed as well
 
 ## Recipes
 
@@ -670,15 +670,15 @@ atexit.register(container.close)
 
 Closing the container is idempotent and can be used several times. Each call clears singletons and exits entered context managers, if any. Closing also does not prevent using the container afterwards.
 
-### Register primitive types
+### Bind primitive types
 
 :construction: Under construction
 
-### Register same type for different purposes
+### Bind same type for different purposes
 
 :construction: Under construction
 
-### Register implementations for protocols and abstract classes
+### Bind implementations for protocols and abstract classes
 
 Dependency injection is a key enabler for inversion of control where your objects depends on abstractions or interfaces rather than actual implementation. This mechanism prevents tight coupling between your objects and allows you to swap dependencies with different implementations. This mechanism is mostly used for testing purposes to replace real implementations with fakes or mocks.
 
@@ -711,28 +711,28 @@ class SqliteTodoItemRepository(TodoItemRepository):
 container = Container()
 ```
 
-#### Static registration
+#### Static binding
 
 The most simple case is when you want to statically define which implementation use. Then you'll eventually override this during your tests.
 
 ```python
-# Individually register your implementations
-container.register(SqliteTodoItemRepository).self()
-container.register(MongoTodoItemRepository).factory(
+# Individually bind your implementations
+container.bind(SqliteTodoItemRepository).to_self()
+container.bind(MongoTodoItemRepository).to_factory(
     lambda ctx: MongoTodoItemRepository(os.getenv("DB_URL"))
 )
 
-# Register an alias of your protocol against your choice
-container.register(TodoItemRepository).alias(SqliteTodoItemRepository)  # type: ignore[type-abstract]
+# Bind an alias of your protocol against your choice
+container.bind(TodoItemRepository).to(SqliteTodoItemRepository)  # type: ignore[type-abstract]
 
 with container.create_scope() as ctx:
     repo = ctx.resolve(TodoItemRepository)  # type: ignore[type-abstract]
     assert isinstance(repo, SqliteTodoItemRepository)
 ```
 
-> :warning: Mypy does not like calling the `.register` and `.resolve` functions on `typing.Protocol` nor `abc.ABC` hence the type ignore magic comment.
+> :warning: Mypy does not like calling the `.bind` and `.resolve` functions on `typing.Protocol` nor `abc.ABC` hence the type ignore magic comment.
 
-#### Runtime registration
+#### Runtime binding
 
 There can also be situations where you want to pick implementation at runtime depending on some conditions. For this, you can use a factory that will resolve the correct implementation.
 
@@ -742,8 +742,8 @@ import os
 from handless import Singleton, Scoped, Scope
 
 
-container.register(SqliteTodoItemRepository).self()
-container.register(MongoTodoItemRepository).factory(
+container.bind(SqliteTodoItemRepository).to_self()
+container.bind(MongoTodoItemRepository).to_factory(
     lambda ctx: MongoTodoItemRepository(os.getenv("DB_URL"))
 )
 
@@ -758,7 +758,7 @@ def get_todo_item_repository(ctx: Scope) -> TodoItemRepository:
     raise ValueError(f"Unknown database type: {db_type}")
 ```
 
-> :bulb: Use of the factory decorator is not mandatory. You can achieve the same with the registration API (`container.register(...)`).
+> :bulb: Use of the factory decorator is not mandatory. You can achieve the same with the binding API (`container.bind(...)`).
 
 > :warning: Most of the time you should use a `Transient` lifetime (the default) for the factory resolving your abstract or protocol to avoid lifetimes mismatches. Indeed, if you use a `Singleton` lifetime on `get_todo_item_repository` while one of your implementation is `Transient` or `Scoped` you'll end up with a [captive dependency](https://blog.ploeh.dk/2014/06/02/captive-dependency/).
 
@@ -788,7 +788,7 @@ def get_todo_item_repository(ctx: Scope) -> TodoItemRepository:
 - Everything is a context
 - Easier management and cleanup of resolved values
 
-### Why using a fluent API to register types as a two step process?
+### Why using a fluent API to bind types as a two step process?
 
 - type hints limitations
 
