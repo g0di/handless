@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ResolutionContext` has been renamed to `Scope`
   - `Contextual` lifetime has been renamed to `Scoped`
   - `Container.open_context()` has been renamed to `Container.create_scope()`
+- Resolution failures now raise a single `ResolutionError` carrying the full dependency chain and the original root-cause exception for both `resolve()` and `aresolve()`.
+- `ResolutionError` now exposes explicit `outer_type` and `inner_type` properties derived from `resolution_chain`, and adds `root_cause` access to the underlying exception. Its string formatting is now split between a concise `str()` message and a diagnostic `repr()` including the full chain.
 - Improved public API docstrings across container, scope, binding, lifetime and exceptions modules.
 - Added and refined doctest examples for key public APIs, including lifetime strategies and scope/container resolution shortcuts.
 - Updated README capability matrix and core docs to match shipped behavior (async support, positional-only autowiring, and scope-local bindings), and corrected related wording/typos.

@@ -12,20 +12,6 @@ This document contains all the ideas I've got for new features or changes to be 
   - Aggregate/propagate teardown failures after attempting all exits.
   - Add tests for exception propagation in sync and async cleanup paths.
 
-- Add this to the Agent section in TODO.md for the lambda recommendation:
-
-  - Narrow implicit context injection rule:
-  - Keep one-arg untyped fallback only for lambda factories.
-  - For non-lambda callables, require explicit Scope annotation and fail fast otherwise.
-  - Document this as an intentional ergonomic exception for concise bindings.
-
-- Improve resolution error diagnostics:
-
-  - When resolution fails, include the full resolution chain (requested type plus dependency path).
-  - Preserve and expose the root cause exception that actually broke resolution.
-  - Apply this consistently to sync resolve and async resolve.
-  - Add tests covering nested failure chains and verify message/metadata content.
-
 - Define precedence contract for overrides vs scope-local bindings:
 
   - Container overrides must take precedence over everything, including scope-local bindings.
@@ -75,7 +61,6 @@ This document contains all the ideas I've got for new features or changes to be 
 ## Misc
 
 - Maybe raise errors collected while exiting all entered context managers rather than just logging them and continuing silently (take ExitStack as example)
-- :new: On resolve error, do not chain resolve exception, keep the latest one, with the whole resolve chain and the root cause of the error
 - :bug: When logging service type resolved, also display the full requiremnt chain (maybe under debug level)
 - :new: add function for resolving all services in the container for testing purposes
 - :new: add function for verifying lifetimes mistmatches on registry (e.g: singleton depending on transint)

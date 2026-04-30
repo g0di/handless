@@ -398,8 +398,8 @@ class Scope(Releasable["Scope"]):
 
         :param type_: The type to resolve (must be bound).
         :returns: An instance of the bound type, with dependencies injected.
-        :raises BindingNotFoundError: If the type was never bound.
-        :raises ResolutionError: If resolution fails (e.g. missing dependencies).
+        :raises ResolutionError: If resolution fails (e.g. missing dependencies,
+            including missing bindings).
 
         Example::
 
@@ -417,11 +417,13 @@ class Scope(Releasable["Scope"]):
         if type_ is type(self):
             return self
 
-        binding = self._lookup(type_)
-
         try:
+            binding = self._lookup(type_)
             value = binding.lifetime.resolve(self, binding)
             self._logger.info("Resolved %s: %s -> %s", type_, binding, type(value))
+        except ResolutionError as res_error:
+            res_error.add_parent_resolved_type(type_)
+            raise
         except Exception as error:
             raise ResolutionError(type_) from error
         else:
@@ -443,8 +445,8 @@ class Scope(Releasable["Scope"]):
 
         :param type_: The type to resolve (must be bound).
         :returns: An instance of the bound type, with dependencies injected.
-        :raises BindingNotFoundError: If the type was never bound.
-        :raises ResolutionError: If resolution fails.
+        :raises ResolutionError: If resolution fails (including missing
+            bindings).
 
         Example::
 
@@ -472,11 +474,13 @@ class Scope(Releasable["Scope"]):
         if type_ is type(self):
             return self
 
-        binding = self._lookup(type_)
-
         try:
+            binding = self._lookup(type_)
             value = await binding.lifetime.aresolve(self, binding)
             self._logger.info("Resolved %s: %s -> %s", type_, binding, type(value))
+        except ResolutionError as res_error:
+            res_error.add_parent_resolved_type(type_)
+            raise
         except Exception as error:
             raise ResolutionError(type_) from error
         else:

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock, call
 import pytest
 
 from handless import Container, Scope, Scoped, Singleton, Transient
+from handless.exceptions import ResolutionError
 from handless.lifetimes import Lifetime
 from tests.helpers import AsyncFakeService, FakeService, FakeServiceWithParams
 
@@ -94,6 +95,44 @@ async def test_resolve_type_not_enter_non_context_manager_object_returned_by_reg
         await scope.aresolve(object)
     except AttributeError:
         pytest.fail(reason="Should not try to enter non context manager object")
+
+
+async def test_resolve_error_exposes_resolution_chain_and_root_cause(
+    acontainer: Container, ascope: Scope
+) -> None:
+    root_error = RuntimeError("broken dependency")
+
+    class BrokenDependency:
+        pass
+
+    class IntermediateDependency:
+        def __init__(self, dependency: BrokenDependency) -> None:
+            self.dependency = dependency
+
+    class RootService:
+        def __init__(self, dependency: IntermediateDependency) -> None:
+            self.dependency = dependency
+
+    async def create_broken_dependency() -> BrokenDependency:
+        raise root_error
+
+    acontainer.bind(RootService).to_self()
+    acontainer.bind(IntermediateDependency).to_self()
+    acontainer.bind(BrokenDependency).to_factory(create_broken_dependency)
+
+    with pytest.raises(ResolutionError) as error_info:
+        await ascope.aresolve(RootService)
+
+    error = error_info.value
+
+    assert error.outer_type is RootService
+    assert error.inner_type is BrokenDependency
+    assert error.resolution_chain == (
+        RootService,
+        IntermediateDependency,
+        BrokenDependency,
+    )
+    assert error.root_cause is error.__cause__ is root_error
 
 
 class TestContainerAresolveShortcut:
